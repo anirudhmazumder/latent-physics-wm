@@ -36,7 +36,7 @@ import numpy as np
 from numpy.lib.format import open_memmap
 
 from .bouncing_box import STATE_NAMES, BouncingBox, BoxConfig
-from .policies import sticky_random_actions, uniform_random_actions
+from .policies import MixedPolicy, sticky_random_actions, uniform_random_actions
 
 
 def collect(
@@ -47,11 +47,13 @@ def collect(
     seed: int = 0,
     policy: str = "sticky",
     mean_hold: float = 8.0,
+    ball_radius: float = 0.055,
+    p_track: float = 0.5,
 ) -> Path:
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
 
-    cfg = BoxConfig(res=res)
+    cfg = BoxConfig(res=res, ball_radius=ball_radius)
     env = BouncingBox(cfg)
     rng = np.random.default_rng(seed)
 
@@ -74,24 +76,42 @@ def collect(
         out / "events.npy", mode="w+", dtype=np.uint8, shape=(episodes, steps)
     )
 
-    action_fn = sticky_random_actions if policy == "sticky" else uniform_random_actions
     t_start = time.time()
 
     for e in range(episodes):
         frames[e, 0] = env.reset(seed=int(rng.integers(0, 2**31 - 1)))
         states[e, 0] = env.state()
 
+        # Two kinds of policy, and the difference is structural rather than
+        # cosmetic. ``sticky``/``uniform`` are OPEN LOOP: the action sequence is
+        # a function of the rng alone, so the whole episode can be sampled up
+        # front. ``mix`` is CLOSED LOOP: a tracking action depends on where the
+        # ball currently is, so it has to be queried inside the step loop.
+        # We keep the pre-sampled path for the open-loop policies so that old
+        # datasets reproduce byte-for-byte from the same seed.
+        acts = None
+        mixed = None
         if policy == "sticky":
-            acts = action_fn(steps, rng, mean_hold=mean_hold)
+            acts = sticky_random_actions(steps, rng, mean_hold=mean_hold)
+        elif policy == "uniform":
+            acts = uniform_random_actions(steps, rng)
         else:
-            acts = action_fn(steps, rng)
-        actions[e] = acts
+            mixed = MixedPolicy(
+                rng, p_track=p_track, mean_hold=mean_hold, paddle_w=cfg.paddle_w
+            )
+        if acts is not None:
+            actions[e] = acts
 
+        cur_state = env.state()
         for t in range(steps):
-            frame, state, ev = env.step(int(acts[t]))
+            a = int(acts[t]) if acts is not None else int(mixed.act(cur_state))
+            if acts is None:
+                actions[e, t] = a
+            frame, state, ev = env.step(a)
             frames[e, t + 1] = frame
             states[e, t + 1] = state
             events[e, t] = ev
+            cur_state = state
 
         if (e + 1) % max(1, episodes // 20) == 0 or e == episodes - 1:
             done = e + 1
@@ -115,7 +135,8 @@ def collect(
         "res": res,
         "seed": seed,
         "policy": policy,
-        "mean_hold": mean_hold if policy == "sticky" else None,
+        "mean_hold": mean_hold if policy in ("sticky", "mix") else None,
+        "p_track": p_track if policy == "mix" else None,
         "state_names": list(STATE_NAMES),
         "action_names": ["left", "stay", "right"],
         "config": env.config_dict(),
@@ -159,8 +180,14 @@ def main() -> None:
     p.add_argument("--steps", type=int, default=200)
     p.add_argument("--res", type=int, default=64)
     p.add_argument("--seed", type=int, default=0)
-    p.add_argument("--policy", choices=["sticky", "uniform"], default="sticky")
+    p.add_argument("--policy", choices=["sticky", "uniform", "mix"], default="sticky")
+    p.add_argument("--p-track", type=float, default=0.5,
+                   help="for --policy mix: probability that a hold segment "
+                        "tracks the ball instead of holding a random action")
     p.add_argument("--mean-hold", type=float, default=8.0)
+    p.add_argument("--ball-radius", type=float, default=0.055,
+                   help="0.08 makes the ball ~2x more of the loss; "
+                        "recommended for your first VAE")
     a = p.parse_args()
     collect(
         a.out,
@@ -170,6 +197,8 @@ def main() -> None:
         seed=a.seed,
         policy=a.policy,
         mean_hold=a.mean_hold,
+        ball_radius=a.ball_radius,
+        p_track=a.p_track,
     )
 
 

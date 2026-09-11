@@ -17,7 +17,7 @@ from .bouncing_box import (
     EVENT_WALL_X,
     EVENT_WALL_Y,
 )
-from .policies import sticky_random_actions
+from .policies import MixedPolicy, sticky_random_actions, tracking_action
 
 __all__ = [
     "ACTIONS",
@@ -31,4 +31,6 @@ __all__ = [
     "EVENT_WALL_X",
     "EVENT_WALL_Y",
     "sticky_random_actions",
+    "MixedPolicy",
+    "tracking_action",
 ]

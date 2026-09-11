@@ -1,0 +1,508 @@
+{
+  "controllers": [
+    {
+      "name": "stay",
+      "episodes": 100,
+      "steps": 200,
+      "hits_per_episode": 0.9200000166893005,
+      "hits_ci95": [
+        0.7699999809265137,
+        1.0700000524520874
+      ],
+      "hits_std": 0.770454466342926,
+      "interceptions_per_episode": 0.92,
+      "interceptions_ci95": [
+        0.77,
+        1.07
+      ],
+      "episodes_with_a_hit": 0.69,
+      "floor_visits_per_episode": 1.77,
+      "hit_rate_per_floor_visit": 0.519774011299435,
+      "mean_gap_at_floor": 0.23693485095002556,
+      "action_dist": {
+        "left": 0.0,
+        "stay": 1.0,
+        "right": 0.0
+      }
+    },
+    {
+      "name": "random",
+      "episodes": 100,
+      "steps": 200,
+      "hits_per_episode": 0.9300000071525574,
+      "hits_ci95": [
+        0.7099999785423279,
+        1.190000057220459
+      ],
+      "hits_std": 1.218646764755249,
+      "interceptions_per_episode": 0.76,
+      "interceptions_ci95": [
+        0.63,
+        0.89
+      ],
+      "episodes_with_a_hit": 0.63,
+      "floor_visits_per_episode": 1.67,
+      "hit_rate_per_floor_visit": 0.5568862275449101,
+      "mean_gap_at_floor": 0.2872521470406812,
+      "action_dist": {
+        "left": 0.31045,
+        "stay": 0.34425,
+        "right": 0.3453
+      }
+    },
+    {
+      "name": "oracle",
+      "episodes": 100,
+      "steps": 200,
+      "hits_per_episode": 1.6799999475479126,
+      "hits_ci95": [
+        1.5199999809265137,
+        1.840000033378601
+      ],
+      "hits_std": 0.823164701461792,
+      "interceptions_per_episode": 1.63,
+      "interceptions_ci95": [
+        1.49,
+        1.77
+      ],
+      "episodes_with_a_hit": 0.97,
+      "floor_visits_per_episode": 1.64,
+      "hit_rate_per_floor_visit": 1.024390243902439,
+      "mean_gap_at_floor": 0.06136335982236921,
+      "action_dist": {
+        "left": 0.2375,
+        "stay": 0.52255,
+        "right": 0.23995
+      }
+    },
+    {
+      "name": "ctrl_v1",
+      "episodes": 100,
+      "steps": 200,
+      "hits_per_episode": 1.440000057220459,
+      "hits_ci95": [
+        1.2899999618530273,
+        1.590000033378601
+      ],
+      "hits_std": 0.765767514705658,
+      "interceptions_per_episode": 1.43,
+      "interceptions_ci95": [
+        1.29,
+        1.58
+      ],
+      "episodes_with_a_hit": 0.93,
+      "floor_visits_per_episode": 1.74,
+      "hit_rate_per_floor_visit": 0.8275862068965517,
+      "mean_gap_at_floor": 0.10498418817403672,
+      "action_dist": {
+        "left": 0.36195,
+        "stay": 0.27005,
+        "right": 0.368
+      }
+    },
+    {
+      "name": "ctrl_v1_lastdream",
+      "episodes": 100,
+      "steps": 200,
+      "hits_per_episode": 1.4500000476837158,
+      "hits_ci95": [
+        1.2400000095367432,
+        1.690000057220459
+      ],
+      "hits_std": 1.1608186960220337,
+      "interceptions_per_episode": 1.31,
+      "interceptions_ci95": [
+        1.16,
+        1.45
+      ],
+      "episodes_with_a_hit": 0.89,
+      "floor_visits_per_episode": 1.67,
+      "hit_rate_per_floor_visit": 0.8682634730538922,
+      "mean_gap_at_floor": 0.12002004602712071,
+      "action_dist": {
+        "left": 0.3097,
+        "stay": 0.34935,
+        "right": 0.34095
+      }
+    },
+    {
+      "name": "ctrl_z_only",
+      "episodes": 100,
+      "steps": 200,
+      "hits_per_episode": 1.2000000476837158,
+      "hits_ci95": [
+        1.0,
+        1.409999966621399
+      ],
+      "hits_std": 1.0583006143569946,
+      "interceptions_per_episode": 1.03,
+      "interceptions_ci95": [
+        0.88,
+        1.18
+      ],
+      "episodes_with_a_hit": 0.76,
+      "floor_visits_per_episode": 1.7,
+      "hit_rate_per_floor_visit": 0.7058823529411765,
+      "mean_gap_at_floor": 0.25667911347220923,
+      "action_dist": {
+        "left": 0.3483,
+        "stay": 0.23755,
+        "right": 0.41415
+      }
+    },
+    {
+      "name": "ctrl_tau1.5",
+      "episodes": 100,
+      "steps": 200,
+      "hits_per_episode": 1.2599999904632568,
+      "hits_ci95": [
+        1.0399999618530273,
+        1.5499999523162842
+      ],
+      "hits_std": 1.3162065744400024,
+      "interceptions_per_episode": 1.17,
+      "interceptions_ci95": [
+        1.02,
+        1.32
+      ],
+      "episodes_with_a_hit": 0.84,
+      "floor_visits_per_episode": 1.67,
+      "hit_rate_per_floor_visit": 0.7544910179640718,
+      "mean_gap_at_floor": 0.14797295308755543,
+      "action_dist": {
+        "left": 0.2688,
+        "stay": 0.4249,
+        "right": 0.3063
+      }
+    },
+    {
+      "name": "ctrl_dense",
+      "episodes": 100,
+      "steps": 200,
+      "hits_per_episode": 1.9800000190734863,
+      "hits_ci95": [
+        1.6100000143051147,
+        2.440000057220459
+      ],
+      "hits_std": 2.140000104904175,
+      "interceptions_per_episode": 1.61,
+      "interceptions_ci95": [
+        1.46,
+        1.76
+      ],
+      "episodes_with_a_hit": 0.95,
+      "floor_visits_per_episode": 1.71,
+      "hit_rate_per_floor_visit": 1.1578947368421053,
+      "mean_gap_at_floor": 0.09992172094116435,
+      "action_dist": {
+        "left": 0.2954,
+        "stay": 0.38705,
+        "right": 0.31755
+      }
+    },
+    {
+      "name": "ctrl_dense_lastdream",
+      "episodes": 100,
+      "steps": 200,
+      "hits_per_episode": 1.4700000286102295,
+      "hits_ci95": [
+        1.2999999523162842,
+        1.6399999856948853
+      ],
+      "hits_std": 0.8769834637641907,
+      "interceptions_per_episode": 1.4,
+      "interceptions_ci95": [
+        1.24,
+        1.56
+      ],
+      "episodes_with_a_hit": 0.89,
+      "floor_visits_per_episode": 1.64,
+      "hit_rate_per_floor_visit": 0.8963414634146342,
+      "mean_gap_at_floor": 0.11042406437237089,
+      "action_dist": {
+        "left": 0.28515,
+        "stay": 0.4139,
+        "right": 0.30095
+      }
+    },
+    {
+      "name": "ctrl_real",
+      "episodes": 100,
+      "steps": 200,
+      "hits_per_episode": 2.0,
+      "hits_ci95": [
+        1.5700000524520874,
+        2.4700000286102295
+      ],
+      "hits_std": 2.3108439445495605,
+      "interceptions_per_episode": 1.27,
+      "interceptions_ci95": [
+        1.1,
+        1.45
+      ],
+      "episodes_with_a_hit": 0.83,
+      "floor_visits_per_episode": 1.66,
+      "hit_rate_per_floor_visit": 1.2048192771084338,
+      "mean_gap_at_floor": 0.17804331538907017,
+      "action_dist": {
+        "left": 0.31845,
+        "stay": 0.38175,
+        "right": 0.2998
+      }
+    }
+  ],
+  "decisions": {
+    "ctrl_v1": {
+      "m1_position_only": {
+        "r2": 0.05228890246508289,
+        "coef": {
+          "bias": 1.6598225695618036,
+          "x_err": 30.497044741189413
+        }
+      },
+      "m2_position_and_velocity": {
+        "r2": 0.3176281036166132,
+        "coef": {
+          "bias": -1.6368816762613627,
+          "x_err": 19.46654565155776,
+          "ball_vx": 145.94593308310922,
+          "ball_vy": -194.86444812895041,
+          "ball_y": 6.386608301311293,
+          "paddle_vx": 499.5562858700801
+        }
+      },
+      "m3_predicted_landing": {
+        "r2": 0.03145245461038371,
+        "coef": {
+          "bias": 1.7902735587476302,
+          "x_pred_err": 18.26455604228026
+        }
+      },
+      "drive_std": 26.080681613828595,
+      "sign_agreement": {
+        "toward_ball_all_frames": 0.5900878501574672,
+        "toward_ball_on_approach": 0.6006421338602124,
+        "toward_predicted_landing_on_approach": 0.5645604395604396,
+        "approach_frames": 4593
+      }
+    },
+    "ctrl_v1_lastdream": {
+      "m1_position_only": {
+        "r2": 0.0080748230003016,
+        "coef": {
+          "bias": 5.531686075874812,
+          "x_err": 18.149666041105565
+        }
+      },
+      "m2_position_and_velocity": {
+        "r2": 0.28345326155048367,
+        "coef": {
+          "bias": 3.3900708410812666,
+          "x_err": 5.05759750881205,
+          "ball_vx": 389.2119384069096,
+          "ball_vy": -252.37627438162386,
+          "ball_y": 2.8112256465806955,
+          "paddle_vx": 780.0118031007069
+        }
+      },
+      "m3_predicted_landing": {
+        "r2": 0.010623720560329453,
+        "coef": {
+          "bias": 5.686830152204352,
+          "x_pred_err": 16.14860987489401
+        }
+      },
+      "drive_std": 39.40885132451278,
+      "sign_agreement": {
+        "toward_ball_all_frames": 0.5359933499584373,
+        "toward_ball_on_approach": 0.6143939393939394,
+        "toward_predicted_landing_on_approach": 0.6015263644773358,
+        "approach_frames": 4565
+      }
+    },
+    "ctrl_z_only": {
+      "m1_position_only": {
+        "r2": 0.01677551458068538,
+        "coef": {
+          "bias": 1.6142152278765134,
+          "x_err": 4.727103387446668
+        }
+      },
+      "m2_position_and_velocity": {
+        "r2": 0.10402349023012802,
+        "coef": {
+          "bias": 2.5990989113782526,
+          "x_err": 5.031414687407931,
+          "ball_vx": 14.302408827384356,
+          "ball_vy": -56.725031207799624,
+          "ball_y": -2.055704071133704,
+          "paddle_vx": 97.61574096751762
+        }
+      },
+      "m3_predicted_landing": {
+        "r2": 0.005502206828404188,
+        "coef": {
+          "bias": 1.2817712781735446,
+          "x_pred_err": 2.5034813735679515
+        }
+      },
+      "drive_std": 9.292905241661009,
+      "sign_agreement": {
+        "toward_ball_all_frames": 0.5348171357571174,
+        "toward_ball_on_approach": 0.5274599542334096,
+        "toward_predicted_landing_on_approach": 0.5136540962288687,
+        "approach_frames": 4814
+      }
+    },
+    "ctrl_tau1.5": {
+      "m1_position_only": {
+        "r2": 0.018782311538988017,
+        "coef": {
+          "bias": 4.592256743241929,
+          "x_err": 21.746590329620116
+        }
+      },
+      "m2_position_and_velocity": {
+        "r2": 0.10599653925998354,
+        "coef": {
+          "bias": 6.174883394198593,
+          "x_err": 21.33690571631987,
+          "ball_vx": 138.07005898127125,
+          "ball_vy": -51.770229875433806,
+          "ball_y": -3.493872141938008,
+          "paddle_vx": 388.84059140026415
+        }
+      },
+      "m3_predicted_landing": {
+        "r2": 0.004025459218147898,
+        "coef": {
+          "bias": 3.2535034871462325,
+          "x_pred_err": 7.766691253411061
+        }
+      },
+      "drive_std": 31.966786330139144,
+      "sign_agreement": {
+        "toward_ball_all_frames": 0.5586539527663821,
+        "toward_ball_on_approach": 0.5077257363592468,
+        "toward_predicted_landing_on_approach": 0.5319767441860465,
+        "approach_frames": 4669
+      }
+    },
+    "ctrl_dense": {
+      "m1_position_only": {
+        "r2": 0.01828856272329271,
+        "coef": {
+          "bias": 2.256207546241202,
+          "x_err": 24.488619316885387
+        }
+      },
+      "m2_position_and_velocity": {
+        "r2": 0.18726572131438624,
+        "coef": {
+          "bias": 5.4053776117721215,
+          "x_err": 20.832431234130645,
+          "ball_vx": 289.9982171594395,
+          "ball_vy": -116.06061332353066,
+          "ball_y": -6.8233293745694175,
+          "paddle_vx": 480.3623366007359
+        }
+      },
+      "m3_predicted_landing": {
+        "r2": 0.012017828025688071,
+        "coef": {
+          "bias": 1.5946507789147635,
+          "x_pred_err": 15.17229784146218
+        }
+      },
+      "drive_std": 32.23363254076459,
+      "sign_agreement": {
+        "toward_ball_all_frames": 0.5767684887459807,
+        "toward_ball_on_approach": 0.7044708259661531,
+        "toward_predicted_landing_on_approach": 0.6870916873169632,
+        "approach_frames": 4684
+      }
+    },
+    "ctrl_dense_lastdream": {
+      "m1_position_only": {
+        "r2": 0.01276295453857379,
+        "coef": {
+          "bias": 2.933793872199416,
+          "x_err": 23.117957935335735
+        }
+      },
+      "m2_position_and_velocity": {
+        "r2": 0.18725751268357915,
+        "coef": {
+          "bias": 7.512839491777013,
+          "x_err": 22.393085008001023,
+          "ball_vx": 319.7413956242516,
+          "ball_vy": -189.13488380917462,
+          "ball_y": -9.415491021457965,
+          "paddle_vx": 533.6324344739696
+        }
+      },
+      "m3_predicted_landing": {
+        "r2": 0.010473213031790052,
+        "coef": {
+          "bias": 2.4589800270639017,
+          "x_pred_err": 15.95850378073558
+        }
+      },
+      "drive_std": 36.00089814758433,
+      "sign_agreement": {
+        "toward_ball_all_frames": 0.5758774948382657,
+        "toward_ball_on_approach": 0.664658108462143,
+        "toward_predicted_landing_on_approach": 0.6770883054892601,
+        "approach_frames": 4495
+      }
+    },
+    "ctrl_real": {
+      "m1_position_only": {
+        "r2": 0.0022029376081004193,
+        "coef": {
+          "bias": -0.7734085081527983,
+          "x_err": 3.688690044762903
+        }
+      },
+      "m2_position_and_velocity": {
+        "r2": 0.1925391757897814,
+        "coef": {
+          "bias": 2.201146317115846,
+          "x_err": 3.480330730478354,
+          "ball_vx": 16.05405203162763,
+          "ball_vy": -33.8524974504143,
+          "ball_y": -5.695009612889324,
+          "paddle_vx": 397.2891680606844
+        }
+      },
+      "m3_predicted_landing": {
+        "r2": 0.002665396169093892,
+        "coef": {
+          "bias": -0.7544850410050521,
+          "x_pred_err": 3.662563138768415
+        }
+      },
+      "drive_std": 21.280899924282448,
+      "sign_agreement": {
+        "toward_ball_all_frames": 0.4933248569612206,
+        "toward_ball_on_approach": 0.48867837338262476,
+        "toward_predicted_landing_on_approach": 0.532302092811647,
+        "approach_frames": 4631
+      }
+    }
+  },
+  "headline": "ctrl_v1",
+  "vae": "runs/vae_b1/vae.pt",
+  "rnn": "runs/rnn_v1/rnn.pt",
+  "controllers_evaluated": {
+    "ctrl_v1": "runs/ctrl_v1/controller.pt",
+    "ctrl_v1_lastdream": "runs/ctrl_v1/controller.pt",
+    "ctrl_z_only": "runs/ctrl_z_only/controller.pt",
+    "ctrl_tau1.5": "runs/ctrl_tau1.5/controller.pt",
+    "ctrl_dense": "runs/ctrl_dense/controller.pt",
+    "ctrl_dense_lastdream": "runs/ctrl_dense/controller.pt",
+    "ctrl_real": "runs/ctrl_real/controller.pt"
+  },
+  "seed_base": 5000,
+  "wall_clock_s": 197.8
+}
