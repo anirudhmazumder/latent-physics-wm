@@ -1,0 +1,48 @@
+real env: {'ball_radius': 0.08, 'mass_from_color': True, 'mass_holdout': [0.85, 1.2], 'mass_only': None}
+M: runs/rnn_v2/rnn.pt  z_dim 16  hidden 256  K 5
+computing input normalisation from the training set ...
+  38400 samples; h std in [0.1051, 0.7158]; 0 dead LSTM units
+C: inputs=zh  in_dim=272  n_params=819
+start pool: 450 episodes x 200 steps
+gen   0  best    1.375  mean    0.812  sigma 0.496  (   63s)   REAL hits/ep 1.67
+gen   1  best    1.875  mean    1.242  sigma 0.493  (  161s)
+gen   2  best    1.000  mean    0.773  sigma 0.490  (  251s)
+gen   3  best    1.875  mean    1.344  sigma 0.487  (  328s)
+gen   4  best    1.250  mean    0.984  sigma 0.484  (  406s)
+gen   5  best    1.625  mean    1.219  sigma 0.482  (  482s)   REAL hits/ep 1.29
+gen   6  best    2.125  mean    1.469  sigma 0.479  (  557s)
+gen   7  best    2.375  mean    1.617  sigma 0.476  (  618s)
+gen   8  best    1.125  mean    0.805  sigma 0.474  (  679s)
+gen   9  best    1.375  mean    0.891  sigma 0.472  (  742s)
+gen  10  best    1.875  mean    1.266  sigma 0.470  (  808s)   REAL hits/ep 1.67
+gen  11  best    1.875  mean    1.266  sigma 0.467  (  908s)
+gen  12  best    1.750  mean    1.273  sigma 0.465  (  972s)
+gen  13  best    1.625  mean    1.234  sigma 0.463  ( 1024s)
+gen  14  best    1.625  mean    1.102  sigma 0.461  ( 1062s)
+gen  15  best    2.125  mean    1.727  sigma 0.459  ( 1110s)   REAL hits/ep 1.46
+gen  16  best    1.375  mean    0.961  sigma 0.457  ( 1147s)
+gen  17  best    1.625  mean    1.180  sigma 0.456  ( 1181s)
+gen  18  best    2.250  mean    1.875  sigma 0.454  ( 1209s)
+gen  19  best    2.000  mean    1.602  sigma 0.452  ( 1236s)
+gen  20  best    1.625  mean    1.180  sigma 0.451  ( 1264s)   REAL hits/ep 1.50
+gen  21  best    1.625  mean    1.234  sigma 0.449  ( 1298s)
+gen  22  best    2.000  mean    1.680  sigma 0.447  ( 1327s)
+gen  23  best    2.250  mean    1.805  sigma 0.446  ( 1363s)
+gen  24  best    1.750  mean    1.281  sigma 0.444  ( 1391s)
+gen  25  best    2.125  mean    1.375  sigma 0.443  ( 1418s)   REAL hits/ep 1.42
+gen  26  best    2.500  mean    1.734  sigma 0.442  ( 1458s)
+gen  27  best    1.875  mean    1.461  sigma 0.440  ( 1488s)
+gen  28  best    1.875  mean    1.141  sigma 0.439  ( 1524s)
+gen  29  best    1.625  mean    1.320  sigma 0.438  ( 1556s)
+gen  30  best    2.125  mean    1.633  sigma 0.436  ( 1587s)   REAL hits/ep 1.54
+gen  31  best    2.125  mean    1.383  sigma 0.435  ( 1626s)
+gen  32  best    1.875  mean    1.562  sigma 0.434  ( 1672s)
+gen  33  best    2.375  mean    1.664  sigma 0.433  ( 1707s)
+gen  34  best    2.250  mean    1.742  sigma 0.432  ( 1737s)
+gen  35  best    1.500  mean    1.164  sigma 0.430  ( 1768s)   REAL hits/ep 1.50
+gen  36  best    1.625  mean    0.938  sigma 0.429  ( 1818s)
+gen  37  best    2.250  mean    1.648  sigma 0.428  ( 1851s)
+gen  38  best    2.250  mean    1.477  sigma 0.427  ( 1887s)
+gen  39  best    1.625  mean    1.156  sigma 0.426  ( 1922s)   REAL hits/ep 1.50
+
+best real hits/ep 1.667 | final dream fitness 1.625 | 1928s -> runs/ctrl_v2_real

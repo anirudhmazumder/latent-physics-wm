@@ -42,6 +42,24 @@ Two honest caveats, both visible in the numbers.
 * We feed the encoder's ``mu``, not a posterior sample. At test time the point
   estimate is what you want (sampling only adds encoder noise to every
   decision), and it matches ``compute_norm_stats`` and ``DreamEnv.reset``.
+
+v2: mass enters the harness, not the policy
+-------------------------------------------
+With ``--mass-from-color`` the environment draws a mass per episode and the
+ball's speed becomes ``ball_speed / m``. Nothing about the controller changes --
+it still sees only ``[mu_t, h_pre_t]`` -- but two things about the *measurement*
+have to.
+
+* Every rollout now records the episode's mass (the 7th state column), so any
+  metric can be split by mass. ``run_real_episodes`` returns ``mass`` and the
+  derived ``speed`` alongside ``states``.
+* The floor-visit band is ``contact_height + one frame of travel``, and one
+  frame of travel is now mass-dependent. A light ball (m = 0.5) moves 0.044 per
+  frame, twice the v1 step, so a fixed 0.147 threshold would let it jump the
+  band and the visit would never be counted -- undercounting chances exactly on
+  the episodes where chances are most frequent. ``floor_visit_stats`` therefore
+  accepts a per-episode ``speed``. With ``speed=None`` it falls back to the v1
+  constant and every v1 number is bit-identical.
 """
 
 from __future__ import annotations
@@ -87,6 +105,44 @@ def _plt():
     return plt
 
 
+# ------------------------------------------------------------- env construction
+
+
+def make_box_cfg(
+    ball_radius: float = 0.08,
+    mass_from_color: bool = False,
+    mass_holdout: Optional[Sequence[float]] = None,
+    mass_only: Optional[Sequence[float]] = None,
+) -> BoxConfig:
+    """The ONE place the evaluation environment is configured.
+
+    Every rollout entry point (``run_real_episodes``, ``run_population_real``,
+    ``real_vs_dream_gif``) routes through here so a v2 flag cannot reach one of
+    them and not the others. With all the v2 arguments at their defaults this
+    returns exactly the v1 config the harness has always built.
+    """
+    return BoxConfig(
+        res=64,
+        ball_radius=ball_radius,
+        mass_from_color=bool(mass_from_color),
+        mass_holdout=None if mass_holdout is None else tuple(mass_holdout),
+        mass_only=None if mass_only is None else tuple(mass_only),
+    )
+
+
+def episode_masses(states: np.ndarray) -> Optional[np.ndarray]:
+    """``(E,)`` mass per episode, or None for a v1 (6-column) rollout.
+
+    Mass is constant within an episode, so the first frame's column is the
+    episode's mass; we read column 6 rather than carrying a separate channel
+    because that keeps the harness's single source of truth the environment's
+    own ``state()``.
+    """
+    if states.shape[-1] < 7:
+        return None
+    return np.asarray(states[:, 0, 6], np.float64)
+
+
 # ------------------------------------------------------------------ encoding
 
 
@@ -114,6 +170,9 @@ def run_real_episodes(
     ball_radius: float = 0.08,
     record_frames: int = 0,
     record_logits: bool = False,
+    mass_from_color: bool = False,
+    mass_holdout: Optional[Sequence[float]] = None,
+    mass_only: Optional[Sequence[float]] = None,
 ) -> Dict[str, np.ndarray]:
     """Run ``episodes`` real episodes in lockstep. Seeds are ``seed_base + i``.
 
@@ -126,10 +185,10 @@ def run_real_episodes(
     sees the identical 100 initial conditions, so the comparison is paired and a
     difference of 0.1 hits/episode is not just a different draw of starts.
     """
-    cfg = BoxConfig(res=64, ball_radius=ball_radius)
+    cfg = make_box_cfg(ball_radius, mass_from_color, mass_holdout, mass_only)
     envs = [BouncingBox(cfg) for _ in range(episodes)]
     frames = np.stack([e.reset(seed=seed_base + i) for i, e in enumerate(envs)])
-    states = np.stack([e.state() for e in envs])                  # (E, 6)
+    states = np.stack([e.state() for e in envs])                  # (E, 6) or (E, 7)
 
     ctrl.reset(episodes, seed=seed_base)
     h = rnn.init_hidden(episodes, device=device)                  # cold; see docstring
@@ -171,10 +230,17 @@ def run_real_episodes(
         mu = encode_frames(vae, frames, device)
 
     out = {
-        "states": np.stack(all_states, 1),        # (E, steps+1, 6)
+        "states": np.stack(all_states, 1),        # (E, steps+1, 6 or 7)
         "actions": np.stack(all_actions, 1),      # (E, steps)
         "hits": np.stack(all_hits, 1),            # (E, steps)
     }
+    # v2 bookkeeping. Recorded here, at the only place that owns the
+    # environment, rather than re-derived by each analysis: the mass is a
+    # property of the episode the harness ran, not of the states array's shape.
+    mass = episode_masses(out["states"])
+    if mass is not None:
+        out["mass"] = mass
+        out["speed"] = cfg.ball_speed / mass
     if record_frames:
         out["frames"] = np.stack(kept, 1)         # (record_frames, steps+1, 64,64,3)
     if logits:
@@ -192,6 +258,10 @@ def run_population_real(
     steps: int = 200,
     device: str = "cpu",
     ball_radius: float = 0.08,
+    mass_from_color: bool = False,
+    mass_holdout: Optional[Sequence[float]] = None,
+    mass_only: Optional[Sequence[float]] = None,
+    count: str = "frames",
 ) -> np.ndarray:
     """Evaluate ``P`` candidates on ``R`` real episodes each. Returns ``(P, R)`` hits.
 
@@ -205,10 +275,17 @@ def run_population_real(
     frames have to be *rendered and encoded* every generation, which the dream
     gets for free -- that asymmetry is the point of the experiment, so it is
     counted explicitly in ``RealFitness.env_steps_used``.
+
+    ``count`` picks what a "hit" is worth. ``frames`` (the v1 default) adds one
+    per contact FRAME, which is what v1's ``ctrl_real`` optimised -- and it
+    found the loophole: pin the ball against the paddle and collect contact
+    frames without ever really intercepting. ``interceptions`` collapses each
+    run of consecutive contact frames to one, closing it. The v1 default is kept
+    so the v1 baseline reproduces; v2 uses ``interceptions``.
     """
     P, R = len(params), len(seeds)
     B = P * R
-    cfg = BoxConfig(res=64, ball_radius=ball_radius)
+    cfg = make_box_cfg(ball_radius, mass_from_color, mass_holdout, mass_only)
     envs = [BouncingBox(cfg) for _ in range(B)]
     frames = np.stack([
         envs[p * R + r].reset(seed=int(seeds[r])) for p in range(P) for r in range(R)
@@ -216,6 +293,10 @@ def run_population_real(
     h = rnn.init_hidden(B, device=device)
     eye = torch.eye(N_ACTIONS, device=device)
     hits = np.zeros((P, R), np.float64)
+    # For `count="interceptions"` we need to know whether the PREVIOUS frame was
+    # also a contact, so a run scores once. One bool per environment is all the
+    # state that requires.
+    was_contact = np.zeros(B, bool)
     mu = encode_frames(vae, frames, device)
 
     for _t in range(steps):
@@ -228,8 +309,10 @@ def run_population_real(
         for i, env in enumerate(envs):
             fr, _s, ev = env.step(int(a[i]))
             nxt.append(fr)
-            if ev & EVENT_PADDLE:
+            contact = bool(ev & EVENT_PADDLE)
+            if contact and not (count == "interceptions" and was_contact[i]):
                 hits[i // R, i % R] += 1.0
+            was_contact[i] = contact
         frames = np.stack(nxt)
 
         z_t = torch.from_numpy(mu.astype(np.float32)).to(device)
@@ -286,7 +369,10 @@ def floor_zone_height(
 
 
 def floor_visit_stats(
-    states: np.ndarray, ball_radius: float = 0.08, paddle_h: float = 0.045
+    states: np.ndarray,
+    ball_radius: float = 0.08,
+    paddle_h: float = 0.045,
+    speed: Optional[np.ndarray] = None,
 ) -> Dict[str, np.ndarray]:
     """Count the CHANCES each episode offered, and how close the paddle was.
 
@@ -295,9 +381,23 @@ def floor_visit_stats(
     geometrically possible. Counting crossings rather than frames-below matters:
     the ball spends several frames in the zone per approach, and we want one
     chance per approach.
+
+    ``speed`` is the per-episode ``|v|`` (scalar or ``(E,)``). It sets the
+    one-frame headroom on the band. In v1 it is a constant 0.022 and omitting it
+    reproduces the v1 threshold of 0.147 exactly. In v2 it is ``0.022 / m``,
+    which for a light ball is 0.044: a light ball can cross a 0.022-wide band in
+    a single frame, so a fixed threshold would silently drop its visits and
+    inflate its interceptions-per-visit. Getting this wrong biases exactly the
+    comparison the whole stage is about.
     """
-    thr = floor_zone_height(ball_radius, paddle_h)
     y = states[..., 1]
+    if speed is None:
+        thr = floor_zone_height(ball_radius, paddle_h)
+    else:
+        sp = np.asarray(speed, np.float64)
+        thr = floor_zone_height(ball_radius, paddle_h, 0.0) + sp
+        if sp.ndim == 1:
+            thr = thr[:, None]                # broadcast over time
     below = y < thr
     # A crossing is a False -> True transition along time.
     entering = below[:, 1:] & ~below[:, :-1]       # (E, T)
@@ -305,6 +405,7 @@ def floor_visit_stats(
 
     # Closest approach: |ball_x - paddle_x| at the lowest frame of each visit.
     gaps: List[float] = []
+    owner: List[int] = []          # which episode each gap came from
     dx = np.abs(states[..., 0] - states[..., 4])
     for e in range(states.shape[0]):
         idx = np.flatnonzero(entering[e]) + 1
@@ -314,7 +415,14 @@ def floor_visit_stats(
                 t1 += 1
             seg = slice(t0, t1 + 1)
             gaps.append(float(dx[e, seg][np.argmin(y[e, seg])]))
-    return {"floor_visits": n_visits, "gap_at_floor": np.asarray(gaps, np.float64)}
+            owner.append(e)
+    return {
+        "floor_visits": n_visits,
+        "gap_at_floor": np.asarray(gaps, np.float64),
+        # The episode index behind each gap, so gaps can be grouped by mass
+        # without re-running the scan.
+        "gap_episode": np.asarray(owner, np.int64),
+    }
 
 
 def contact_runs(hits: np.ndarray) -> np.ndarray:
@@ -336,7 +444,7 @@ def summarise(name: str, roll: Dict[str, np.ndarray], seed: int = 0) -> Dict:
     runs = contact_runs(roll["hits"])
     lo, hi = _bootstrap_ci(hits, seed=seed)
     rlo, rhi = _bootstrap_ci(runs, seed=seed)
-    fv = floor_visit_stats(roll["states"])
+    fv = floor_visit_stats(roll["states"], speed=roll.get("speed"))
     visits = fv["floor_visits"]
     a = roll["actions"].ravel()
     return {
@@ -351,11 +459,23 @@ def summarise(name: str, roll: Dict[str, np.ndarray], seed: int = 0) -> Dict:
         "episodes_with_a_hit": float((hits > 0).mean()),
         "floor_visits_per_episode": float(visits.mean()),
         "hit_rate_per_floor_visit": float(hits.sum() / max(visits.sum(), 1)),
+        # The mass-fair skill metric. Interceptions rather than contact frames
+        # (no pinning loophole) and per CHANCE rather than per episode -- a
+        # light ball reaches the floor several times more often than a heavy
+        # one, so per-episode counts mostly measure the physics, not the policy.
+        "interceptions_per_floor_visit": float(runs.sum() / max(visits.sum(), 1)),
         "mean_gap_at_floor": float(fv["gap_at_floor"].mean()),
         "action_dist": {
             ACTION_NAMES[k]: float((a == k).mean()) for k in range(N_ACTIONS)
         },
-        "_hits": hits,  # stripped before JSON; used by the bar plot
+        # Underscored keys are stripped before JSON; they carry the per-episode
+        # vectors that the plots and the by-mass analysis need.
+        "_hits": hits,
+        "_interceptions": runs,
+        "_visits": visits,
+        "_gaps": fv["gap_at_floor"],
+        "_gap_episode": fv["gap_episode"],
+        "_mass": roll.get("mass"),
     }
 
 
@@ -391,6 +511,7 @@ def dream_play_gif(
     seed: int = 0,
     device: str = "cpu",
     candidates: int = 16,
+    starts: Optional[Tuple[np.ndarray, np.ndarray]] = None,
 ) -> Path:
     """The controller playing inside M's head, decoded by V for our benefit.
 
@@ -406,13 +527,18 @@ def dream_play_gif(
     cherry-pick and is labelled as one -- it is a demo of the green hit-head
     indicator, not evidence about the average dream. The averages are in
     ``summary.json``.
+
+    ``starts`` pins the ``(episode, t0)`` pairs the dreams begin from, which is
+    how v2 asks for a *light* ball: speed is only visible in a GIF if the ball
+    actually moves, and a random draw from a log-uniform mass gives a slow one
+    half the time.
     """
     from .dream_env import DreamEnv, dream_rollout
 
     env = DreamEnv(rnn, pool, temperature=temperature, reward="mix", device=device)
     rec = dream_rollout(
         env, lambda z, h: ctrl.act(z, h), batch=candidates, steps=steps,
-        seed=seed, record=True,
+        seed=seed, record=True, starts=starts,
     )
     pick = int(rec["hit_sum"].argmax())
     z = rec["z"][pick]                                        # (steps+1, 16)
@@ -434,6 +560,9 @@ def real_vs_dream_gif(
     seed: int = DEFAULT_SEED_BASE,
     device: str = "cpu",
     ball_radius: float = 0.08,
+    mass_from_color: bool = False,
+    mass_holdout: Optional[Sequence[float]] = None,
+    mass_only: Optional[Sequence[float]] = None,
 ) -> Path:
     """Left: the controller in the real box. Right: the same controller dreaming.
 
@@ -446,7 +575,7 @@ def real_vs_dream_gif(
     """
     from .dream_env import DreamEnv, StartPool
 
-    cfg = BoxConfig(res=64, ball_radius=ball_radius)
+    cfg = make_box_cfg(ball_radius, mass_from_color, mass_holdout, mass_only)
     env = BouncingBox(cfg)
     f = env.reset(seed=seed)
     ctrl.reset(1, seed=seed)
@@ -477,7 +606,7 @@ def real_vs_dream_gif(
     pool = StartPool(
         mu_hist[None].astype(np.float32),
         a_hist[:warmup][None],
-        np.zeros((1, warmup + 1, 6), np.float32),
+        np.zeros((1, warmup + 1, state.shape[-1]), np.float32),
         warmup,
     )
     denv = DreamEnv(rnn, pool, temperature=temperature, reward="mix", device=device)
@@ -682,8 +811,9 @@ def write_report(rows: List[Dict], extra: Dict, out: Path) -> None:
         "against the paddle cannot inflate it.",
         "",
         "| controller | hits/ep | 95% CI | interceptions/ep | floor visits/ep | "
-        "hits per visit | mean gap at floor | eps with ≥1 hit | left/stay/right |",
-        "|---|---|---|---|---|---|---|---|---|",
+        "hits per visit | interceptions per visit | mean gap at floor | "
+        "eps with ≥1 hit | left/stay/right |",
+        "|---|---|---|---|---|---|---|---|---|---|",
     ]
     for r in clean:
         d = r["action_dist"]
@@ -693,6 +823,7 @@ def write_report(rows: List[Dict], extra: Dict, out: Path) -> None:
             f"{r['interceptions_per_episode']:.2f} | "
             f"{r['floor_visits_per_episode']:.2f} | "
             f"{r['hit_rate_per_floor_visit']:.2f} | "
+            f"{r['interceptions_per_floor_visit']:.2f} | "
             f"{r['mean_gap_at_floor']:.3f} | "
             f"{r['episodes_with_a_hit']:.0%} | "
             f"{d['left']:.2f}/{d['stay']:.2f}/{d['right']:.2f} |"
@@ -753,6 +884,37 @@ def write_report(rows: List[Dict], extra: Dict, out: Path) -> None:
 # --------------------------------------------------------------------- main
 
 
+def add_env_args(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
+    """The v2 environment flags, defined once and shared by both entry points.
+
+    ``wm.train_controller`` and ``wm.eval_controller`` must agree about what
+    world they are talking about; the cheapest way to guarantee that is for the
+    flags to have exactly one definition. All three default to the v1 world.
+    """
+    p.add_argument("--mass-from-color", action="store_true",
+                   help="v2: the ball's colour sets its mass, and mass sets its "
+                        "speed (0.022/m) and how much english the paddle imparts")
+    p.add_argument("--mass-holdout", type=float, nargs=2, default=None,
+                   metavar=("LO", "HI"),
+                   help="never sample a mass inside [LO, HI]. Use (0.85, 1.2) to "
+                        "evaluate on the masses the models were trained on")
+    p.add_argument("--mass-only", type=float, nargs=2, default=None,
+                   metavar=("LO", "HI"),
+                   help="sample ONLY inside [LO, HI]. Use (0.85, 1.2) for the "
+                        "held-out-colour generalisation test")
+    return p
+
+
+def env_kwargs(a: argparse.Namespace) -> Dict:
+    """``argparse.Namespace -> the kwargs every rollout entry point takes``."""
+    return {
+        "ball_radius": a.ball_radius,
+        "mass_from_color": bool(getattr(a, "mass_from_color", False)),
+        "mass_holdout": getattr(a, "mass_holdout", None),
+        "mass_only": getattr(a, "mass_only", None),
+    }
+
+
 def build_baselines() -> List[BaseController]:
     return [
         StayController(),
@@ -794,7 +956,9 @@ def main() -> None:
     p.add_argument("--no-gifs", action="store_true")
     p.add_argument("--dream-roots", nargs="*",
                    default=["data/v1/train", "data/v1/train_mix"])
+    add_env_args(p)
     a = p.parse_args()
+    ekw = env_kwargs(a)
 
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -819,7 +983,7 @@ def main() -> None:
         roll = run_real_episodes(
             c, vae, rnn,
             episodes=a.episodes, steps=a.steps, seed_base=a.seed_base,
-            device=a.device, ball_radius=a.ball_radius,
+            device=a.device, **ekw,
             # Logits are only defined for a linear controller, and they are
             # cheap (100 x 200 x 3 floats), so record them for all of them: the
             # decision diagnostic is far more interesting *compared across*
@@ -856,7 +1020,7 @@ def main() -> None:
             print(f"\nrendering GIFs for {nm}")
             roll = run_real_episodes(
                 c, vae, rnn, episodes=1, steps=a.gif_steps, seed_base=a.seed_base,
-                device=a.device, ball_radius=a.ball_radius, record_frames=1,
+                device=a.device, record_frames=1, **ekw,
             )
             save_gif(roll["frames"][0], out / f"real_play_{nm}.gif", fps=20, scale=4)
             dream_play_gif(c, rnn, vae, pool, out / f"dream_play_{nm}.gif",
@@ -866,7 +1030,7 @@ def main() -> None:
             real_vs_dream_gif(
                 c, rnn, vae, out / f"real_vs_dream_side_by_side{suffix}.gif",
                 steps=min(a.gif_steps, 150), temperature=a.temperature,
-                seed=a.seed_base, device=a.device, ball_radius=a.ball_radius,
+                seed=a.seed_base, device=a.device, **ekw,
             )
 
     write_report(
@@ -878,6 +1042,8 @@ def main() -> None:
             "rnn": a.rnn,
             "controllers_evaluated": dict(zip(names, a.ctrl)),
             "seed_base": a.seed_base,
+            "env": {k: (list(v) if isinstance(v, (list, tuple)) else v)
+                    for k, v in ekw.items()},
             "wall_clock_s": round(time.time() - t0, 1),
         },
         out,

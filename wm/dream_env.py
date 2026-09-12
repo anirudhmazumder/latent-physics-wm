@@ -96,12 +96,40 @@ class StartPool:
 
     mu: np.ndarray        # (E, T+1, z)
     actions: np.ndarray   # (E, T)   int64
-    state: np.ndarray     # (E, T+1, 6)  diagnostics only -- never an input
-    warmup: int
+    state: np.ndarray     # (E, T+1, S)  diagnostics only -- never an input
+    warmup: int           # S = 6 in v1, 7 in v2 (mass is the extra column)
 
     @property
     def z_dim(self) -> int:
         return int(self.mu.shape[-1])
+
+    @property
+    def mass(self) -> Optional[np.ndarray]:
+        """``(E,)`` per-episode mass, or None for a v1 pool.
+
+        The dream itself never sees this -- M works in latent space and the
+        colour is already inside ``mu``. It is here so a *caller* can choose
+        which kind of ball to start a dream from, which is the only way to make
+        a demo GIF that shows a fast ball rather than whatever the rng picked.
+        """
+        if self.state.shape[-1] < 7:
+            return None
+        return np.asarray(self.state[:, 0, 6], np.float64)
+
+    def sample_mass_range(
+        self, n: int, rng: np.random.Generator, lo: float, hi: float
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        """Like ``sample``, restricted to episodes whose mass is in [lo, hi]."""
+        m = self.mass
+        if m is None:
+            raise ValueError("this start pool has no mass column (v1 data?)")
+        ok = np.flatnonzero((m >= lo) & (m <= hi))
+        if len(ok) == 0:
+            raise ValueError(f"no start episodes with mass in [{lo}, {hi}]")
+        T = self.actions.shape[1]
+        return ok[rng.integers(0, len(ok), size=n)], rng.integers(
+            self.warmup, T, size=n
+        )
 
     def sample(self, n: int, rng: np.random.Generator) -> Tuple[np.ndarray, np.ndarray]:
         """Draw ``n`` (episode, t0) pairs with a full warm-up window behind them."""

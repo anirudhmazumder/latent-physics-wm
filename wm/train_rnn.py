@@ -151,6 +151,12 @@ def main() -> None:
                    help="feed mu instead of a fresh posterior sample")
     p.add_argument("--ablate-actions", action="store_true",
                    help="zero the action input -- the 'do actions matter' control")
+    p.add_argument("--latent-suffix", default="",
+                   help='read mu<suffix>.npy instead of mu.npy, e.g. "v1vae"')
+    p.add_argument("--ablate-color", action="store_true",
+                   help="v2 control: train on latents from an encoder that never "
+                        "saw colour (shorthand for --latent-suffix v1vae). See the "
+                        "note below on why the ablation is at the DATA level.")
     p.add_argument("--w-hit", type=float, default=1.0)
     p.add_argument("--w-reward", type=float, default=1.0)
     p.add_argument("--grad-clip", type=float, default=1.0)
@@ -177,9 +183,21 @@ def main() -> None:
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
 
+    # The colour ablation is done by swapping the ENCODER, not by masking the
+    # latent. Colour is embedded nonlinearly and distributedly in the v2 code
+    # (stage one: no single dimension carries it), so there is no subspace you
+    # can zero without also damaging position. What you CAN do is encode the
+    # same v2 frames with the v1 VAE, which was trained on a world where the
+    # ball was always the same colour -- it has no reason to spend capacity on
+    # hue. That gives a latent stream with the same positions and (as verified
+    # by a probe before training) little colour information, which is exactly
+    # the counterfactual the experiment needs.
+    latent_suffix = "v1vae" if a.ablate_color else a.latent_suffix
+
     train_loader = make_seq_loader(
         a.data, seq_len=a.seq_len, batch_size=a.batch_size, shuffle=True,
         stride=a.stride, use_mean=a.use_mean, seed=a.seed,
+        latent_suffix=latent_suffix,
     )
     val_roots = a.val or a.data
     val_loader = make_seq_loader(
@@ -187,6 +205,7 @@ def main() -> None:
         stride=a.seq_len,  # non-overlapping windows: val should not double-count
         use_mean=True,     # deterministic val, so epoch-to-epoch changes are the model
         seed=a.seed,
+        latent_suffix=latent_suffix,
     )
     # NOTE, and it surprises people: train NLL and val NLL are NOT comparable
     # here, and val is much lower. Train targets are posterior SAMPLES, which
@@ -200,7 +219,8 @@ def main() -> None:
     # pos_weight is computed from the TRAINING data only.
     pos_weight = train_ds.pos_weight()
     print(
-        f"device={device}  z_dim={z_dim}  windows={len(train_ds)} "
+        f"device={device}  z_dim={z_dim}  latents=mu{'_' + latent_suffix if latent_suffix else ''}.npy  "
+        f"windows={len(train_ds)} "
         f"(train) / {len(val_loader.dataset)} (val)\n"
         f"hit_rate={train_ds.hit_rate():.4%}  pos_weight={pos_weight:.1f}"
     )
@@ -214,7 +234,7 @@ def main() -> None:
     opt = torch.optim.Adam(model.parameters(), lr=a.lr)
 
     # Held-out episodes for the open-loop metric, taken from the first val root.
-    roll_src = episode_arrays(val_roots[0])
+    roll_src = episode_arrays(val_roots[0], latent_suffix=latent_suffix)
 
     history: List[dict] = []
     best = float("inf")

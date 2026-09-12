@@ -26,6 +26,10 @@ def main() -> None:
     p.add_argument("--scale", type=int, default=8, help="display upscale factor")
     p.add_argument("--fps", type=int, default=30)
     p.add_argument("--seed", type=int, default=None)
+    p.add_argument("--mass-from-color", action="store_true",
+                   help="v2: random mass each reset, shown as ball colour. "
+                        "Press R a few times -- a yellow ball is visibly fast "
+                        "and easy to deflect, a purple one slow and stubborn.")
     a = p.parse_args()
 
     try:
@@ -33,12 +37,15 @@ def main() -> None:
     except ImportError:
         raise SystemExit("play mode needs pygame:  pip install pygame")
 
-    env = BouncingBox(BoxConfig(res=a.res), seed=a.seed)
+    env = BouncingBox(
+        BoxConfig(res=a.res, mass_from_color=a.mass_from_color), seed=a.seed
+    )
     side = a.res * a.scale
 
     pygame.init()
     screen = pygame.display.set_mode((side, side))
-    pygame.display.set_caption("worldsim v1 - arrows to move, R to reset, Q to quit")
+    title = "worldsim v2" if a.mass_from_color else "worldsim v1"
+    pygame.display.set_caption(f"{title} - arrows to move, R to reset, Q to quit")
     clock = pygame.time.Clock()
 
     frame = env.render()
@@ -52,6 +59,9 @@ def main() -> None:
                     running = False
                 elif ev.key == pygame.K_r:
                     frame = env.reset()
+                    if a.mass_from_color:
+                        print(f"mass {env.mass:.3f}  speed {env.speed:.4f}/frame  "
+                              f"colour {env.ball_color}", flush=True)
 
         keys = pygame.key.get_pressed()
         if keys[pygame.K_LEFT]:

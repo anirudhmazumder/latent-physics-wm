@@ -142,9 +142,12 @@ class LiveWorldModel:
 
 
 class LiveGame:
-    def __init__(self, wm: LiveWorldModel, seed: Optional[int], resync_every: int):
+    def __init__(self, wm: LiveWorldModel, seed: Optional[int], resync_every: int,
+                 mass_from_color: bool = False):
         self.wm = wm
-        self.env = BouncingBox(BoxConfig(res=64, ball_radius=0.08), seed=seed)
+        self.env = BouncingBox(
+            BoxConfig(res=64, ball_radius=0.08, mass_from_color=mass_from_color), seed=seed
+        )
         self.resync_every = resync_every
         self.freeze_resync = False
         self.reset(seed)
@@ -184,8 +187,10 @@ class LiveGame:
     def status_lines(self, autopilot: bool) -> list[str]:
         wm = self.wm
         a = {LEFT: "left", STAY: "stay", RIGHT: "right"}[self.last_action]
+        st = self.env.state()
+        mass = f"   mass {st[6]:.2f} (speed {0.022 / st[6]:.3f})" if len(st) > 6 else ""
         return [
-            f"step {self.t:4d}   hits {self.hits}   action {a:5s}   "
+            f"step {self.t:4d}   hits {self.hits}   action {a:5s}{mass}   "
             f"{'AUTOPILOT (' + wm.ctrl.name + ')' if autopilot else 'MANUAL'}",
             f"P(contact next) {wm.p_hit:5.2f}   predicted reward {wm.r_dense:5.2f}   "
             f"dream age {wm.dream_age:3d}  tau {wm.temperature:.1f}  "
@@ -334,10 +339,26 @@ def main() -> None:
     p.add_argument("--record", default=None, help="write a GIF instead of opening a window")
     p.add_argument("--steps", type=int, default=300, help="frames to record with --record")
     p.add_argument("--device", default="cpu")
+    p.add_argument("--v2", action="store_true",
+                   help="v2 world (mass from colour) with the v2 checkpoints: shorthand for "
+                        "--mass-from-color --vae runs/vae_v2/vae.pt --rnn runs/rnn_v2/rnn.pt "
+                        "--ctrl runs/ctrl_v2/controller.pt")
+    p.add_argument("--mass-from-color", action="store_true", help="v2 environment")
     a = p.parse_args()
+    if a.v2:
+        a.mass_from_color = True
+        if a.vae == p.get_default("vae"):
+            a.vae = "runs/vae_v2/vae.pt"
+        if a.rnn == p.get_default("rnn"):
+            a.rnn = "runs/rnn_v2/rnn.pt"
+        if a.ctrl == p.get_default("ctrl"):
+            a.ctrl = "runs/ctrl_v2/controller.pt"
+    if a.ctrl and not Path(a.ctrl).exists():
+        print(f"(no controller at {a.ctrl}; autopilot disabled)")
+        a.ctrl = ""
 
     wm = LiveWorldModel(a.vae, a.rnn, a.ctrl or None, a.ctrl_which, a.device, a.temperature)
-    game = LiveGame(wm, a.seed, a.resync)
+    game = LiveGame(wm, a.seed, a.resync, mass_from_color=a.mass_from_color)
     if a.record:
         record(game, a.steps, a.record, a.scale, a.autopilot, a.fps, a.seed or 0)
     else:

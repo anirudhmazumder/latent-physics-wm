@@ -1,0 +1,1498 @@
+{
+  "in_distribution": [
+    {
+      "name": "stay",
+      "overall": {
+        "n_episodes": 150,
+        "hits_per_episode": 0.9466666579246521,
+        "interceptions_per_episode": 0.9466666666666667,
+        "interceptions_ci95": [
+          0.8066666666666666,
+          1.1066666666666667
+        ],
+        "floor_visits_per_episode": 2.1133333333333333,
+        "hits_per_visit": 0.4479495268138801,
+        "interceptions_per_visit": 0.4479495268138801,
+        "interceptions_per_visit_ci95": [
+          0.38851141947732853,
+          0.5077944225741503
+        ],
+        "mean_gap_at_floor": 0.27806047049324595,
+        "sign_agreement_approach": NaN,
+        "approach_frames": 0,
+        "reaction_lead_frames": 5.345070422535211,
+        "position_lead_frames": 31.302816901408452,
+        "n_interceptions": 142,
+        "sign_agreement_approach_ci95": [
+          NaN,
+          NaN
+        ]
+      },
+      "light": {
+        "n_episodes": 50,
+        "hits_per_episode": 1.3600000143051147,
+        "interceptions_per_episode": 1.36,
+        "interceptions_ci95": [
+          1.06,
+          1.68
+        ],
+        "floor_visits_per_episode": 3.24,
+        "hits_per_visit": 0.41975308641975306,
+        "interceptions_per_visit": 0.41975308641975306,
+        "interceptions_per_visit_ci95": [
+          0.3333333333333333,
+          0.5120518660005877
+        ],
+        "mean_gap_at_floor": 0.29966482303944636,
+        "sign_agreement_approach": NaN,
+        "approach_frames": 0,
+        "reaction_lead_frames": 5.632352941176471,
+        "position_lead_frames": 28.470588235294116,
+        "n_interceptions": 68,
+        "sign_agreement_approach_ci95": [
+          NaN,
+          NaN
+        ]
+      },
+      "medium": {
+        "n_episodes": 50,
+        "hits_per_episode": 0.9399999976158142,
+        "interceptions_per_episode": 0.94,
+        "interceptions_ci95": [
+          0.72,
+          1.16
+        ],
+        "floor_visits_per_episode": 2.02,
+        "hits_per_visit": 0.46534653465346537,
+        "interceptions_per_visit": 0.46534653465346537,
+        "interceptions_per_visit_ci95": [
+          0.37,
+          0.5588235294117647
+        ],
+        "mean_gap_at_floor": 0.26085222062498037,
+        "sign_agreement_approach": NaN,
+        "approach_frames": 0,
+        "reaction_lead_frames": 2.0851063829787235,
+        "position_lead_frames": 32.148936170212764,
+        "n_interceptions": 47,
+        "sign_agreement_approach_ci95": [
+          NaN,
+          NaN
+        ]
+      },
+      "heavy": {
+        "n_episodes": 50,
+        "hits_per_episode": 0.5400000214576721,
+        "interceptions_per_episode": 0.54,
+        "interceptions_ci95": [
+          0.38,
+          0.7
+        ],
+        "floor_visits_per_episode": 1.08,
+        "hits_per_visit": 0.5,
+        "interceptions_per_visit": 0.5,
+        "interceptions_per_visit_ci95": [
+          0.36538461538461536,
+          0.6274623803009576
+        ],
+        "mean_gap_at_floor": 0.24543321353417855,
+        "sign_agreement_approach": NaN,
+        "approach_frames": 0,
+        "reaction_lead_frames": 10.296296296296296,
+        "position_lead_frames": 36.96296296296296,
+        "n_interceptions": 27,
+        "sign_agreement_approach_ci95": [
+          NaN,
+          NaN
+        ]
+      }
+    },
+    {
+      "name": "random",
+      "overall": {
+        "n_episodes": 150,
+        "hits_per_episode": 1.0266666412353516,
+        "interceptions_per_episode": 0.9266666666666666,
+        "interceptions_ci95": [
+          0.7933333333333333,
+          1.0666666666666667
+        ],
+        "floor_visits_per_episode": 2.08,
+        "hits_per_visit": 0.4935897435897436,
+        "interceptions_per_visit": 0.44551282051282054,
+        "interceptions_per_visit_ci95": [
+          0.3959714364248574,
+          0.4953278261624374
+        ],
+        "mean_gap_at_floor": 0.3059670880007056,
+        "sign_agreement_approach": 0.3384615384615385,
+        "approach_frames": 4810,
+        "reaction_lead_frames": 5.093525179856115,
+        "position_lead_frames": 12.237410071942445,
+        "n_interceptions": 139,
+        "sign_agreement_approach_ci95": [
+          0.3051751725705657,
+          0.37225643398733077
+        ]
+      },
+      "light": {
+        "n_episodes": 50,
+        "hits_per_episode": 1.5199999809265137,
+        "interceptions_per_episode": 1.42,
+        "interceptions_ci95": [
+          1.16,
+          1.68
+        ],
+        "floor_visits_per_episode": 3.34,
+        "hits_per_visit": 0.4550898203592814,
+        "interceptions_per_visit": 0.4251497005988024,
+        "interceptions_per_visit_ci95": [
+          0.36024844720496896,
+          0.49681726470704596
+        ],
+        "mean_gap_at_floor": 0.3134296088072354,
+        "sign_agreement_approach": 0.35891238670694864,
+        "approach_frames": 1655,
+        "reaction_lead_frames": 4.746478873239437,
+        "position_lead_frames": 12.169014084507042,
+        "n_interceptions": 71,
+        "sign_agreement_approach_ci95": [
+          0.30453418591810977,
+          0.4184119756689286
+        ]
+      },
+      "medium": {
+        "n_episodes": 50,
+        "hits_per_episode": 0.800000011920929,
+        "interceptions_per_episode": 0.78,
+        "interceptions_ci95": [
+          0.6,
+          0.96
+        ],
+        "floor_visits_per_episode": 1.82,
+        "hits_per_visit": 0.43956043956043955,
+        "interceptions_per_visit": 0.42857142857142855,
+        "interceptions_per_visit_ci95": [
+          0.34065934065934067,
+          0.5131578947368421
+        ],
+        "mean_gap_at_floor": 0.3083418465250141,
+        "sign_agreement_approach": 0.3079754601226994,
+        "approach_frames": 1630,
+        "reaction_lead_frames": 6.615384615384615,
+        "position_lead_frames": 11.948717948717949,
+        "n_interceptions": 39,
+        "sign_agreement_approach_ci95": [
+          0.255429411978024,
+          0.35859960236406047
+        ]
+      },
+      "heavy": {
+        "n_episodes": 50,
+        "hits_per_episode": 0.7599999904632568,
+        "interceptions_per_episode": 0.58,
+        "interceptions_ci95": [
+          0.4,
+          0.76
+        ],
+        "floor_visits_per_episode": 1.08,
+        "hits_per_visit": 0.7037037037037037,
+        "interceptions_per_visit": 0.5370370370370371,
+        "interceptions_per_visit_ci95": [
+          0.4,
+          0.6730867346938776
+        ],
+        "mean_gap_at_floor": 0.2788866435488065,
+        "sign_agreement_approach": 0.34885245901639345,
+        "approach_frames": 1525,
+        "reaction_lead_frames": 3.896551724137931,
+        "position_lead_frames": 12.793103448275861,
+        "n_interceptions": 29,
+        "sign_agreement_approach_ci95": [
+          0.2809155701754386,
+          0.4168394552232584
+        ]
+      }
+    },
+    {
+      "name": "oracle",
+      "overall": {
+        "n_episodes": 150,
+        "hits_per_episode": 1.9466667175292969,
+        "interceptions_per_episode": 1.8933333333333333,
+        "interceptions_ci95": [
+          1.7066666666666668,
+          2.1
+        ],
+        "floor_visits_per_episode": 1.9066666666666667,
+        "hits_per_visit": 1.020979020979021,
+        "interceptions_per_visit": 0.993006993006993,
+        "interceptions_per_visit_ci95": [
+          0.9753521126760564,
+          1.0096486511880403
+        ],
+        "mean_gap_at_floor": 0.06939953146176739,
+        "sign_agreement_approach": 1.0,
+        "approach_frames": 3378,
+        "reaction_lead_frames": 5.309859154929577,
+        "position_lead_frames": 8.830985915492958,
+        "n_interceptions": 284,
+        "sign_agreement_approach_ci95": [
+          1.0,
+          1.0
+        ]
+      },
+      "light": {
+        "n_episodes": 50,
+        "hits_per_episode": 3.0799999237060547,
+        "interceptions_per_episode": 2.94,
+        "interceptions_ci95": [
+          2.62,
+          3.26
+        ],
+        "floor_visits_per_episode": 2.96,
+        "hits_per_visit": 1.0405405405405406,
+        "interceptions_per_visit": 0.9932432432432432,
+        "interceptions_per_visit_ci95": [
+          0.9629629629629629,
+          1.0212765957446808
+        ],
+        "mean_gap_at_floor": 0.07847968408384838,
+        "sign_agreement_approach": 1.0,
+        "approach_frames": 1605,
+        "reaction_lead_frames": 8.244897959183673,
+        "position_lead_frames": 8.10204081632653,
+        "n_interceptions": 147,
+        "sign_agreement_approach_ci95": [
+          1.0,
+          1.0
+        ]
+      },
+      "medium": {
+        "n_episodes": 50,
+        "hits_per_episode": 1.7000000476837158,
+        "interceptions_per_episode": 1.7,
+        "interceptions_ci95": [
+          1.44,
+          1.96
+        ],
+        "floor_visits_per_episode": 1.72,
+        "hits_per_visit": 0.9883720930232558,
+        "interceptions_per_visit": 0.9883720930232558,
+        "interceptions_per_visit_ci95": [
+          0.963403342366757,
+          1.0
+        ],
+        "mean_gap_at_floor": 0.06280660014166388,
+        "sign_agreement_approach": 1.0,
+        "approach_frames": 1115,
+        "reaction_lead_frames": 2.1176470588235294,
+        "position_lead_frames": 6.529411764705882,
+        "n_interceptions": 85,
+        "sign_agreement_approach_ci95": [
+          1.0,
+          1.0
+        ]
+      },
+      "heavy": {
+        "n_episodes": 50,
+        "hits_per_episode": 1.059999942779541,
+        "interceptions_per_episode": 1.04,
+        "interceptions_ci95": [
+          0.88,
+          1.2
+        ],
+        "floor_visits_per_episode": 1.04,
+        "hits_per_visit": 1.0192307692307692,
+        "interceptions_per_visit": 1.0,
+        "interceptions_per_visit_ci95": [
+          1.0,
+          1.0
+        ],
+        "mean_gap_at_floor": 0.05445971425909262,
+        "sign_agreement_approach": 1.0,
+        "approach_frames": 658,
+        "reaction_lead_frames": 2.230769230769231,
+        "position_lead_frames": 14.653846153846153,
+        "n_interceptions": 52,
+        "sign_agreement_approach_ci95": [
+          1.0,
+          1.0
+        ]
+      }
+    },
+    {
+      "name": "ctrl_v2",
+      "overall": {
+        "n_episodes": 150,
+        "hits_per_episode": 1.4800000190734863,
+        "interceptions_per_episode": 1.4466666666666668,
+        "interceptions_ci95": [
+          1.2865,
+          1.6266666666666667
+        ],
+        "floor_visits_per_episode": 1.8333333333333333,
+        "hits_per_visit": 0.8072727272727273,
+        "interceptions_per_visit": 0.7890909090909091,
+        "interceptions_per_visit_ci95": [
+          0.7355072463768116,
+          0.8403072162446403
+        ],
+        "mean_gap_at_floor": 0.1399058262868361,
+        "sign_agreement_approach": 0.7214950051670685,
+        "approach_frames": 5806,
+        "reaction_lead_frames": 1.4654377880184333,
+        "position_lead_frames": 11.728110599078342,
+        "n_interceptions": 217,
+        "sign_agreement_approach_ci95": [
+          0.6980885223090433,
+          0.7455854674747109
+        ]
+      },
+      "light": {
+        "n_episodes": 50,
+        "hits_per_episode": 2.119999885559082,
+        "interceptions_per_episode": 2.08,
+        "interceptions_ci95": [
+          1.78,
+          2.4
+        ],
+        "floor_visits_per_episode": 2.72,
+        "hits_per_visit": 0.7794117647058824,
+        "interceptions_per_visit": 0.7647058823529411,
+        "interceptions_per_visit_ci95": [
+          0.6827266922094509,
+          0.8484898325358852
+        ],
+        "mean_gap_at_floor": 0.1573731314171763,
+        "sign_agreement_approach": 0.7573849878934624,
+        "approach_frames": 2065,
+        "reaction_lead_frames": 1.5480769230769231,
+        "position_lead_frames": 6.778846153846154,
+        "n_interceptions": 104,
+        "sign_agreement_approach_ci95": [
+          0.7222182765151515,
+          0.7898482763668123
+        ]
+      },
+      "medium": {
+        "n_episodes": 50,
+        "hits_per_episode": 1.559999942779541,
+        "interceptions_per_episode": 1.5,
+        "interceptions_ci95": [
+          1.24,
+          1.76
+        ],
+        "floor_visits_per_episode": 1.8,
+        "hits_per_visit": 0.8666666666666667,
+        "interceptions_per_visit": 0.8333333333333334,
+        "interceptions_per_visit_ci95": [
+          0.7560904707884288,
+          0.9082777314428692
+        ],
+        "mean_gap_at_floor": 0.11873155600494809,
+        "sign_agreement_approach": 0.7091698317959848,
+        "approach_frames": 1843,
+        "reaction_lead_frames": 1.4133333333333333,
+        "position_lead_frames": 13.84,
+        "n_interceptions": 75,
+        "sign_agreement_approach_ci95": [
+          0.6682531362598149,
+          0.7506986607996243
+        ]
+      },
+      "heavy": {
+        "n_episodes": 50,
+        "hits_per_episode": 0.7599999904632568,
+        "interceptions_per_episode": 0.76,
+        "interceptions_ci95": [
+          0.6,
+          0.92
+        ],
+        "floor_visits_per_episode": 0.98,
+        "hits_per_visit": 0.7755102040816326,
+        "interceptions_per_visit": 0.7755102040816326,
+        "interceptions_per_visit_ci95": [
+          0.660377358490566,
+          0.8823529411764706
+        ],
+        "mean_gap_at_floor": 0.13031665950405355,
+        "sign_agreement_approach": 0.6944151738672286,
+        "approach_frames": 1898,
+        "reaction_lead_frames": 1.3421052631578947,
+        "position_lead_frames": 21.105263157894736,
+        "n_interceptions": 38,
+        "sign_agreement_approach_ci95": [
+          0.6465275880839758,
+          0.7368448522140424
+        ]
+      }
+    },
+    {
+      "name": "ctrl_v2_lastdream",
+      "overall": {
+        "n_episodes": 150,
+        "hits_per_episode": 1.506666660308838,
+        "interceptions_per_episode": 1.4266666666666667,
+        "interceptions_ci95": [
+          1.26,
+          1.5933333333333333
+        ],
+        "floor_visits_per_episode": 1.8533333333333333,
+        "hits_per_visit": 0.8129496402877698,
+        "interceptions_per_visit": 0.7697841726618705,
+        "interceptions_per_visit_ci95": [
+          0.715253676057919,
+          0.8211744004171012
+        ],
+        "mean_gap_at_floor": 0.14906614273786545,
+        "sign_agreement_approach": 0.7005847953216374,
+        "approach_frames": 5985,
+        "reaction_lead_frames": 1.5514018691588785,
+        "position_lead_frames": 11.663551401869158,
+        "n_interceptions": 214,
+        "sign_agreement_approach_ci95": [
+          0.6744930756306421,
+          0.7280061605373215
+        ]
+      },
+      "light": {
+        "n_episodes": 50,
+        "hits_per_episode": 2.119999885559082,
+        "interceptions_per_episode": 2.06,
+        "interceptions_ci95": [
+          1.74,
+          2.4
+        ],
+        "floor_visits_per_episode": 2.7,
+        "hits_per_visit": 0.7851851851851852,
+        "interceptions_per_visit": 0.762962962962963,
+        "interceptions_per_visit_ci95": [
+          0.677674181399728,
+          0.8421142754145637
+        ],
+        "mean_gap_at_floor": 0.1646848495359774,
+        "sign_agreement_approach": 0.7395577395577395,
+        "approach_frames": 2035,
+        "reaction_lead_frames": 1.6699029126213591,
+        "position_lead_frames": 6.815533980582524,
+        "n_interceptions": 103,
+        "sign_agreement_approach_ci95": [
+          0.6973287699597022,
+          0.7799559282237936
+        ]
+      },
+      "medium": {
+        "n_episodes": 50,
+        "hits_per_episode": 1.559999942779541,
+        "interceptions_per_episode": 1.38,
+        "interceptions_ci95": [
+          1.12,
+          1.64
+        ],
+        "floor_visits_per_episode": 1.8,
+        "hits_per_visit": 0.8666666666666667,
+        "interceptions_per_visit": 0.7666666666666667,
+        "interceptions_per_visit_ci95": [
+          0.67305,
+          0.8588273001508295
+        ],
+        "mean_gap_at_floor": 0.13420966383483673,
+        "sign_agreement_approach": 0.6764860599684377,
+        "approach_frames": 1901,
+        "reaction_lead_frames": 1.9855072463768115,
+        "position_lead_frames": 14.246376811594203,
+        "n_interceptions": 69,
+        "sign_agreement_approach_ci95": [
+          0.6367525702849,
+          0.716306009457054
+        ]
+      },
+      "heavy": {
+        "n_episodes": 50,
+        "hits_per_episode": 0.8399999737739563,
+        "interceptions_per_episode": 0.84,
+        "interceptions_ci95": [
+          0.66,
+          1.02
+        ],
+        "floor_visits_per_episode": 1.06,
+        "hits_per_visit": 0.7924528301886793,
+        "interceptions_per_visit": 0.7924528301886793,
+        "interceptions_per_visit_ci95": [
+          0.6851851851851852,
+          0.8936450167973125
+        ],
+        "mean_gap_at_floor": 0.13451062733272337,
+        "sign_agreement_approach": 0.6842362127867252,
+        "approach_frames": 2049,
+        "reaction_lead_frames": 0.5476190476190477,
+        "position_lead_frames": 19.30952380952381,
+        "n_interceptions": 42,
+        "sign_agreement_approach_ci95": [
+          0.6313104448742746,
+          0.7320474161140941
+        ]
+      }
+    },
+    {
+      "name": "ctrl_v2_mix",
+      "overall": {
+        "n_episodes": 150,
+        "hits_per_episode": 1.9733333587646484,
+        "interceptions_per_episode": 1.24,
+        "interceptions_ci95": [
+          1.0866666666666667,
+          1.3935000000000006
+        ],
+        "floor_visits_per_episode": 2.013333333333333,
+        "hits_per_visit": 0.9801324503311258,
+        "interceptions_per_visit": 0.6158940397350994,
+        "interceptions_per_visit_ci95": [
+          0.5544871794871795,
+          0.6775298408129254
+        ],
+        "mean_gap_at_floor": 0.2049277184518757,
+        "sign_agreement_approach": 0.5747176368375326,
+        "approach_frames": 6906,
+        "reaction_lead_frames": 2.5591397849462365,
+        "position_lead_frames": 4.747311827956989,
+        "n_interceptions": 186,
+        "sign_agreement_approach_ci95": [
+          0.5493596230803565,
+          0.5990553352954674
+        ]
+      },
+      "light": {
+        "n_episodes": 50,
+        "hits_per_episode": 1.6399999856948853,
+        "interceptions_per_episode": 1.62,
+        "interceptions_ci95": [
+          1.28,
+          1.96
+        ],
+        "floor_visits_per_episode": 3.16,
+        "hits_per_visit": 0.5189873417721519,
+        "interceptions_per_visit": 0.5126582278481012,
+        "interceptions_per_visit_ci95": [
+          0.4246575342465753,
+          0.6
+        ],
+        "mean_gap_at_floor": 0.21011307382885414,
+        "sign_agreement_approach": 0.6037818821459983,
+        "approach_frames": 2274,
+        "reaction_lead_frames": 2.8395061728395063,
+        "position_lead_frames": 6.0,
+        "n_interceptions": 81,
+        "sign_agreement_approach_ci95": [
+          0.5733212439991081,
+          0.6343203790439619
+        ]
+      },
+      "medium": {
+        "n_episodes": 50,
+        "hits_per_episode": 1.9800000190734863,
+        "interceptions_per_episode": 1.18,
+        "interceptions_ci95": [
+          0.96,
+          1.42
+        ],
+        "floor_visits_per_episode": 1.78,
+        "hits_per_visit": 1.1123595505617978,
+        "interceptions_per_visit": 0.6629213483146067,
+        "interceptions_per_visit_ci95": [
+          0.5522349191542288,
+          0.7805068597560977
+        ],
+        "mean_gap_at_floor": 0.20118348852971965,
+        "sign_agreement_approach": 0.591304347826087,
+        "approach_frames": 2185,
+        "reaction_lead_frames": 3.152542372881356,
+        "position_lead_frames": 5.203389830508475,
+        "n_interceptions": 59,
+        "sign_agreement_approach_ci95": [
+          0.550475138415673,
+          0.6323775250584841
+        ]
+      },
+      "heavy": {
+        "n_episodes": 50,
+        "hits_per_episode": 2.299999952316284,
+        "interceptions_per_episode": 0.92,
+        "interceptions_ci95": [
+          0.74,
+          1.1
+        ],
+        "floor_visits_per_episode": 1.1,
+        "hits_per_visit": 2.090909090909091,
+        "interceptions_per_visit": 0.8363636363636363,
+        "interceptions_per_visit_ci95": [
+          0.7307291666666667,
+          0.9400294117647059
+        ],
+        "mean_gap_at_floor": 0.19609045142477208,
+        "sign_agreement_approach": 0.5328974254188803,
+        "approach_frames": 2447,
+        "reaction_lead_frames": 1.3043478260869565,
+        "position_lead_frames": 1.9565217391304348,
+        "n_interceptions": 46,
+        "sign_agreement_approach_ci95": [
+          0.4825334958713256,
+          0.5833026060006503
+        ]
+      }
+    },
+    {
+      "name": "ctrl_v2_z_only",
+      "overall": {
+        "n_episodes": 150,
+        "hits_per_episode": 1.1333333253860474,
+        "interceptions_per_episode": 1.1066666666666667,
+        "interceptions_ci95": [
+          0.94,
+          1.266833333333334
+        ],
+        "floor_visits_per_episode": 1.9266666666666667,
+        "hits_per_visit": 0.5882352941176471,
+        "interceptions_per_visit": 0.5743944636678201,
+        "interceptions_per_visit_ci95": [
+          0.50719295991778,
+          0.6423426643589937
+        ],
+        "mean_gap_at_floor": 0.2188689573619605,
+        "sign_agreement_approach": 0.6492905153099328,
+        "approach_frames": 6695,
+        "reaction_lead_frames": 3.5,
+        "position_lead_frames": 14.343373493975903,
+        "n_interceptions": 166,
+        "sign_agreement_approach_ci95": [
+          0.6211814270423461,
+          0.6764591282972734
+        ]
+      },
+      "light": {
+        "n_episodes": 50,
+        "hits_per_episode": 1.7000000476837158,
+        "interceptions_per_episode": 1.68,
+        "interceptions_ci95": [
+          1.36,
+          2.0
+        ],
+        "floor_visits_per_episode": 2.94,
+        "hits_per_visit": 0.5782312925170068,
+        "interceptions_per_visit": 0.5714285714285714,
+        "interceptions_per_visit_ci95": [
+          0.47096774193548385,
+          0.6645698924731185
+        ],
+        "mean_gap_at_floor": 0.21588636235314973,
+        "sign_agreement_approach": 0.6527082385070551,
+        "approach_frames": 2197,
+        "reaction_lead_frames": 3.1785714285714284,
+        "position_lead_frames": 10.726190476190476,
+        "n_interceptions": 84,
+        "sign_agreement_approach_ci95": [
+          0.6114952789576219,
+          0.6902948394397546
+        ]
+      },
+      "medium": {
+        "n_episodes": 50,
+        "hits_per_episode": 1.1399999856948853,
+        "interceptions_per_episode": 1.12,
+        "interceptions_ci95": [
+          0.9,
+          1.36
+        ],
+        "floor_visits_per_episode": 1.82,
+        "hits_per_visit": 0.6263736263736264,
+        "interceptions_per_visit": 0.6153846153846154,
+        "interceptions_per_visit_ci95": [
+          0.49504700470047003,
+          0.7444444444444445
+        ],
+        "mean_gap_at_floor": 0.21468072474657834,
+        "sign_agreement_approach": 0.6534883720930232,
+        "approach_frames": 2150,
+        "reaction_lead_frames": 4.142857142857143,
+        "position_lead_frames": 15.160714285714286,
+        "n_interceptions": 56,
+        "sign_agreement_approach_ci95": [
+          0.6109017614337627,
+          0.6915575453573624
+        ]
+      },
+      "heavy": {
+        "n_episodes": 50,
+        "hits_per_episode": 0.5600000023841858,
+        "interceptions_per_episode": 0.52,
+        "interceptions_ci95": [
+          0.34,
+          0.72
+        ],
+        "floor_visits_per_episode": 1.02,
+        "hits_per_visit": 0.5490196078431373,
+        "interceptions_per_visit": 0.5098039215686274,
+        "interceptions_per_visit_ci95": [
+          0.3541666666666667,
+          0.6666666666666666
+        ],
+        "mean_gap_at_floor": 0.23493896979911655,
+        "sign_agreement_approach": 0.6422487223168655,
+        "approach_frames": 2348,
+        "reaction_lead_frames": 3.1538461538461537,
+        "position_lead_frames": 24.26923076923077,
+        "n_interceptions": 26,
+        "sign_agreement_approach_ci95": [
+          0.585113299394905,
+          0.698320213605985
+        ]
+      }
+    },
+    {
+      "name": "ctrl_v2_real",
+      "overall": {
+        "n_episodes": 150,
+        "hits_per_episode": 1.3266667127609253,
+        "interceptions_per_episode": 1.3066666666666666,
+        "interceptions_ci95": [
+          1.1331666666666667,
+          1.5
+        ],
+        "floor_visits_per_episode": 2.046666666666667,
+        "hits_per_visit": 0.6482084690553745,
+        "interceptions_per_visit": 0.6384364820846905,
+        "interceptions_per_visit_ci95": [
+          0.5839409677913328,
+          0.6916167664670658
+        ],
+        "mean_gap_at_floor": 0.18747862765765733,
+        "sign_agreement_approach": 0.5873793615441723,
+        "approach_frames": 6735,
+        "reaction_lead_frames": 3.2806122448979593,
+        "position_lead_frames": 8.341836734693878,
+        "n_interceptions": 196,
+        "sign_agreement_approach_ci95": [
+          0.5606155442919499,
+          0.612856710041418
+        ]
+      },
+      "light": {
+        "n_episodes": 50,
+        "hits_per_episode": 2.259999990463257,
+        "interceptions_per_episode": 2.22,
+        "interceptions_ci95": [
+          1.86,
+          2.58
+        ],
+        "floor_visits_per_episode": 3.34,
+        "hits_per_visit": 0.6766467065868264,
+        "interceptions_per_visit": 0.6646706586826348,
+        "interceptions_per_visit_ci95": [
+          0.588957055214724,
+          0.738894927536232
+        ],
+        "mean_gap_at_floor": 0.1791091457812372,
+        "sign_agreement_approach": 0.6644355198572066,
+        "approach_frames": 2241,
+        "reaction_lead_frames": 2.918918918918919,
+        "position_lead_frames": 7.846846846846847,
+        "n_interceptions": 111,
+        "sign_agreement_approach_ci95": [
+          0.633739629586352,
+          0.6968040721677944
+        ]
+      },
+      "medium": {
+        "n_episodes": 50,
+        "hits_per_episode": 1.1200000047683716,
+        "interceptions_per_episode": 1.12,
+        "interceptions_ci95": [
+          0.94,
+          1.3
+        ],
+        "floor_visits_per_episode": 1.78,
+        "hits_per_visit": 0.6292134831460674,
+        "interceptions_per_visit": 0.6292134831460674,
+        "interceptions_per_visit_ci95": [
+          0.5473684210526316,
+          0.7195121951219512
+        ],
+        "mean_gap_at_floor": 0.19239428287811494,
+        "sign_agreement_approach": 0.6137865911237016,
+        "approach_frames": 2118,
+        "reaction_lead_frames": 4.321428571428571,
+        "position_lead_frames": 7.464285714285714,
+        "n_interceptions": 56,
+        "sign_agreement_approach_ci95": [
+          0.5746783023789357,
+          0.6531823868624791
+        ]
+      },
+      "heavy": {
+        "n_episodes": 50,
+        "hits_per_episode": 0.6000000238418579,
+        "interceptions_per_episode": 0.58,
+        "interceptions_ci95": [
+          0.42,
+          0.74
+        ],
+        "floor_visits_per_episode": 1.02,
+        "hits_per_visit": 0.5882352941176471,
+        "interceptions_per_visit": 0.5686274509803921,
+        "interceptions_per_visit_ci95": [
+          0.4339622641509434,
+          0.7059077079107506
+        ],
+        "mean_gap_at_floor": 0.20630627782905803,
+        "sign_agreement_approach": 0.4911616161616162,
+        "approach_frames": 2376,
+        "reaction_lead_frames": 2.6551724137931036,
+        "position_lead_frames": 11.931034482758621,
+        "n_interceptions": 29,
+        "sign_agreement_approach_ci95": [
+          0.44662076383004823,
+          0.536415323524686
+        ]
+      }
+    },
+    {
+      "name": "ctrl_v1_on_v2",
+      "overall": {
+        "n_episodes": 150,
+        "hits_per_episode": 1.840000033378601,
+        "interceptions_per_episode": 1.64,
+        "interceptions_ci95": [
+          1.4733333333333334,
+          1.82
+        ],
+        "floor_visits_per_episode": 2.0733333333333333,
+        "hits_per_visit": 0.887459807073955,
+        "interceptions_per_visit": 0.7909967845659164,
+        "interceptions_per_visit_ci95": [
+          0.7396825396825397,
+          0.8419243986254296
+        ],
+        "mean_gap_at_floor": 0.14072382854974538,
+        "sign_agreement_approach": 0.5804765564950038,
+        "approach_frames": 6505,
+        "reaction_lead_frames": 3.605691056910569,
+        "position_lead_frames": 8.979674796747968,
+        "n_interceptions": 246,
+        "sign_agreement_approach_ci95": [
+          0.5510573464509598,
+          0.609154123796291
+        ]
+      },
+      "light": {
+        "n_episodes": 50,
+        "hits_per_episode": 2.380000114440918,
+        "interceptions_per_episode": 2.28,
+        "interceptions_ci95": [
+          1.96,
+          2.6
+        ],
+        "floor_visits_per_episode": 3.22,
+        "hits_per_visit": 0.7391304347826086,
+        "interceptions_per_visit": 0.7080745341614907,
+        "interceptions_per_visit_ci95": [
+          0.6394557823129252,
+          0.7757575757575758
+        ],
+        "mean_gap_at_floor": 0.15194678528708702,
+        "sign_agreement_approach": 0.6579657965796579,
+        "approach_frames": 2222,
+        "reaction_lead_frames": 3.9649122807017543,
+        "position_lead_frames": 8.201754385964913,
+        "n_interceptions": 114,
+        "sign_agreement_approach_ci95": [
+          0.6186807853843942,
+          0.6959450904919876
+        ]
+      },
+      "medium": {
+        "n_episodes": 50,
+        "hits_per_episode": 1.9800000190734863,
+        "interceptions_per_episode": 1.7,
+        "interceptions_ci95": [
+          1.38,
+          2.02
+        ],
+        "floor_visits_per_episode": 1.96,
+        "hits_per_visit": 1.010204081632653,
+        "interceptions_per_visit": 0.8673469387755102,
+        "interceptions_per_visit_ci95": [
+          0.7735751799260845,
+          0.9504950495049505
+        ],
+        "mean_gap_at_floor": 0.13017048489074318,
+        "sign_agreement_approach": 0.5791767554479419,
+        "approach_frames": 2065,
+        "reaction_lead_frames": 3.9529411764705884,
+        "position_lead_frames": 9.070588235294117,
+        "n_interceptions": 85,
+        "sign_agreement_approach_ci95": [
+          0.5336097725803608,
+          0.6250623292098013
+        ]
+      },
+      "heavy": {
+        "n_episodes": 50,
+        "hits_per_episode": 1.159999966621399,
+        "interceptions_per_episode": 0.94,
+        "interceptions_ci95": [
+          0.78,
+          1.1
+        ],
+        "floor_visits_per_episode": 1.04,
+        "hits_per_visit": 1.1153846153846154,
+        "interceptions_per_visit": 0.9038461538461539,
+        "interceptions_per_visit_ci95": [
+          0.7924528301886793,
+          1.0208333333333333
+        ],
+        "mean_gap_at_floor": 0.12586482170109564,
+        "sign_agreement_approach": 0.5040577096483319,
+        "approach_frames": 2218,
+        "reaction_lead_frames": 2.106382978723404,
+        "position_lead_frames": 10.702127659574469,
+        "n_interceptions": 47,
+        "sign_agreement_approach_ci95": [
+          0.4557498818621534,
+          0.552847652397469
+        ]
+      }
+    }
+  ],
+  "holdout": [
+    {
+      "name": "stay",
+      "overall": {
+        "n_episodes": 60,
+        "hits_per_episode": 1.0833333730697632,
+        "interceptions_per_episode": 1.0833333333333333,
+        "interceptions_ci95": [
+          0.8833333333333333,
+          1.2833333333333334
+        ],
+        "floor_visits_per_episode": 1.9833333333333334,
+        "hits_per_visit": 0.5462184873949579,
+        "interceptions_per_visit": 0.5462184873949579,
+        "interceptions_per_visit_ci95": [
+          0.4576271186440678,
+          0.6396396396396397
+        ],
+        "mean_gap_at_floor": 0.22200165444812855,
+        "sign_agreement_approach": NaN,
+        "sign_agreement_ci95": [
+          NaN,
+          NaN
+        ],
+        "approach_frames": 0,
+        "reaction_lead_frames": 12.323076923076924,
+        "position_lead_frames": 33.63076923076923,
+        "n_interceptions": 65
+      },
+      "light": {
+        "n_episodes": 60,
+        "hits_per_episode": 1.0833333730697632,
+        "interceptions_per_episode": 1.0833333333333333,
+        "interceptions_ci95": [
+          0.8833333333333333,
+          1.2833333333333334
+        ],
+        "floor_visits_per_episode": 1.9833333333333334,
+        "hits_per_visit": 0.5462184873949579,
+        "interceptions_per_visit": 0.5462184873949579,
+        "interceptions_per_visit_ci95": [
+          0.4576271186440678,
+          0.6396396396396397
+        ],
+        "mean_gap_at_floor": 0.22200165444812855,
+        "sign_agreement_approach": NaN,
+        "sign_agreement_ci95": [
+          NaN,
+          NaN
+        ],
+        "approach_frames": 0,
+        "reaction_lead_frames": 12.323076923076924,
+        "position_lead_frames": 33.63076923076923,
+        "n_interceptions": 65
+      },
+      "medium": {
+        "n_episodes": 0,
+        "hits_per_episode": NaN,
+        "interceptions_per_episode": NaN,
+        "interceptions_ci95": [
+          NaN,
+          NaN
+        ],
+        "floor_visits_per_episode": NaN,
+        "hits_per_visit": NaN,
+        "interceptions_per_visit": NaN,
+        "interceptions_per_visit_ci95": [
+          NaN,
+          NaN
+        ],
+        "mean_gap_at_floor": NaN,
+        "sign_agreement_approach": NaN,
+        "sign_agreement_ci95": [
+          NaN,
+          NaN
+        ],
+        "approach_frames": 0,
+        "reaction_lead_frames": NaN,
+        "position_lead_frames": NaN,
+        "n_interceptions": 0
+      },
+      "heavy": {
+        "n_episodes": 0,
+        "hits_per_episode": NaN,
+        "interceptions_per_episode": NaN,
+        "interceptions_ci95": [
+          NaN,
+          NaN
+        ],
+        "floor_visits_per_episode": NaN,
+        "hits_per_visit": NaN,
+        "interceptions_per_visit": NaN,
+        "interceptions_per_visit_ci95": [
+          NaN,
+          NaN
+        ],
+        "mean_gap_at_floor": NaN,
+        "sign_agreement_approach": NaN,
+        "sign_agreement_ci95": [
+          NaN,
+          NaN
+        ],
+        "approach_frames": 0,
+        "reaction_lead_frames": NaN,
+        "position_lead_frames": NaN,
+        "n_interceptions": 0
+      }
+    },
+    {
+      "name": "oracle",
+      "overall": {
+        "n_episodes": 60,
+        "hits_per_episode": 1.8166667222976685,
+        "interceptions_per_episode": 1.8166666666666667,
+        "interceptions_ci95": [
+          1.65,
+          1.9670833333333348
+        ],
+        "floor_visits_per_episode": 1.8166666666666667,
+        "hits_per_visit": 1.0,
+        "interceptions_per_visit": 1.0,
+        "interceptions_per_visit_ci95": [
+          1.0,
+          1.0
+        ],
+        "mean_gap_at_floor": 0.05817379481201872,
+        "sign_agreement_approach": 1.0,
+        "sign_agreement_ci95": [
+          1.0,
+          1.0
+        ],
+        "approach_frames": 1187,
+        "reaction_lead_frames": 1.724770642201835,
+        "position_lead_frames": 9.880733944954128,
+        "n_interceptions": 109
+      },
+      "light": {
+        "n_episodes": 60,
+        "hits_per_episode": 1.8166667222976685,
+        "interceptions_per_episode": 1.8166666666666667,
+        "interceptions_ci95": [
+          1.65,
+          1.9670833333333348
+        ],
+        "floor_visits_per_episode": 1.8166666666666667,
+        "hits_per_visit": 1.0,
+        "interceptions_per_visit": 1.0,
+        "interceptions_per_visit_ci95": [
+          1.0,
+          1.0
+        ],
+        "mean_gap_at_floor": 0.05817379481201872,
+        "sign_agreement_approach": 1.0,
+        "sign_agreement_ci95": [
+          1.0,
+          1.0
+        ],
+        "approach_frames": 1187,
+        "reaction_lead_frames": 1.724770642201835,
+        "position_lead_frames": 9.880733944954128,
+        "n_interceptions": 109
+      },
+      "medium": {
+        "n_episodes": 0,
+        "hits_per_episode": NaN,
+        "interceptions_per_episode": NaN,
+        "interceptions_ci95": [
+          NaN,
+          NaN
+        ],
+        "floor_visits_per_episode": NaN,
+        "hits_per_visit": NaN,
+        "interceptions_per_visit": NaN,
+        "interceptions_per_visit_ci95": [
+          NaN,
+          NaN
+        ],
+        "mean_gap_at_floor": NaN,
+        "sign_agreement_approach": NaN,
+        "sign_agreement_ci95": [
+          NaN,
+          NaN
+        ],
+        "approach_frames": 0,
+        "reaction_lead_frames": NaN,
+        "position_lead_frames": NaN,
+        "n_interceptions": 0
+      },
+      "heavy": {
+        "n_episodes": 0,
+        "hits_per_episode": NaN,
+        "interceptions_per_episode": NaN,
+        "interceptions_ci95": [
+          NaN,
+          NaN
+        ],
+        "floor_visits_per_episode": NaN,
+        "hits_per_visit": NaN,
+        "interceptions_per_visit": NaN,
+        "interceptions_per_visit_ci95": [
+          NaN,
+          NaN
+        ],
+        "mean_gap_at_floor": NaN,
+        "sign_agreement_approach": NaN,
+        "sign_agreement_ci95": [
+          NaN,
+          NaN
+        ],
+        "approach_frames": 0,
+        "reaction_lead_frames": NaN,
+        "position_lead_frames": NaN,
+        "n_interceptions": 0
+      }
+    },
+    {
+      "name": "ctrl_v2",
+      "overall": {
+        "n_episodes": 60,
+        "hits_per_episode": 1.5166666507720947,
+        "interceptions_per_episode": 1.4,
+        "interceptions_ci95": [
+          1.2333333333333334,
+          1.5666666666666667
+        ],
+        "floor_visits_per_episode": 1.7833333333333334,
+        "hits_per_visit": 0.8504672897196262,
+        "interceptions_per_visit": 0.7850467289719626,
+        "interceptions_per_visit_ci95": [
+          0.7211538461538461,
+          0.8490566037735849
+        ],
+        "mean_gap_at_floor": 0.11056429969373151,
+        "sign_agreement_approach": 0.6774193548387096,
+        "sign_agreement_ci95": [
+          0.6469767135264557,
+          0.7063528029616007
+        ],
+        "approach_frames": 2294,
+        "reaction_lead_frames": 2.9642857142857144,
+        "position_lead_frames": 13.523809523809524,
+        "n_interceptions": 84
+      },
+      "light": {
+        "n_episodes": 60,
+        "hits_per_episode": 1.5166666507720947,
+        "interceptions_per_episode": 1.4,
+        "interceptions_ci95": [
+          1.2333333333333334,
+          1.5666666666666667
+        ],
+        "floor_visits_per_episode": 1.7833333333333334,
+        "hits_per_visit": 0.8504672897196262,
+        "interceptions_per_visit": 0.7850467289719626,
+        "interceptions_per_visit_ci95": [
+          0.7211538461538461,
+          0.8490566037735849
+        ],
+        "mean_gap_at_floor": 0.11056429969373151,
+        "sign_agreement_approach": 0.6774193548387096,
+        "sign_agreement_ci95": [
+          0.6469767135264557,
+          0.7063528029616007
+        ],
+        "approach_frames": 2294,
+        "reaction_lead_frames": 2.9642857142857144,
+        "position_lead_frames": 13.523809523809524,
+        "n_interceptions": 84
+      },
+      "medium": {
+        "n_episodes": 0,
+        "hits_per_episode": NaN,
+        "interceptions_per_episode": NaN,
+        "interceptions_ci95": [
+          NaN,
+          NaN
+        ],
+        "floor_visits_per_episode": NaN,
+        "hits_per_visit": NaN,
+        "interceptions_per_visit": NaN,
+        "interceptions_per_visit_ci95": [
+          NaN,
+          NaN
+        ],
+        "mean_gap_at_floor": NaN,
+        "sign_agreement_approach": NaN,
+        "sign_agreement_ci95": [
+          NaN,
+          NaN
+        ],
+        "approach_frames": 0,
+        "reaction_lead_frames": NaN,
+        "position_lead_frames": NaN,
+        "n_interceptions": 0
+      },
+      "heavy": {
+        "n_episodes": 0,
+        "hits_per_episode": NaN,
+        "interceptions_per_episode": NaN,
+        "interceptions_ci95": [
+          NaN,
+          NaN
+        ],
+        "floor_visits_per_episode": NaN,
+        "hits_per_visit": NaN,
+        "interceptions_per_visit": NaN,
+        "interceptions_per_visit_ci95": [
+          NaN,
+          NaN
+        ],
+        "mean_gap_at_floor": NaN,
+        "sign_agreement_approach": NaN,
+        "sign_agreement_ci95": [
+          NaN,
+          NaN
+        ],
+        "approach_frames": 0,
+        "reaction_lead_frames": NaN,
+        "position_lead_frames": NaN,
+        "n_interceptions": 0
+      }
+    },
+    {
+      "name": "ctrl_v1_on_v2",
+      "overall": {
+        "n_episodes": 60,
+        "hits_per_episode": 1.6666666269302368,
+        "interceptions_per_episode": 1.6,
+        "interceptions_ci95": [
+          1.4166666666666667,
+          1.7833333333333334
+        ],
+        "floor_visits_per_episode": 1.8833333333333333,
+        "hits_per_visit": 0.8849557522123894,
+        "interceptions_per_visit": 0.8495575221238938,
+        "interceptions_per_visit_ci95": [
+          0.7787610619469026,
+          0.9145299145299145
+        ],
+        "mean_gap_at_floor": 0.10679011620515216,
+        "sign_agreement_approach": 0.5951239008792966,
+        "sign_agreement_ci95": [
+          0.5624987244897959,
+          0.6275499860689124
+        ],
+        "approach_frames": 2502,
+        "reaction_lead_frames": 4.71875,
+        "position_lead_frames": 9.947916666666666,
+        "n_interceptions": 96
+      },
+      "light": {
+        "n_episodes": 60,
+        "hits_per_episode": 1.6666666269302368,
+        "interceptions_per_episode": 1.6,
+        "interceptions_ci95": [
+          1.4166666666666667,
+          1.7833333333333334
+        ],
+        "floor_visits_per_episode": 1.8833333333333333,
+        "hits_per_visit": 0.8849557522123894,
+        "interceptions_per_visit": 0.8495575221238938,
+        "interceptions_per_visit_ci95": [
+          0.7787610619469026,
+          0.9145299145299145
+        ],
+        "mean_gap_at_floor": 0.10679011620515216,
+        "sign_agreement_approach": 0.5951239008792966,
+        "sign_agreement_ci95": [
+          0.5624987244897959,
+          0.6275499860689124
+        ],
+        "approach_frames": 2502,
+        "reaction_lead_frames": 4.71875,
+        "position_lead_frames": 9.947916666666666,
+        "n_interceptions": 96
+      },
+      "medium": {
+        "n_episodes": 0,
+        "hits_per_episode": NaN,
+        "interceptions_per_episode": NaN,
+        "interceptions_ci95": [
+          NaN,
+          NaN
+        ],
+        "floor_visits_per_episode": NaN,
+        "hits_per_visit": NaN,
+        "interceptions_per_visit": NaN,
+        "interceptions_per_visit_ci95": [
+          NaN,
+          NaN
+        ],
+        "mean_gap_at_floor": NaN,
+        "sign_agreement_approach": NaN,
+        "sign_agreement_ci95": [
+          NaN,
+          NaN
+        ],
+        "approach_frames": 0,
+        "reaction_lead_frames": NaN,
+        "position_lead_frames": NaN,
+        "n_interceptions": 0
+      },
+      "heavy": {
+        "n_episodes": 0,
+        "hits_per_episode": NaN,
+        "interceptions_per_episode": NaN,
+        "interceptions_ci95": [
+          NaN,
+          NaN
+        ],
+        "floor_visits_per_episode": NaN,
+        "hits_per_visit": NaN,
+        "interceptions_per_visit": NaN,
+        "interceptions_per_visit_ci95": [
+          NaN,
+          NaN
+        ],
+        "mean_gap_at_floor": NaN,
+        "sign_agreement_approach": NaN,
+        "sign_agreement_ci95": [
+          NaN,
+          NaN
+        ],
+        "approach_frames": 0,
+        "reaction_lead_frames": NaN,
+        "position_lead_frames": NaN,
+        "n_interceptions": 0
+      }
+    }
+  ],
+  "decisions": {
+    "ctrl_v2": {
+      "n_frames": 6644,
+      "without_interactions": {
+        "r2": 0.46350623859262774,
+        "beta": {
+          "x_err": 0.518102969040975,
+          "ball_vx": 0.3359828069729456,
+          "ball_vy": -0.053440116781714474,
+          "paddle_vx": -0.014005931468196021,
+          "speed": 0.024682250475338743
+        }
+      },
+      "with_interactions": {
+        "r2": 0.47737771579975163,
+        "beta": {
+          "x_err": 0.19435509596912576,
+          "ball_vx": 0.5710604917545107,
+          "ball_vy": -0.03918051532548808,
+          "paddle_vx": -0.03116161308807126,
+          "speed": 0.06457725897772341,
+          "speed*x_err": 0.3406327158955049,
+          "speed*ball_vx": -0.23973490591135357
+        }
+      },
+      "delta_r2": 0.013871477207123895,
+      "drive_std": 40.1235927354932
+    },
+    "ctrl_v2_z_only": {
+      "n_frames": 7066,
+      "without_interactions": {
+        "r2": 0.19806471585113783,
+        "beta": {
+          "x_err": 0.18069960433331766,
+          "ball_vx": 0.11010549800182208,
+          "ball_vy": -0.20091701928727487,
+          "paddle_vx": 0.3272110335442712,
+          "speed": -0.19594140058386164
+        }
+      },
+      "with_interactions": {
+        "r2": 0.19886438117679606,
+        "beta": {
+          "x_err": 0.13596289052765337,
+          "ball_vx": 0.18951002383779836,
+          "ball_vy": -0.19756382058559302,
+          "paddle_vx": 0.3254076476594714,
+          "speed": -0.18429170744022746,
+          "speed*x_err": 0.048971313041197215,
+          "speed*ball_vx": -0.08256571155395892
+        }
+      },
+      "delta_r2": 0.0007996653256582276,
+      "drive_std": 7.76533113044381
+    },
+    "ctrl_v1_on_v2": {
+      "n_frames": 7175,
+      "without_interactions": {
+        "r2": 0.3107192181483517,
+        "beta": {
+          "x_err": 0.23256120948865763,
+          "ball_vx": 0.07588733199038236,
+          "ball_vy": 0.023080847886462905,
+          "paddle_vx": 0.4341226037632959,
+          "speed": -0.006002245925945608
+        }
+      },
+      "with_interactions": {
+        "r2": 0.32991840387781723,
+        "beta": {
+          "x_err": -0.1208634556207373,
+          "ball_vx": 0.09280758783475992,
+          "ball_vy": 0.06007277173291994,
+          "paddle_vx": 0.42090178574709364,
+          "speed": 0.04577158938783391,
+          "speed*x_err": 0.3846479057625697,
+          "speed*ball_vx": -0.025689745159479967
+        }
+      },
+      "delta_r2": 0.01919918572946555,
+      "drive_std": 33.18224184712907
+    }
+  },
+  "tercile_cuts": [
+    0.698993961016337,
+    1.4086207151412964
+  ],
+  "mass_range": [
+    0.5011187791824341,
+    1.9909147024154663
+  ],
+  "holdout_band": [
+    0.85,
+    1.2
+  ],
+  "episodes": 150,
+  "holdout_episodes": 60,
+  "steps": 200,
+  "seed_base": 5000,
+  "holdout_seed_base": 6000,
+  "wall_clock_s": 430.0
+}

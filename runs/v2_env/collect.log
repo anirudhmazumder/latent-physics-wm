@@ -1,0 +1,236 @@
+=== train
+  episode 7/150  (0.5s, 3113 frames/s)
+  episode 14/150  (0.9s, 3181 frames/s)
+  episode 21/150  (1.3s, 3210 frames/s)
+  episode 28/150  (1.7s, 3230 frames/s)
+  episode 35/150  (2.2s, 3238 frames/s)
+  episode 42/150  (2.6s, 3239 frames/s)
+  episode 49/150  (3.0s, 3247 frames/s)
+  episode 56/150  (3.5s, 3253 frames/s)
+  episode 63/150  (3.9s, 3257 frames/s)
+  episode 70/150  (4.3s, 3257 frames/s)
+  episode 77/150  (4.8s, 3257 frames/s)
+  episode 84/150  (5.2s, 3258 frames/s)
+  episode 91/150  (5.6s, 3256 frames/s)
+  episode 98/150  (6.1s, 3244 frames/s)
+  episode 105/150  (6.5s, 3243 frames/s)
+  episode 112/150  (6.9s, 3245 frames/s)
+  episode 119/150  (7.4s, 3244 frames/s)
+  episode 126/150  (7.8s, 3247 frames/s)
+  episode 133/150  (8.2s, 3248 frames/s)
+  episode 140/150  (8.7s, 3249 frames/s)
+  episode 147/150  (9.1s, 3248 frames/s)
+  episode 150/150  (9.3s, 3249 frames/s)
+  mass: n=150  min=0.501  median=1.292  max=1.992  mean_eff_speed=0.0230
+  mass histogram (log-spaced bins):
+    [0.500,0.561)    13 #####################
+    [0.561,0.630)    16 ##########################
+    [0.630,0.707)    11 ##################
+    [0.707,0.794)    14 ######################
+    [0.794,0.891)    11 ##################
+    [0.891,1.000)     0 
+    [1.000,1.122)     0 
+    [1.122,1.260)     5 ########
+    [1.260,1.414)    25 ########################################
+    [1.414,1.587)    21 ##################################
+    [1.587,1.782)    17 ###########################
+    [1.782,2.000)    17 ###########################
+  sanity: bounds ok, speed conserved, paddle-contact rate 0.553%
+
+wrote 30150 frames to data/v2/train  (370 MB)
+=== train_mix
+  episode 15/300  (1.0s, 3090 frames/s)
+  episode 30/300  (1.9s, 3140 frames/s)
+  episode 45/300  (2.9s, 3156 frames/s)
+  episode 60/300  (3.8s, 3160 frames/s)
+  episode 75/300  (4.8s, 3139 frames/s)
+  episode 90/300  (5.8s, 3143 frames/s)
+  episode 105/300  (6.7s, 3162 frames/s)
+  episode 120/300  (7.6s, 3175 frames/s)
+  episode 135/300  (8.5s, 3186 frames/s)
+  episode 150/300  (9.4s, 3195 frames/s)
+  episode 165/300  (10.4s, 3197 frames/s)
+  episode 180/300  (11.5s, 3143 frames/s)
+  episode 195/300  (12.4s, 3154 frames/s)
+  episode 210/300  (13.3s, 3165 frames/s)
+  episode 225/300  (14.2s, 3174 frames/s)
+  episode 240/300  (15.2s, 3183 frames/s)
+  episode 255/300  (16.1s, 3187 frames/s)
+  episode 270/300  (17.1s, 3169 frames/s)
+  episode 285/300  (18.1s, 3167 frames/s)
+  episode 300/300  (19.0s, 3171 frames/s)
+  mass: n=300  min=0.501  median=0.806  max=1.989  mean_eff_speed=0.0253
+  mass histogram (log-spaced bins):
+    [0.500,0.561)    34 ################################
+    [0.561,0.630)    35 #################################
+    [0.630,0.707)    42 ########################################
+    [0.707,0.794)    34 ################################
+    [0.794,0.891)    19 ##################
+    [0.891,1.000)     0 
+    [1.000,1.122)     0 
+    [1.122,1.260)    13 ############
+    [1.260,1.414)    36 ##################################
+    [1.414,1.587)    27 ##########################
+    [1.587,1.782)    35 #################################
+    [1.782,2.000)    25 ########################
+  sanity: bounds ok, speed conserved, paddle-contact rate 0.843%
+
+wrote 60300 frames to data/v2/train_mix  (741 MB)
+=== val
+  episode 1/15  (0.1s, 2602 frames/s)
+  episode 2/15  (0.1s, 2751 frames/s)
+  episode 3/15  (0.2s, 2841 frames/s)
+  episode 4/15  (0.3s, 2936 frames/s)
+  episode 5/15  (0.3s, 2995 frames/s)
+  episode 6/15  (0.4s, 3026 frames/s)
+  episode 7/15  (0.5s, 3060 frames/s)
+  episode 8/15  (0.5s, 3087 frames/s)
+  episode 9/15  (0.6s, 3106 frames/s)
+  episode 10/15  (0.6s, 3125 frames/s)
+  episode 11/15  (0.7s, 3140 frames/s)
+  episode 12/15  (0.8s, 3153 frames/s)
+  episode 13/15  (0.8s, 3164 frames/s)
+  episode 14/15  (0.9s, 3163 frames/s)
+  episode 15/15  (1.0s, 3161 frames/s)
+  mass: n=15  min=0.567  median=0.808  max=1.925  mean_eff_speed=0.0252
+  mass histogram (log-spaced bins):
+    [0.500,0.561)     0 
+    [0.561,0.630)     4 ########################################
+    [0.630,0.707)     2 ####################
+    [0.707,0.794)     1 ##########
+    [0.794,0.891)     2 ####################
+    [0.891,1.000)     0 
+    [1.000,1.122)     0 
+    [1.122,1.260)     0 
+    [1.260,1.414)     1 ##########
+    [1.414,1.587)     1 ##########
+    [1.587,1.782)     1 ##########
+    [1.782,2.000)     3 ##############################
+  sanity: bounds ok, speed conserved, paddle-contact rate 1.067%
+
+wrote 3015 frames to data/v2/val  (37 MB)
+=== val_mix
+  episode 1/20  (0.1s, 2420 frames/s)
+  episode 2/20  (0.2s, 2588 frames/s)
+  episode 3/20  (0.2s, 2756 frames/s)
+  episode 4/20  (0.3s, 2854 frames/s)
+  episode 5/20  (0.3s, 2917 frames/s)
+  episode 6/20  (0.4s, 2957 frames/s)
+  episode 7/20  (0.5s, 2998 frames/s)
+  episode 8/20  (0.5s, 3019 frames/s)
+  episode 9/20  (0.6s, 3038 frames/s)
+  episode 10/20  (0.7s, 3055 frames/s)
+  episode 11/20  (0.7s, 3065 frames/s)
+  episode 12/20  (0.8s, 3074 frames/s)
+  episode 13/20  (0.8s, 3080 frames/s)
+  episode 14/20  (0.9s, 3088 frames/s)
+  episode 15/20  (1.0s, 3095 frames/s)
+  episode 16/20  (1.0s, 3098 frames/s)
+  episode 17/20  (1.1s, 3101 frames/s)
+  episode 18/20  (1.2s, 3105 frames/s)
+  episode 19/20  (1.2s, 3107 frames/s)
+  episode 20/20  (1.3s, 3110 frames/s)
+  mass: n=20  min=0.510  median=1.321  max=1.940  mean_eff_speed=0.0242
+  mass histogram (log-spaced bins):
+    [0.500,0.561)     3 ########################
+    [0.561,0.630)     2 ################
+    [0.630,0.707)     3 ########################
+    [0.707,0.794)     1 ########
+    [0.794,0.891)     0 
+    [0.891,1.000)     0 
+    [1.000,1.122)     0 
+    [1.122,1.260)     1 ########
+    [1.260,1.414)     0 
+    [1.414,1.587)     5 ########################################
+    [1.587,1.782)     4 ################################
+    [1.782,2.000)     1 ########
+  sanity: bounds ok, speed conserved, paddle-contact rate 0.675%
+
+wrote 4020 frames to data/v2/val_mix  (49 MB)
+=== probe
+  episode 6/120  (0.1s, 2437 frames/s)
+  episode 12/120  (0.1s, 2466 frames/s)
+  episode 18/120  (0.2s, 2647 frames/s)
+  episode 24/120  (0.2s, 2743 frames/s)
+  episode 30/120  (0.3s, 2812 frames/s)
+  episode 36/120  (0.3s, 2861 frames/s)
+  episode 42/120  (0.4s, 2897 frames/s)
+  episode 48/120  (0.4s, 2922 frames/s)
+  episode 54/120  (0.5s, 2944 frames/s)
+  episode 60/120  (0.5s, 2963 frames/s)
+  episode 66/120  (0.6s, 2977 frames/s)
+  episode 72/120  (0.6s, 2985 frames/s)
+  episode 78/120  (0.7s, 2995 frames/s)
+  episode 84/120  (0.7s, 3005 frames/s)
+  episode 90/120  (0.7s, 3013 frames/s)
+  episode 96/120  (0.8s, 3017 frames/s)
+  episode 102/120  (0.8s, 3023 frames/s)
+  episode 108/120  (0.9s, 3029 frames/s)
+  episode 114/120  (0.9s, 3034 frames/s)
+  episode 120/120  (1.0s, 3038 frames/s)
+  mass: n=120  min=0.504  median=0.817  max=1.996  mean_eff_speed=0.0258
+  mass histogram (log-spaced bins):
+    [0.500,0.561)    14 #################################
+    [0.561,0.630)    17 ########################################
+    [0.630,0.707)    14 #################################
+    [0.707,0.794)    10 ########################
+    [0.794,0.891)    15 ###################################
+    [0.891,1.000)     0 
+    [1.000,1.122)     0 
+    [1.122,1.260)     7 ################
+    [1.260,1.414)    10 ########################
+    [1.414,1.587)     5 ############
+    [1.587,1.782)    12 ############################
+    [1.782,2.000)    16 ######################################
+  sanity: bounds ok, speed conserved, paddle-contact rate 0.521%
+
+wrote 3000 frames to data/v2/probe  (37 MB)
+=== holdout
+  episode 1/30  (0.1s, 2287 frames/s)
+  episode 2/30  (0.2s, 2339 frames/s)
+  episode 3/30  (0.2s, 2472 frames/s)
+  episode 4/30  (0.3s, 2549 frames/s)
+  episode 5/30  (0.4s, 2641 frames/s)
+  episode 6/30  (0.4s, 2712 frames/s)
+  episode 7/30  (0.5s, 2770 frames/s)
+  episode 8/30  (0.6s, 2815 frames/s)
+  episode 9/30  (0.6s, 2848 frames/s)
+  episode 10/30  (0.7s, 2879 frames/s)
+  episode 11/30  (0.8s, 2902 frames/s)
+  episode 12/30  (0.8s, 2920 frames/s)
+  episode 13/30  (0.9s, 2939 frames/s)
+  episode 14/30  (1.0s, 2955 frames/s)
+  episode 15/30  (1.0s, 2968 frames/s)
+  episode 16/30  (1.1s, 2980 frames/s)
+  episode 17/30  (1.1s, 2991 frames/s)
+  episode 18/30  (1.2s, 3001 frames/s)
+  episode 19/30  (1.3s, 3011 frames/s)
+  episode 20/30  (1.3s, 3018 frames/s)
+  episode 21/30  (1.4s, 3027 frames/s)
+  episode 22/30  (1.5s, 3037 frames/s)
+  episode 23/30  (1.5s, 3044 frames/s)
+  episode 24/30  (1.6s, 3051 frames/s)
+  episode 25/30  (1.6s, 3057 frames/s)
+  episode 26/30  (1.7s, 3060 frames/s)
+  episode 27/30  (1.8s, 3065 frames/s)
+  episode 28/30  (1.8s, 3069 frames/s)
+  episode 29/30  (1.9s, 3074 frames/s)
+  episode 30/30  (2.0s, 3079 frames/s)
+  mass: n=30  min=0.889  median=1.008  max=1.194  mean_eff_speed=0.0219
+  mass histogram (log-spaced bins):
+    [0.500,0.561)     0 
+    [0.561,0.630)     0 
+    [0.630,0.707)     0 
+    [0.707,0.794)     0 
+    [0.794,0.891)     1 ###
+    [0.891,1.000)    13 ########################################
+    [1.000,1.122)    13 ########################################
+    [1.122,1.260)     3 #########
+    [1.260,1.414)     0 
+    [1.414,1.587)     0 
+    [1.587,1.782)     0 
+    [1.782,2.000)     0 
+  sanity: bounds ok, speed conserved, paddle-contact rate 1.133%
+
+wrote 6030 frames to data/v2/holdout  (74 MB)
+ALLDONE

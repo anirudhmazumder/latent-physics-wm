@@ -44,7 +44,7 @@ import torch
 
 from worldsim.render import frame_grid, save_gif, side_by_side, upscale
 
-from .analyze import load_ckpt
+from .analyze import add_derived_targets, load_ckpt
 from .probes import probe_suite
 from .rnn import MDNRNN, load_rnn
 from .seq_data import episode_arrays
@@ -52,6 +52,7 @@ from .train_vae import pick_device
 
 TAUS = (0.0, 0.5, 1.0)
 BALL_RADIUS = 0.08  # from the dataset meta; the "useful horizon" threshold
+BASE_SPEED = 0.022  # v2: the ball's speed is BASE_SPEED / mass
 
 
 # --------------------------------------------------------------- plumbing
@@ -138,14 +139,24 @@ def dream(
     return out
 
 
-def _stack_val(roots: Sequence[str]) -> Dict[str, np.ndarray]:
-    """Concatenate several dataset roots along the episode axis."""
-    parts = [episode_arrays(r) for r in roots]
+def _stack_val(roots: Sequence[str], latent_suffix: str = "") -> Dict[str, np.ndarray]:
+    """Concatenate several dataset roots along the episode axis.
+
+    Also carries ``state_names`` out of the roots' meta.json instead of letting
+    the rest of the file assume six columns: v1 datasets have six, v2 has seven
+    (``mass`` appended). Everything downstream indexes by name where it can and
+    by the shared prefix (0=ball_x, 1=ball_y, 4=paddle_x) where it cannot.
+    """
+    parts = [episode_arrays(r, latent_suffix=latent_suffix) for r in roots]
     keys = ("mu", "logvar", "actions", "hit", "reward", "state")
     out = {k: np.concatenate([p[k] for p in parts], 0) for k in keys}
     out["root_of_episode"] = np.concatenate(
         [np.full(len(p["mu"]), i) for i, p in enumerate(parts)]
     )
+    names = [tuple(p["meta"]["state_names"]) for p in parts]
+    if len(set(names)) != 1:
+        raise ValueError(f"roots disagree on state_names: {set(names)}")
+    out["state_names"] = list(names[0])
     return out
 
 
@@ -286,6 +297,57 @@ def _load_true_frames(val, E: int, idx: np.ndarray) -> np.ndarray:
 # ---------------------------------------------------------------- part (b)
 
 
+
+def _first_exceed(curve: np.ndarray, thresh: float, horizon: int) -> int:
+    """First index where ``curve`` exceeds ``thresh``, else ``horizon``."""
+    bad = np.where(curve > thresh)[0]
+    return int(bad[0]) if len(bad) else int(horizon)
+
+
+def horizon_by_mass(
+    ball_err_ep: np.ndarray, mass: np.ndarray, horizon: int
+) -> Dict[str, Dict[str, float]]:
+    """Useful dream horizon split into mass terciles. v2 only.
+
+    Why this exists: the pooled useful horizon now mixes fast balls and slow
+    ones, and a fast ball covers the one-ball-radius error budget in fewer
+    FRAMES purely because it moves further per frame. So the frame count is
+    reported alongside the same horizon expressed in BALL DIAMETERS TRAVELLED,
+    ``horizon * speed / (2 * ball_radius)``, which is the distance-normalised
+    version and the fair comparison across masses. If the two orderings
+    disagree -- fewer frames but the same number of diameters -- the model is
+    not worse on light balls, it is being asked a harder question per frame.
+
+    Horizons are computed PER EPISODE and then averaged, not from the
+    tercile-mean error curve: a mean curve is dominated by whichever episode
+    diverged first and gives a systematically pessimistic horizon.
+    """
+    out: Dict[str, Dict[str, float]] = {}
+    q = np.quantile(mass, [1 / 3, 2 / 3])
+    groups = {
+        "light": mass <= q[0],
+        "medium": (mass > q[0]) & (mass <= q[1]),
+        "heavy": mass > q[1],
+    }
+    for name, sel in groups.items():
+        if not sel.any():
+            continue
+        hs = np.array([
+            _first_exceed(ball_err_ep[i], BALL_RADIUS, horizon)
+            for i in np.where(sel)[0]
+        ], dtype=float)
+        speed = BASE_SPEED / mass[sel]
+        out[name] = {
+            "n": int(sel.sum()),
+            "mass_lo": float(mass[sel].min()),
+            "mass_hi": float(mass[sel].max()),
+            "mean_speed": float(speed.mean()),
+            "useful_dream_horizon": float(hs.mean()),
+            "horizon_ball_diameters": float((hs * speed / (2 * BALL_RADIUS)).mean()),
+        }
+    return out
+
+
 def part_b_state(
     model, probe: StateProbe, val, out: Path, device: str,
     warmup: int, horizon: int, n_metric: int, seed: int,
@@ -300,18 +362,23 @@ def part_b_state(
     est_true = probe(val["mu"][:E][:, idx_true])
     floor = np.abs(est_true - true_state).mean(0)              # (H, 6)
 
+    # v2: mass per episode, for the by-tercile breakdown below. None in v1.
+    names = val.get("state_names", [])
+    mass = val["state"][:E, 0, names.index("mass")] if "mass" in names else None
+
     res: Dict[str, object] = {}
     curves = {}
     for tau in TAUS:
         z_d = dream(model, val["mu"][:E], val["actions"][:E], starts, warmup=warmup,
                     horizon=horizon, temperature=tau, device=device, seed=seed)
         est = probe(z_d)
-        err = np.abs(est - true_state).mean(0)                 # (H, 6)
+        err = np.abs(est - true_state).mean(0)                 # (H, S)
         curves[tau] = err
         # "Useful dream horizon": first step where the euclidean ball-position
         # error exceeds one ball radius, i.e. the dreamed ball no longer
         # overlaps the true one. A blunt but honest summary number.
-        ball_err = np.linalg.norm(est[..., :2] - true_state[..., :2], axis=-1).mean(0)
+        ball_err_ep = np.linalg.norm(est[..., :2] - true_state[..., :2], axis=-1)
+        ball_err = ball_err_ep.mean(0)                         # (H,)
         bad = np.where(ball_err > BALL_RADIUS)[0]
         useful = int(bad[0]) if len(bad) else horizon
         res[f"tau{tau}"] = {
@@ -321,9 +388,21 @@ def part_b_state(
             "paddle_x_err_h16": float(err[min(15, horizon - 1), 4]),
             "ball_err_final": float(ball_err[-1]),
         }
+        if mass is not None:
+            res[f"tau{tau}"]["by_mass_tercile"] = horizon_by_mass(
+                ball_err_ep, mass, horizon
+            )
         print(f"    tau={tau}: useful dream horizon {useful} steps "
               f"(|ball| err > {BALL_RADIUS}); |dx|@16 {err[15,0]:.3f} "
               f"|dpaddle|@16 {err[15,4]:.3f}")
+    if mass is not None:
+        t = res["tau0.0"]["by_mass_tercile"]
+        print("    by mass tercile (tau=0):")
+        for k in ("light", "medium", "heavy"):
+            r = t[k]
+            print(f"      {k:7s} m in [{r['mass_lo']:.2f}, {r['mass_hi']:.2f}]  "
+                  f"horizon {r['useful_dream_horizon']:5.1f} frames = "
+                  f"{r['horizon_ball_diameters']:.2f} ball diameters travelled")
 
     res["probe_floor"] = {
         "ball_x": float(floor[:, 0].mean()),
@@ -381,11 +460,34 @@ def collect_hidden(
     )
 
 
+
+# A degree-2 probe on a 256-unit hidden state would be 33,000 features, which
+# is both slow and a memory hazard on 8 GB. Project wide feature matrices onto
+# their leading principal components first. PCA is unsupervised -- it never
+# looks at the targets -- but it IS fitted on both halves of the probe split,
+# which is a small, target-blind leak; it is recorded here rather than hidden.
+POLY_MAX_DIM = 32
+
+
+def _reduce_for_poly(X: np.ndarray, seed: int = 0, max_dim: int = POLY_MAX_DIM):
+    if X.shape[1] <= max_dim:
+        return X
+    from sklearn.decomposition import PCA
+
+    return PCA(n_components=max_dim, random_state=seed).fit_transform(X)
+
+
 def part_c_velocity(
     model, val, out: Path, device: str, n_samples: int, seed: int
 ) -> Dict:
     print("\n(c) where does velocity live?")
-    state_names = ["ball_x", "ball_y", "ball_vx", "ball_vy", "paddle_x", "paddle_vx"]
+    # v1 had six state columns and they were hardcoded here. v2 has seven, and
+    # the two most interesting probe targets (speed, log_mass) are not columns
+    # at all -- they are derived. So take the names from the dataset meta and
+    # append the derived pair, which is a no-op on a v1 dataset.
+    state_names = list(val.get("state_names")
+                       or ["ball_x", "ball_y", "ball_vx", "ball_vy",
+                           "paddle_x", "paddle_vx"])
     z_in, h_all, c_all = collect_hidden(model, val["mu"], val["actions"], device)
     E, T = h_all.shape[0], h_all.shape[1]
 
@@ -396,6 +498,7 @@ def part_c_velocity(
     Z = z_in.reshape(E * T, -1)
     H = h_all.reshape(E * T, -1)
     S = st.reshape(E * T, -1)
+    S, state_names = add_derived_targets(S, state_names)   # +log_mass, +speed
 
     # Drop the first few steps of each episode: h starts at zero and needs a
     # couple of frames before it could possibly contain a velocity estimate.
@@ -412,22 +515,32 @@ def part_c_velocity(
         results[name] = probe_suite(
             X, S, state_names, group_ids=G, seed=seed, which=("linear", "knn")
         )
+        # poly2 is added for v2: stage one showed speed and log_mass are
+        # decodable from z only under a degree-2 map and NOT by kNN (the latent
+        # metric is dominated by position, so a nearest neighbour is a frame at
+        # the same place with a different colour). A linear/kNN-only table would
+        # have reported "colour is not in z", which is false. Run separately, on
+        # a PCA-reduced X, with the same seed and groups so it is the same split.
+        results[name]["poly2"] = probe_suite(
+            _reduce_for_poly(X, seed), S, state_names, group_ids=G, seed=seed,
+            which=("poly2",),
+        )["poly2"]
 
     print(f"    n={len(idx)} timesteps, episode-level split")
     header = f"    {'feature':7s} {'probe':7s} " + " ".join(f"{n:>9s}" for n in state_names)
     print(header)
     for name in feats:
-        for pr in ("linear", "knn"):
+        for pr in ("linear", "poly2", "knn"):
             row = " ".join(f"{results[name][pr][n]:9.3f}" for n in state_names)
             print(f"    {name:7s} {pr:7s} {row}")
 
     (out / "velocity_probe.json").write_text(json.dumps(results, indent=2, default=float))
 
     plt = _plt()
-    fig, axes = plt.subplots(1, 2, figsize=(12, 4), sharey=True)
+    fig, axes = plt.subplots(1, 3, figsize=(17, 4.4), sharey=True)
     width = 0.25
     xs = np.arange(len(state_names))
-    for ax, pr in zip(axes, ("linear", "knn")):
+    for ax, pr in zip(axes, ("linear", "poly2", "knn")):
         for i, name in enumerate(feats):
             vals = [max(results[name][pr][n], -0.05) for n in state_names]
             ax.bar(xs + (i - 1) * width, vals, width, label=name)
@@ -709,6 +822,9 @@ def main() -> None:
     p.add_argument("--n-gif", type=int, default=3)
     p.add_argument("--probe-samples", type=int, default=12000)
     p.add_argument("--velocity-samples", type=int, default=6000)
+    p.add_argument("--latent-suffix", default="",
+                   help='evaluate a model trained on mu<suffix>.npy, e.g. "v1vae" '
+                        "for the --ablate-color control")
     p.add_argument("--device", default="cpu")
     p.add_argument("--seed", type=int, default=0)
     a = p.parse_args()
@@ -723,7 +839,7 @@ def main() -> None:
     vae, vcfg, _ = load_ckpt(a.vae, device)
     print(f"model {a.ckpt}  cfg={cfg}\nvae   {a.vae}  z_dim={vcfg.z_dim}\ndevice={device}")
 
-    val = _stack_val(a.val)
+    val = _stack_val(a.val, latent_suffix=a.latent_suffix)
     val["roots"] = list(a.val)
     val["per_root"] = [episode_arrays(r)["mu"].shape[0] for r in a.val]
     print(f"val: {val['mu'].shape[0]} episodes x {val['actions'].shape[1]} steps")
@@ -731,9 +847,12 @@ def main() -> None:
     # --- fit the measuring instrument -------------------------------------
     pm, ps = [], []
     for r in a.probe_data:
-        d = episode_arrays(r)
+        # The probe must be fitted on the SAME latent space the model dreams in,
+        # hence latent_suffix here too. Its state width is taken from the data
+        # (6 in v1, 7 in v2) instead of being hardcoded.
+        d = episode_arrays(r, latent_suffix=a.latent_suffix)
         pm.append(d["mu"].reshape(-1, d["mu"].shape[-1]))
-        ps.append(d["state"].reshape(-1, 6))
+        ps.append(d["state"].reshape(-1, d["state"].shape[-1]))
     PM, PS = np.concatenate(pm), np.concatenate(ps)
     rng = np.random.default_rng(a.seed)
     if len(PM) > a.probe_samples:
@@ -824,6 +943,22 @@ def _summary(r: Dict, out: Path) -> None:
         f"   {e['prob_at_lag_-3']:.3f} against a base rate of {e['base_rate']:.3f}: "
         f"the model anticipates."
     )
+    b0 = b.get("tau0.0", {})
+    if "by_mass_tercile" in b0:
+        print("\n   v2: the same horizon split by mass tercile --")
+        for k in ("light", "medium", "heavy"):
+            t = b0["by_mass_tercile"].get(k)
+            if t:
+                print(f"      {k:7s} m {t['mass_lo']:.2f}-{t['mass_hi']:.2f}  "
+                      f"{t['useful_dream_horizon']:5.1f} frames  "
+                      f"({t['horizon_ball_diameters']:.2f} ball diameters travelled)")
+        cz = c["z"].get("poly2", {})
+        ch = c["h"].get("poly2", {})
+        if "speed" in cz:
+            print(f"\n   v2: speed R^2 -- z(poly2) {cz['speed']:.3f}, "
+                  f"h(poly2) {ch['speed']:.3f};  log_mass -- "
+                  f"z {cz.get('log_mass', float('nan')):.3f}, "
+                  f"h {ch.get('log_mass', float('nan')):.3f}")
     f = r["f_bounces"]
     print(
         f"\n5. Walls: the dreamed ball reverses within +/-2 steps of the true\n"

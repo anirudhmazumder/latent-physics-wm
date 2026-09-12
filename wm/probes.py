@@ -96,17 +96,66 @@ def probe_suite(
     which: Sequence[str] = ("linear", "poly2", "poly3", "knn", "mlp"),
 ) -> Dict[str, Dict[str, float]]:
     """Held-out R^2 for each (probe, factor) pair. Returns probe -> factor -> R^2."""
-    from sklearn.preprocessing import PolynomialFeatures, StandardScaler
-
     mu = np.asarray(mu, dtype=np.float64)
     state = np.asarray(state, dtype=np.float64)
     tr, te = make_split(len(mu), seed=seed, group_ids=group_ids)
+    return _fit_probes(mu[tr], state[tr], mu[te], state[te], state_names, which, seed)
+
+
+def probe_transfer(
+    mu_fit: np.ndarray,
+    state_fit: np.ndarray,
+    mu_eval: np.ndarray,
+    state_eval: np.ndarray,
+    state_names: Sequence[str],
+    seed: int = 0,
+    which: Sequence[str] = ("linear", "poly2", "poly3", "knn", "mlp"),
+) -> Dict[str, Dict[str, float]]:
+    """Fit probes on one dataset, score them on a DIFFERENT one.
+
+    Same machinery as ``probe_suite``, but the train/test boundary is a
+    distribution shift you chose rather than a random split. This is how you ask
+    a generalisation question instead of a decodability question.
+
+    v2 uses it for the mass hold-out: probes are fit on frames whose ball mass
+    was never in [0.85, 1.2] and evaluated on frames where it always is. A high
+    R^2 means the latent code for colour is a genuine continuum that interpolates
+    into a band it never saw; a low R^2 with high in-distribution R^2 means the
+    model memorised the colours it was shown, which is a much weaker claim and
+    would be a real limitation to know about before building M on top of it.
+
+    R^2 here is computed against the EVAL set's own mean, so a probe that is
+    perfect in-distribution but predicts a constant on the new band scores ~0,
+    and one that is systematically biased on the new band scores below 0.
+    """
+    return _fit_probes(
+        np.asarray(mu_fit, dtype=np.float64),
+        np.asarray(state_fit, dtype=np.float64),
+        np.asarray(mu_eval, dtype=np.float64),
+        np.asarray(state_eval, dtype=np.float64),
+        state_names,
+        which,
+        seed,
+    )
+
+
+def _fit_probes(
+    mu_tr: np.ndarray,
+    state_tr: np.ndarray,
+    mu_te: np.ndarray,
+    state_te: np.ndarray,
+    state_names: Sequence[str],
+    which: Sequence[str],
+    seed: int,
+) -> Dict[str, Dict[str, float]]:
+    """Shared body of probe_suite / probe_transfer: fit on tr, score on te."""
+    from sklearn.preprocessing import PolynomialFeatures, StandardScaler
 
     # Standardise on TRAIN statistics only. Fitting the scaler on the full set
     # is a small but real leak, and it is the kind that silently flatters every
     # probe equally so you never notice it.
-    sx = StandardScaler().fit(mu[tr])
-    Xtr, Xte = sx.transform(mu[tr]), sx.transform(mu[te])
+    sx = StandardScaler().fit(mu_tr)
+    Xtr, Xte = sx.transform(mu_tr), sx.transform(mu_te)
 
     out: Dict[str, Dict[str, float]] = {k: {} for k in which}
 
@@ -117,7 +166,7 @@ def probe_suite(
             poly_cache[deg] = (pf.transform(Xtr), pf.transform(Xte))
 
     for j, name in enumerate(state_names):
-        ytr, yte = state[tr, j], state[te, j]
+        ytr, yte = state_tr[:, j], state_te[:, j]
 
         if "linear" in which:
             out["linear"][name] = _r2(yte, _fit_linear(Xtr, ytr, Xte))
@@ -266,6 +315,72 @@ def tuning_maps(
         # Row 0 is the top of the image, so flip to match how you view frames.
         maps[k] = m[::-1]
     return maps, counts[::-1]
+
+
+def mass_tuning(
+    mu: np.ndarray,
+    mass: np.ndarray,
+    dims: Sequence[int],
+    bins: int = 12,
+    min_count: int = 3,
+):
+    """Mean of each latent dim as a function of log-mass. v2's version of a tuning map.
+
+    Binned in LOG mass because that is the variable the colour ramp is linear
+    in (u = log m rescaled), so a dimension that codes colour linearly shows up
+    here as a straight line. A dimension that codes it with a saturating or
+    folded shape shows up as a curve or a hump, which is the same
+    linear-vs-nonlinear question the probe suite asks, but visible.
+
+    Returns ``(centres, curves, counts)`` with curves of shape
+    ``(len(dims), bins)``, NaN where a bin is too sparse to trust.
+    """
+    mu = np.asarray(mu, dtype=np.float64)
+    lm = np.log(np.asarray(mass, dtype=np.float64))
+    edges = np.linspace(lm.min(), lm.max() + 1e-12, bins + 1)
+    idx = np.clip(np.digitize(lm, edges) - 1, 0, bins - 1)
+
+    counts = np.zeros(bins)
+    np.add.at(counts, idx, 1.0)
+    centres = 0.5 * (edges[:-1] + edges[1:])
+
+    curves = np.full((len(dims), bins), np.nan)
+    for k, d in enumerate(dims):
+        acc = np.zeros(bins)
+        np.add.at(acc, idx, mu[:, d])
+        with np.errstate(invalid="ignore", divide="ignore"):
+            c = acc / counts
+        c[counts < min_count] = np.nan
+        curves[k] = c
+    return centres, curves, counts
+
+
+def save_mass_tuning(centres, curves, dims: Sequence[int], path, holdout=None):
+    """Render mass_tuning as one line per latent dim. Needs matplotlib."""
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+
+    fig, ax = plt.subplots(figsize=(6.5, 4.2))
+    for k, d in enumerate(dims):
+        ax.plot(np.exp(centres), curves[k], marker="o", ms=3, label=f"z[{d}]")
+    if holdout is not None:
+        # Shade the band the training data never contained, so you can see at a
+        # glance whether the curves are interpolating across a gap or across
+        # data they actually saw.
+        ax.axvspan(holdout[0], holdout[1], color="0.85", zorder=0,
+                   label="held-out band")
+    ax.set_xscale("log")
+    ax.set_xlabel("ball mass (log scale) -- yellow/light on the left, purple/heavy on the right")
+    ax.set_ylabel("mean mu in bin")
+    ax.set_title("latent tuning to mass (i.e. to ball colour)")
+    ax.axhline(0.0, color="0.6", lw=0.8)
+    ax.legend(fontsize=7, ncol=2)
+    fig.tight_layout()
+    fig.savefig(path, dpi=130)
+    plt.close(fig)
+    return path
 
 
 def save_tuning_grid(

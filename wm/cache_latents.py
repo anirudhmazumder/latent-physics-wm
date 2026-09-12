@@ -3,7 +3,10 @@
     python -m wm.cache_latents --ckpt runs/vae/vae.pt --data data/v1/train
 
 Writes ``mu.npy`` and ``logvar.npy`` of shape (E, T+1, z_dim) into the dataset
-directory.
+directory. ``--suffix v1vae`` writes ``mu_v1vae.npy`` / ``logvar_v1vae.npy``
+instead, so latents from a *different* encoder can live alongside the default
+ones in the same dataset root. v2 uses this for the ``--ablate-color`` control:
+the same frames encoded by the v1 VAE, which never saw a coloured ball.
 
 This is the single best practical decision in the pipeline. A 20k-frame dataset
 is 245 MB of pixels and about 2.5 MB of latents -- roughly 100x smaller. Once
@@ -42,23 +45,31 @@ from numpy.lib.format import open_memmap
 from .analyze import load_ckpt
 
 
+def latent_suffix(suffix: str | None) -> str:
+    """Empty -> "", "v1vae" -> "_v1vae". One place so writer and reader agree."""
+    suffix = (suffix or "").strip().lstrip("_")
+    return f"_{suffix}" if suffix else ""
+
+
 @torch.no_grad()
 def cache(
     ckpt: str | Path,
     data: str | Path,
     device: str = "cpu",
     batch_size: int = 256,
+    suffix: str = "",
 ) -> Path:
     model, cfg, _ = load_ckpt(ckpt, device)
     root = Path(data)
     frames = np.load(root / "frames.npy", mmap_mode="r")
     E, Tp1 = frames.shape[0], frames.shape[1]
 
+    sfx = latent_suffix(suffix)
     mu_out = open_memmap(
-        root / "mu.npy", mode="w+", dtype=np.float32, shape=(E, Tp1, cfg.z_dim)
+        root / f"mu{sfx}.npy", mode="w+", dtype=np.float32, shape=(E, Tp1, cfg.z_dim)
     )
     lv_out = open_memmap(
-        root / "logvar.npy", mode="w+", dtype=np.float32, shape=(E, Tp1, cfg.z_dim)
+        root / f"logvar{sfx}.npy", mode="w+", dtype=np.float32, shape=(E, Tp1, cfg.z_dim)
     )
 
     for e in range(E):
@@ -77,7 +88,7 @@ def cache(
     mu_out.flush()
     lv_out.flush()
 
-    meta_path = root / "latent_meta.json"
+    meta_path = root / f"latent_meta{sfx}.json"
     meta_path.write_text(
         json.dumps(
             {
@@ -100,8 +111,10 @@ def main() -> None:
     p.add_argument("--data", required=True)
     p.add_argument("--device", default="cpu")
     p.add_argument("--batch-size", type=int, default=256)
+    p.add_argument("--suffix", default="",
+                   help='tag for a non-default encoder, e.g. "v1vae" -> mu_v1vae.npy')
     a = p.parse_args()
-    cache(a.ckpt, a.data, device=a.device, batch_size=a.batch_size)
+    cache(a.ckpt, a.data, device=a.device, batch_size=a.batch_size, suffix=a.suffix)
 
 
 if __name__ == "__main__":

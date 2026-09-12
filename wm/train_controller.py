@@ -51,7 +51,7 @@ import argparse
 import json
 import time
 from pathlib import Path
-from typing import Dict, Sequence
+from typing import Dict, Optional, Sequence
 
 import numpy as np
 import torch
@@ -136,12 +136,18 @@ class RealFitness:
     """
 
     def __init__(self, vae, rnn, rollouts: int = 8, steps: int = 200,
-                 device: str = "cpu", ball_radius: float = 0.08,
-                 seed_base: int = 900_000):
+                 device: str = "cpu", seed_base: int = 900_000,
+                 count: str = "frames", env: Optional[Dict] = None):
         self.vae, self.rnn = vae, rnn
         self.rollouts, self.steps = int(rollouts), int(steps)
-        self.device, self.ball_radius = device, float(ball_radius)
+        self.device = device
         self.seed_base = int(seed_base)
+        # `count` is the v1-vs-v2 difference that actually changed the answer:
+        # v1's ctrl_real optimised contact FRAMES and learned to pin the ball
+        # against the paddle, scoring 2.00 hits on 1.27 real interceptions. v2
+        # optimises interceptions, so the loophole is not on the table.
+        self.count = str(count)
+        self.env = dict(env or {"ball_radius": 0.08})
         self.env_steps_used = 0
 
     def __call__(self, params: np.ndarray, seed: int, ctrl: LinearController):
@@ -151,7 +157,7 @@ class RealFitness:
         seeds = self.seed_base + (seed % 997) * R + np.arange(R)
         hits = run_population_real(
             params, ctrl, self.vae, self.rnn, seeds,
-            steps=self.steps, device=self.device, ball_radius=self.ball_radius,
+            steps=self.steps, device=self.device, count=self.count, **self.env,
         )                                                   # (P, R)
         self.env_steps_used += P * R * self.steps
         return {"fitness": hits.mean(1), "hit_sum": hits.mean(1)}
@@ -169,6 +175,14 @@ def train(a: argparse.Namespace) -> Dict:
 
     torch.manual_seed(a.seed)
     np.random.seed(a.seed)
+
+    # One dict describing the world, built by the same helper the evaluation
+    # harness uses, and handed to every real-environment call below. Training
+    # and evaluation cannot disagree about the world by construction.
+    from .eval_controller import env_kwargs
+
+    ekw = env_kwargs(a)
+    print(f"real env: {ekw}")
 
     rnn, rcfg = load_rnn(a.rnn, a.device)
     print(f"M: {a.rnn}  z_dim {rcfg.z_dim}  hidden {rcfg.hidden}  K {rcfg.n_gauss}")
@@ -201,7 +215,7 @@ def train(a: argparse.Namespace) -> Dict:
         real_env_steps_train = 0
     else:
         rf = RealFitness(vae, rnn, rollouts=a.rollouts, steps=a.real_steps,
-                         device=a.device, ball_radius=a.ball_radius)
+                         device=a.device, count=a.real_fitness_count, env=ekw)
         evaluate = lambda X, s: rf(X, s, ctrl)                 # noqa: E731
         dream_env_steps_per_gen = 0
         real_env_steps_train = None  # filled from rf at the end
@@ -253,10 +267,20 @@ def train(a: argparse.Namespace) -> Dict:
             ctrl.set_params(cur)
             roll = run_real_episodes(
                 ctrl, vae, rnn, episodes=a.real_eval_episodes, steps=a.real_steps,
-                seed_base=a.real_eval_seed_base, device=a.device,
-                ball_radius=a.ball_radius,
+                seed_base=a.real_eval_seed_base, device=a.device, **ekw,
             )
-            hits = roll["hits"].sum(1)
+            # This number selects `params_best_real`, so what it counts
+            # matters. v1 counted contact FRAMES; v1's own conclusion was that
+            # interceptions (runs of contact frames collapsed) is the honest
+            # metric, so v2 selects on that. The default stays `hits` purely so
+            # the v1 runs remain exactly reproducible.
+            from .eval_controller import contact_runs
+
+            hits = (
+                contact_runs(roll["hits"])
+                if a.real_eval_metric == "interceptions"
+                else roll["hits"].sum(1)
+            )
             real_eval_steps += a.real_eval_episodes * a.real_steps
             hist["real_gen"].append(gen)
             hist["real_hits"].append(float(hits.mean()))
@@ -277,6 +301,8 @@ def train(a: argparse.Namespace) -> Dict:
 
     meta = {
         "args": vars(a),
+        "env": {k: (list(v) if isinstance(v, (list, tuple)) else v)
+                for k, v in ekw.items()},
         "n_params": ctrl.n_params,
         "norm_info": ninfo,
         "best_real_hits": best_real,
@@ -293,7 +319,13 @@ def train(a: argparse.Namespace) -> Dict:
     # `meta` is serialised into the checkpoint below.
     plot_fitness(hist, out / "fitness.png", a.reward)
     if hist["real_gen"]:
-        meta["transfer"] = plot_dream_vs_real(hist, out / "dream_vs_real.png")
+        # With --fitness real the left-hand curve is not a dream at all; say
+        # so on the axis rather than shipping a plot that claims otherwise.
+        meta["transfer"] = plot_dream_vs_real(
+            hist, out / "dream_vs_real.png", a.real_eval_metric,
+            "dream return" if a.fitness == "dream"
+            else f"real training fitness ({a.real_fitness_count})",
+        )
 
     save_controller(
         out / "controller.pt",
@@ -357,7 +389,8 @@ def plot_fitness(hist: Dict, path: Path, reward: str) -> Path:
     return path
 
 
-def plot_dream_vs_real(hist: Dict, path: Path) -> Path:
+def plot_dream_vs_real(hist: Dict, path: Path, metric: str = "hits",
+                       fitness_label: str = "dream return") -> Path:
     """The transfer plot. Two y-axes, because the units are incomparable.
 
     What to look for: the two curves should rise TOGETHER. If the blue (dream)
@@ -368,9 +401,9 @@ def plot_dream_vs_real(hist: Dict, path: Path) -> Path:
     fig, ax = plt.subplots(figsize=(6.8, 4))
     ax.plot(hist["gen"], hist["best"], c="#3a7bd5", alpha=0.25, lw=0.8)
     ax.plot(hist["gen"], _smooth(hist["best"]), c="#3a7bd5",
-            label="dream return (best, smoothed)")
+            label=f"{fitness_label} (best, smoothed)")
     ax.set_xlabel("CMA-ES generation")
-    ax.set_ylabel("dream return", color="#3a7bd5")
+    ax.set_ylabel(fitness_label, color="#3a7bd5")
     ax.tick_params(axis="y", labelcolor="#3a7bd5")
 
     ax2 = ax.twinx()
@@ -378,8 +411,8 @@ def plot_dream_vs_real(hist: Dict, path: Path) -> Path:
     ci = np.asarray(hist["real_ci"])
     ax2.errorbar(rg, rh, yerr=[rh - ci[:, 0], ci[:, 1] - rh],
                  c="#d55e3a", marker="o", ms=4, capsize=3,
-                 label="REAL hits/episode")
-    ax2.set_ylabel("real hits per 200-step episode", color="#d55e3a")
+                 label=f"REAL {metric}/episode")
+    ax2.set_ylabel(f"real {metric} per 200-step episode", color="#d55e3a")
     ax2.tick_params(axis="y", labelcolor="#d55e3a")
 
     # Two correlations, because the raw dream curve's per-generation jitter is
@@ -442,6 +475,19 @@ def main() -> None:
                         "disjoint")
     p.add_argument("--real-steps", type=int, default=200)
     p.add_argument("--ball-radius", type=float, default=0.08)
+    p.add_argument("--real-eval-metric", choices=["hits", "interceptions"],
+                   default="hits",
+                   help="what the periodic real check reports and selects on. "
+                        "'hits' is v1's contact-frame count (kept as the default "
+                        "so v1 runs reproduce); 'interceptions' is the honest one")
+    p.add_argument("--real-fitness-count", choices=["frames", "interceptions"],
+                   default="frames",
+                   help="what --fitness real maximises. 'frames' is v1's "
+                        "(exploitable) contact-frame count; 'interceptions' "
+                        "collapses each run of contact frames to one")
+    from .eval_controller import add_env_args
+
+    add_env_args(p)
     a = p.parse_args()
     train(a)
 

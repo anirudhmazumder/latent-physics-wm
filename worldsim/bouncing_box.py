@@ -1,4 +1,8 @@
-"""v1: a ball bouncing in a unit box, with a paddle the agent moves left/right.
+"""v1/v2: a ball bouncing in a unit box, with a paddle the agent moves left/right.
+
+v2 in one line: the ball's COLOUR tells you its MASS, and mass changes how the
+ball moves. See "v2: mass from colour" below. With ``mass_from_color=False``
+(the default) this file is bit-for-bit the v1 environment.
 
 Design notes
 ------------
@@ -21,6 +25,45 @@ Design notes
 
 Coordinate convention for frames: ``img[i, j]`` has x = (j + 0.5) / res and
 y = 1 - (i + 0.5) / res. So y = 0 is the bottom of the image, matching physics.
+
+v2: mass from colour
+--------------------
+At ``reset()`` we draw a mass ``m`` and paint the ball a colour that is a
+deterministic, monotone function of ``m``. Mass then feeds back into the
+physics in two places, both of the form "same impulse, different mass":
+
+  * speed      ``|v| = ball_speed / m``   (a heavy ball is slow)
+  * english    ``dvx = english * paddle_vx / m``  (a heavy ball is hard to nudge)
+
+Why this is the right second environment. In v1 every dynamically relevant
+variable was either visible in the frame (positions) or invisible in *any*
+single frame (velocities). v2 adds a third kind: a variable that is *visible*
+in a single frame but only as **appearance**, and whose consequences are purely
+*dynamical*. That is an appearance -> dynamics causal edge. It is the smallest
+honest version of "the world looks a certain way and therefore behaves a
+certain way", and each stage of the V-M-C stack has a different job with it:
+
+  V  should notice the colour at all (a new active latent dimension).
+  M  must learn that this latent multiplies the step size -- a *multiplicative*
+     interaction between two latents, which a linear dynamics model cannot do.
+  C  can in principle read the colour and lead a fast ball more than a slow one.
+
+Mass is sampled LOG-uniformly in ``[mass_min, mass_max] = [0.5, 2.0]``. Log
+rather than linear because mass enters the physics as a ratio (1/m): a linear
+prior would make "twice as heavy" and "half as heavy" occur at very different
+rates, and the median ball would not be m = 1. Log-uniform makes the
+distribution symmetric under m -> 1/m, so u = 0.5 is exactly m = 1 -- the v1
+ball -- and the colour ramp is symmetric about the v1 red.
+
+Colour ramp (see ``mass_to_color``): a TWO-SEGMENT path in RGB,
+    light yellow (250,220,80) -> v1 red (235,90,70) -> heavy purple (150,40,200)
+with the v1 red pinned at u = 0.5, i.e. m = 1. A single straight lerp from
+yellow to purple passes through a desaturated dusty pink around the midpoint
+(200,130,140), which is muddy on a dark background and is the region where most
+of the probability mass sits -- exactly where you least want the colour signal
+to be weak. Routing through the v1 red keeps every ball vivid, keeps the whole
+ramp far from the blue paddle (70,150,235) and the near-black background, and
+has the pleasing property that the median v2 ball is literally the v1 ball.
 """
 
 from __future__ import annotations
@@ -35,6 +78,10 @@ ACTIONS: Tuple[int, int, int] = (LEFT, STAY, RIGHT)
 ACTION_NAMES = ("left", "stay", "right")
 
 STATE_NAMES = ("ball_x", "ball_y", "ball_vx", "ball_vy", "paddle_x", "paddle_vx")
+# v2 appends mass as a 7th column. ``state()`` returns the 6-vector when
+# mass_from_color is off, so v1 datasets and every v1 consumer are untouched;
+# downstream code should read ``meta["state_names"]`` rather than assume 6.
+STATE_NAMES_V2 = STATE_NAMES + ("mass",)
 
 # Bit flags for the per-step event mask.
 EVENT_WALL_X = 1
@@ -62,9 +109,110 @@ class BoxConfig:
     ball_color: Tuple[int, int, int] = (235, 90, 70)
     paddle_color: Tuple[int, int, int] = (70, 150, 235)
 
+    # ------------------------------------------------------------------ v2
+    # All of this is inert while mass_from_color is False, which is why the
+    # default BoxConfig() still *is* v1.
+    mass_from_color: bool = False
+    mass_min: float = 0.5
+    mass_max: float = 2.0
+
+    # Endpoints of the colour ramp. The midpoint of the ramp (u = 0.5, m = 1)
+    # is ``ball_color``, so the v1 ball is the median v2 ball.
+    light_color: Tuple[int, int, int] = (250, 220, 80)   # u = 0, m = mass_min
+    heavy_color: Tuple[int, int, int] = (150, 40, 200)   # u = 1, m = mass_max
+
+    # Generalisation knobs, mutually exclusive in practice:
+    #   mass_holdout = (lo, hi)  -> never sample a mass inside [lo, hi]
+    #   mass_only    = (lo, hi)  -> sample ONLY inside [lo, hi]
+    # Train with the hold-out, test with the "only" set, and you have a clean
+    # *interpolation* test: the model has seen lighter and heavier balls but
+    # never one of exactly this colour. Rejection sampling rather than a
+    # re-parameterised distribution because it keeps the accepted samples
+    # exactly log-uniform-conditioned-on-the-band, with no arithmetic to get
+    # subtly wrong.
+    mass_holdout: Optional[Tuple[float, float]] = None
+    mass_only: Optional[Tuple[float, float]] = None
+
     def __post_init__(self) -> None:
         if self.paddle_y is None:
             self.paddle_y = self.paddle_h / 2.0
+        if self.mass_min <= 0.0 or self.mass_max <= self.mass_min:
+            raise ValueError("need 0 < mass_min < mass_max")
+        # Tuples, not lists, so a config round-tripped through JSON compares
+        # equal and so the dataclass stays hashable-ish in spirit.
+        if self.mass_holdout is not None:
+            self.mass_holdout = (float(self.mass_holdout[0]), float(self.mass_holdout[1]))
+        if self.mass_only is not None:
+            self.mass_only = (float(self.mass_only[0]), float(self.mass_only[1]))
+
+
+# --------------------------------------------------------------- mass <-> colour
+#
+# Kept as free functions taking a config, not methods, because analysis code
+# wants to go from a *pixel* back to a mass without instantiating an
+# environment (e.g. "what mass did the VAE just draw?").
+
+
+def _ramp_points(cfg: "BoxConfig") -> np.ndarray:
+    """The (3, 3) polyline light -> v1 red -> heavy, as float RGB."""
+    return np.array(
+        [cfg.light_color, cfg.ball_color, cfg.heavy_color], dtype=np.float64
+    )
+
+
+def mass_to_u(m: float, cfg: "BoxConfig") -> float:
+    """Position along the ramp: u = log(m/mass_min) / log(mass_max/mass_min)."""
+    return float(
+        np.log(m / cfg.mass_min) / np.log(cfg.mass_max / cfg.mass_min)
+    )
+
+
+def u_to_mass(u: float, cfg: "BoxConfig") -> float:
+    return float(cfg.mass_min * (cfg.mass_max / cfg.mass_min) ** u)
+
+
+def mass_to_color(m: float, cfg: Optional["BoxConfig"] = None) -> Tuple[int, int, int]:
+    """Deterministic, monotone colour for a mass. u = 0.5 gives the v1 ball.
+
+    Rounded to integer RGB on purpose: that is what actually lands in the
+    frame, so the inverse map below is inverting the real thing rather than an
+    idealised continuous one.
+    """
+    cfg = cfg or BoxConfig()
+    u = float(np.clip(mass_to_u(m, cfg), 0.0, 1.0))
+    pts = _ramp_points(cfg)
+    # Two equal halves of u: [0, .5] light->mid, [.5, 1] mid->heavy.
+    if u <= 0.5:
+        c = pts[0] + (pts[1] - pts[0]) * (u / 0.5)
+    else:
+        c = pts[1] + (pts[2] - pts[1]) * ((u - 0.5) / 0.5)
+    return tuple(int(round(v)) for v in c)  # type: ignore[return-value]
+
+
+def color_to_mass(color, cfg: Optional["BoxConfig"] = None) -> float:
+    """Inverse of ``mass_to_color``: nearest point on the ramp, then u -> m.
+
+    Implemented as a projection onto the polyline rather than by inverting one
+    channel. Two reasons: it is robust to the integer rounding above, and it
+    degrades gracefully on colours that are near but not on the ramp -- e.g. an
+    antialiased edge pixel, or a VAE reconstruction. Uses all three channels,
+    which matters because the red channel alone changes by only 15 units over
+    the whole light->red segment.
+    """
+    cfg = cfg or BoxConfig()
+    c = np.asarray(color, dtype=np.float64)
+    pts = _ramp_points(cfg)
+
+    best = (np.inf, 0.0)
+    for k in (0, 1):  # segment k covers u in [k/2, (k+1)/2]
+        a, b = pts[k], pts[k + 1]
+        d = b - a
+        denom = float(d @ d)
+        t = 0.0 if denom < 1e-12 else float(np.clip((c - a) @ d / denom, 0.0, 1.0))
+        resid = float(np.sum((a + t * d - c) ** 2))
+        if resid < best[0]:
+            best = (resid, 0.5 * (k + t))
+    return u_to_mass(best[1], cfg)
 
 
 class BouncingBox:
@@ -85,6 +233,19 @@ class BouncingBox:
         cfg = self.cfg
         r = cfg.ball_radius
 
+        # v2: mass first, because it decides both the colour and the speed.
+        # Drawn BEFORE any other rng use only when mass_from_color is on, so
+        # the v1 stream of random numbers (position, angle, paddle) is
+        # byte-identical to before when the flag is off.
+        self.mass = self._sample_mass()
+        self.ball_color = (
+            mass_to_color(self.mass, cfg) if cfg.mass_from_color else cfg.ball_color
+        )
+        # The *effective* speed. Every place that used cfg.ball_speed in v1 now
+        # uses this; with m = 1 it is exactly cfg.ball_speed (division by 1.0
+        # is exact in IEEE754, so v1 reproduces bit-for-bit).
+        self.speed = cfg.ball_speed / self.mass
+
         y_lo = cfg.paddle_y + cfg.paddle_h / 2.0 + r + 0.05
         self.ball = np.array(
             [self.rng.uniform(r, 1.0 - r), self.rng.uniform(y_lo, 1.0 - r)],
@@ -97,7 +258,7 @@ class BouncingBox:
             theta = self.rng.uniform(0.0, 2.0 * np.pi)
             if abs(np.sin(theta)) > 0.25 and abs(np.cos(theta)) > 0.25:
                 break
-        self.ball_v = cfg.ball_speed * np.array(
+        self.ball_v = self.speed * np.array(
             [np.cos(theta), np.sin(theta)], dtype=np.float64
         )
 
@@ -107,6 +268,34 @@ class BouncingBox:
         self.t = 0
         self._events = 0
         return self.render()
+
+    def _sample_mass(self) -> float:
+        """Log-uniform in [mass_min, mass_max], honouring holdout / only bands.
+
+        Returns exactly 1.0 (and consumes no randomness) in v1 mode.
+        """
+        cfg = self.cfg
+        if not cfg.mass_from_color:
+            return 1.0
+        lo, hi = np.log(cfg.mass_min), np.log(cfg.mass_max)
+        for _ in range(10_000):
+            m = float(np.exp(self.rng.uniform(lo, hi)))
+            if cfg.mass_holdout is not None and cfg.mass_holdout[0] <= m <= cfg.mass_holdout[1]:
+                continue
+            if cfg.mass_only is not None and not (cfg.mass_only[0] <= m <= cfg.mass_only[1]):
+                continue
+            return m
+        # Only reachable if the band is empty or absurdly narrow; better a loud
+        # failure at collection time than a dataset with a silent bias.
+        raise RuntimeError(
+            "mass rejection sampling failed -- check mass_holdout / mass_only "
+            "against [mass_min, mass_max]"
+        )
+
+    @property
+    def state_names(self) -> Tuple[str, ...]:
+        """Column names matching ``state()``. Write these into meta.json."""
+        return STATE_NAMES_V2 if self.cfg.mass_from_color else STATE_NAMES
 
     # ------------------------------------------------------------------- step
 
@@ -138,17 +327,23 @@ class BouncingBox:
         return self.render(), self.state(), self._events
 
     def state(self) -> np.ndarray:
-        return np.array(
-            [
-                self.ball[0],
-                self.ball[1],
-                self.ball_v[0],
-                self.ball_v[1],
-                self.paddle_x,
-                self.paddle_vx,
-            ],
-            dtype=np.float32,
-        )
+        """6 columns in v1 mode, 7 (with mass) when mass_from_color is on.
+
+        A variable-width state vector is a little impolite, but the alternative
+        -- always emitting a constant mass=1 column -- would change the shape of
+        every v1 dataset and break every v1 consumer, which is worse.
+        """
+        s = [
+            self.ball[0],
+            self.ball[1],
+            self.ball_v[0],
+            self.ball_v[1],
+            self.paddle_x,
+            self.paddle_vx,
+        ]
+        if self.cfg.mass_from_color:
+            s.append(self.mass)
+        return np.array(s, dtype=np.float32)
 
     # -------------------------------------------------------------- collisions
 
@@ -204,7 +399,11 @@ class BouncingBox:
             self.ball_v[0] -= 2.0 * vn * nx
             self.ball_v[1] -= 2.0 * vn * ny
 
-        self.ball_v[0] += cfg.english * self.paddle_vx
+        # v2 effect 2 of 2: the paddle delivers the same sideways IMPULSE to
+        # every ball, so the velocity change it produces is impulse / mass. A
+        # heavy (purple) ball barely swerves; a light (yellow) one is flicked
+        # hard. With m = 1 this is the v1 line unchanged.
+        self.ball_v[0] += cfg.english * self.paddle_vx / self.mass
         self._renormalise_velocity()
         self._events |= EVENT_PADDLE
 
@@ -214,20 +413,26 @@ class BouncingBox:
         self.ball[1] = float(np.clip(self.ball[1], r, 1.0 - r))
 
     def _renormalise_velocity(self) -> None:
+        # v2 effect 1 of 2: the conserved quantity is now the *effective* speed
+        # ball_speed / m, fixed for the whole episode. So speed is still
+        # conserved within an episode (the data distribution stays stationary,
+        # which was the v1 design goal) but varies across episodes, and the
+        # colour tells you which one you are in.
         cfg = self.cfg
+        target = self.speed
         speed = float(np.linalg.norm(self.ball_v))
         if speed < 1e-12:
-            self.ball_v[:] = (0.0, cfg.ball_speed)
+            self.ball_v[:] = (0.0, target)
             return
-        self.ball_v *= cfg.ball_speed / speed
+        self.ball_v *= target / speed
 
         # Keep the trajectory off horizontal, or a well-timed paddle hit can
         # leave the ball skimming a wall for hundreds of frames.
-        min_vy = cfg.min_vy_frac * cfg.ball_speed
+        min_vy = cfg.min_vy_frac * target
         if abs(self.ball_v[1]) < min_vy:
             sign = 1.0 if self.ball_v[1] >= 0.0 else -1.0
             self.ball_v[1] = sign * min_vy
-            vx_mag2 = cfg.ball_speed**2 - self.ball_v[1] ** 2
+            vx_mag2 = target**2 - self.ball_v[1] ** 2
             vx_sign = 1.0 if self.ball_v[0] >= 0.0 else -1.0
             self.ball_v[0] = vx_sign * np.sqrt(max(vx_mag2, 0.0))
 
@@ -261,7 +466,11 @@ class BouncingBox:
         # Ball on top: signed-distance coverage.
         d = np.sqrt((gx - self.ball[0]) ** 2 + (gy - self.ball[1]) ** 2)
         a_ball = np.clip(0.5 + (cfg.ball_radius - d) / px_size, 0.0, 1.0)[..., None]
-        img += (np.asarray(cfg.ball_color, dtype=np.float64) - img) * a_ball
+        # self.ball_color, not cfg.ball_color: in v2 the colour is per-episode
+        # state, set at reset from the mass. That one-word change is the entire
+        # rendering diff for v2 -- the physics/appearance coupling lives in
+        # reset() and the collision code, not here.
+        img += (np.asarray(self.ball_color, dtype=np.float64) - img) * a_ball
 
         return np.clip(img + 0.5, 0, 255).astype(np.uint8)
 

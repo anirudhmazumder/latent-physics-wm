@@ -15,7 +15,8 @@ A window of ``seq_len`` consecutive transitions from a single episode::
     z_next  (L, z_dim)   latent at times t0+1 .. t0+L      -- MDN target
     hit     (L,)         1.0 if that transition was a paddle contact
     reward  (L,)         dense shaping reward for that transition
-    state   (L, 6)       TRUE state at times t0+1 .. t0+L  -- diagnostics only
+    state   (L, S)       TRUE state at times t0+1 .. t0+L  -- diagnostics only
+                         S = 6 in v1, 7 in v2 (mass is the extra column).
 
 Three points that are easy to get wrong.
 
@@ -61,6 +62,8 @@ from torch.utils.data import DataLoader, Dataset
 
 from worldsim.bouncing_box import EVENT_PADDLE
 
+from .cache_latents import latent_suffix as _suffix_of
+
 N_ACTIONS = 3
 
 
@@ -73,20 +76,30 @@ class _Episodes:
     actions: np.ndarray   # (E, T)   int64
     hit: np.ndarray       # (E, T)   float32
     reward: np.ndarray    # (E, T)   float32
-    state: np.ndarray     # (E, T+1, 6) float32
+    state: np.ndarray     # (E, T+1, S) float32; S = 6 (v1) or 7 (v2, +mass)
     root: str
 
 
-def _load_root(root: str | Path) -> _Episodes:
+def _load_root(root: str | Path, suffix: str = "") -> _Episodes:
+    """Load one dataset root. ``suffix`` selects a non-default latent cache.
+
+    The frames, actions, events and states are properties of the *world* and are
+    shared; only ``mu``/``logvar`` depend on which encoder produced them. So the
+    v2 ``--ablate-color`` control is a one-word change here rather than a
+    duplicated dataset.
+    """
     root = Path(root)
-    mu_path = root / "mu.npy"
+    sfx = _suffix_of(suffix)
+    mu_path = root / f"mu{sfx}.npy"
     if not mu_path.exists():
         raise FileNotFoundError(
             f"{mu_path} missing -- run `python -m wm.cache_latents "
-            f"--ckpt runs/vae_b1/vae.pt --data {root}` first"
+            f"--ckpt runs/vae_b1/vae.pt --data {root}"
+            + (f" --suffix {sfx.lstrip('_')}" if sfx else "")
+            + "` first"
         )
     mu = np.load(mu_path).astype(np.float32)
-    logvar = np.load(root / "logvar.npy").astype(np.float32)
+    logvar = np.load(root / f"logvar{sfx}.npy").astype(np.float32)
     actions = np.load(root / "actions.npy").astype(np.int64)
     events = np.load(root / "events.npy")
     states = np.load(root / "states.npy").astype(np.float32)
@@ -95,8 +108,10 @@ def _load_root(root: str | Path) -> _Episodes:
 
     # Reward from the POST-transition state: states[:, 1:] lines up with
     # actions[:, :] under the dataset's convention
-    # (frames[t], actions[t]) -> frames[t+1].
-    post = states[:, 1:, :]                                   # (E, T, 6)
+    # (frames[t], actions[t]) -> frames[t+1]. Columns 0 and 4 are ball_x and
+    # paddle_x in both v1 (6 columns) and v2 (7 -- mass is appended last), so
+    # this is version-agnostic.
+    post = states[:, 1:, :]                                   # (E, T, S)
     reward = (1.0 - np.abs(post[..., 0] - post[..., 4])).astype(np.float32)
 
     T = actions.shape[1]
@@ -114,13 +129,15 @@ class LatentSequenceDataset(Dataset):
         stride: int = 1,
         use_mean: bool = False,
         seed: int | None = None,
+        latent_suffix: str = "",
     ):
         if isinstance(roots, (str, Path)):
             roots = [roots]
         self.roots = [str(r) for r in roots]
         self.seq_len = int(seq_len)
         self.use_mean = bool(use_mean)
-        self.eps = [_load_root(r) for r in self.roots]
+        self.latent_suffix = latent_suffix
+        self.eps = [_load_root(r, latent_suffix) for r in self.roots]
 
         z_dims = {e.mu.shape[-1] for e in self.eps}
         if len(z_dims) != 1:
@@ -214,9 +231,11 @@ def make_seq_loader(
     use_mean: bool = False,
     seed: int | None = None,
     num_workers: int = 0,
+    latent_suffix: str = "",
 ) -> DataLoader:
     ds = LatentSequenceDataset(
-        roots, seq_len=seq_len, stride=stride, use_mean=use_mean, seed=seed
+        roots, seq_len=seq_len, stride=stride, use_mean=use_mean, seed=seed,
+        latent_suffix=latent_suffix,
     )
     loader = DataLoader(
         ds,
@@ -231,7 +250,7 @@ def make_seq_loader(
 # ------------------------------------------------------------------ rollouts
 
 
-def episode_arrays(root: str | Path) -> Dict[str, np.ndarray]:
+def episode_arrays(root: str | Path, latent_suffix: str = "") -> Dict[str, np.ndarray]:
     """Whole-episode arrays for evaluation (dream rollouts, probes).
 
     Deliberately separate from the Dataset: evaluation wants whole episodes and
@@ -239,7 +258,7 @@ def episode_arrays(root: str | Path) -> Dict[str, np.ndarray]:
     for a rollout warm-up we want the cleanest possible starting point), whereas
     training wants short windows and samples.
     """
-    ep = _load_root(root)
+    ep = _load_root(root, latent_suffix)
     return {
         "mu": ep.mu,
         "logvar": ep.logvar,
