@@ -1,0 +1,303 @@
+{
+  "ckpt": "runs/rnn_v2_cons/rnn.pt",
+  "cfg": {
+    "z_dim": 16,
+    "n_actions": 3,
+    "hidden": 256,
+    "n_gauss": 5,
+    "predict_delta": true,
+    "ablate_actions": false,
+    "mass_head": true
+  },
+  "val_roots": [
+    "data/v2/val",
+    "data/v2/val_mix"
+  ],
+  "warmup": 8,
+  "horizon": 64,
+  "n_metric": 30,
+  "a_pixels": {
+    "vae_floor_mse": 0.00018661712238099426,
+    "pixel_mse_tau0.0": {
+      "h1": 0.0002849251904990524,
+      "h16": 0.003612582106143236,
+      "h64": 0.009205291979014874,
+      "mean": 0.005916784517467022
+    },
+    "pixel_mse_tau0.5": {
+      "h1": 0.0014349997509270906,
+      "h16": 0.007425628136843443,
+      "h64": 0.010803346522152424,
+      "mean": 0.008472733199596405
+    },
+    "pixel_mse_tau1.0": {
+      "h1": 0.0018145564245060086,
+      "h16": 0.007931437343358994,
+      "h64": 0.010723048821091652,
+      "mean": 0.008720159530639648
+    }
+  },
+  "b_state": {
+    "tau0.0": {
+      "useful_dream_horizon": 29,
+      "speed_horizon_mean": 33.56666666666667,
+      "speed_ratio_median_final": 0.8654825595695769,
+      "ball_x_err_h16": 0.032961566608561726,
+      "ball_y_err_h16": 0.02574577904934224,
+      "paddle_x_err_h16": 0.046190594348784225,
+      "ball_err_final": 0.18296421010631173,
+      "by_mass_tercile": {
+        "light": {
+          "n": 10,
+          "mass_lo": 0.5667736530303955,
+          "mass_hi": 0.6917970180511475,
+          "mean_speed": 0.03551212325692177,
+          "useful_dream_horizon": 37.3,
+          "horizon_ball_diameters": 8.291555445175618
+        },
+        "medium": {
+          "n": 10,
+          "mass_lo": 0.6979688405990601,
+          "mass_hi": 1.4898449182510376,
+          "mean_speed": 0.022440945729613304,
+          "useful_dream_horizon": 40.3,
+          "horizon_ball_diameters": 5.184973418945447
+        },
+        "heavy": {
+          "n": 10,
+          "mass_lo": 1.5473222732543945,
+          "mass_hi": 1.939778447151184,
+          "mean_speed": 0.012769605033099651,
+          "useful_dream_horizon": 20.6,
+          "horizon_ball_diameters": 1.6545402654446661
+        }
+      }
+    },
+    "tau0.5": {
+      "useful_dream_horizon": 6,
+      "speed_horizon_mean": 7.7,
+      "speed_ratio_median_final": 0.9454275903800573,
+      "ball_x_err_h16": 0.13959910363126224,
+      "ball_y_err_h16": 0.061228031297819126,
+      "paddle_x_err_h16": 0.04915633711276561,
+      "ball_err_final": 0.31622267472571175,
+      "by_mass_tercile": {
+        "light": {
+          "n": 10,
+          "mass_lo": 0.5667736530303955,
+          "mass_hi": 0.6917970180511475,
+          "mean_speed": 0.03551212325692177,
+          "useful_dream_horizon": 10.2,
+          "horizon_ball_diameters": 2.2634842549450696
+        },
+        "medium": {
+          "n": 10,
+          "mass_lo": 0.6979688405990601,
+          "mass_hi": 1.4898449182510376,
+          "mean_speed": 0.022440945729613304,
+          "useful_dream_horizon": 17.4,
+          "horizon_ball_diameters": 2.383950025541708
+        },
+        "heavy": {
+          "n": 10,
+          "mass_lo": 1.5473222732543945,
+          "mass_hi": 1.939778447151184,
+          "mean_speed": 0.012769605033099651,
+          "useful_dream_horizon": 9.7,
+          "horizon_ball_diameters": 0.79122394323349
+        }
+      }
+    },
+    "tau1.0": {
+      "useful_dream_horizon": 0,
+      "speed_horizon_mean": 2.2333333333333334,
+      "speed_ratio_median_final": 2.20834375280299,
+      "ball_x_err_h16": 0.19124664820366322,
+      "ball_y_err_h16": 0.10819587135864955,
+      "paddle_x_err_h16": 0.07374762334484716,
+      "ball_err_final": 0.3479559525767453,
+      "by_mass_tercile": {
+        "light": {
+          "n": 10,
+          "mass_lo": 0.5667736530303955,
+          "mass_hi": 0.6917970180511475,
+          "mean_speed": 0.03551212325692177,
+          "useful_dream_horizon": 2.9,
+          "horizon_ball_diameters": 0.6445130729116499
+        },
+        "medium": {
+          "n": 10,
+          "mass_lo": 0.6979688405990601,
+          "mass_hi": 1.4898449182510376,
+          "mean_speed": 0.022440945729613304,
+          "useful_dream_horizon": 7.4,
+          "horizon_ball_diameters": 1.01845704135485
+        },
+        "heavy": {
+          "n": 10,
+          "mass_lo": 1.5473222732543945,
+          "mass_hi": 1.939778447151184,
+          "mean_speed": 0.012769605033099651,
+          "useful_dream_horizon": 2.5,
+          "horizon_ball_diameters": 0.20239915349520743
+        }
+      }
+    },
+    "probe_floor": {
+      "ball_x": 0.0062183518766778315,
+      "ball_y": 0.005935147636476953,
+      "paddle_x": 0.02041672218918303
+    }
+  },
+  "c_velocity": {
+    "z": {
+      "linear": {
+        "ball_x": 0.5572251252036755,
+        "ball_y": 0.32463906527585473,
+        "ball_vx": 0.029759385473425826,
+        "ball_vy": -0.04560337365325329,
+        "paddle_x": 0.6621504444913789,
+        "paddle_vx": -0.011446595551485972,
+        "mass": 0.08900665232577565,
+        "log_mass": 0.1012491675010625,
+        "speed": 0.10448310008862971
+      },
+      "knn": {
+        "ball_x": 0.9903287998547634,
+        "ball_y": 0.9947150585078854,
+        "ball_vx": -0.13330444246164563,
+        "ball_vy": -0.4205040392847825,
+        "paddle_x": 0.9322044513163688,
+        "paddle_vx": -0.07457380365967525,
+        "mass": 0.487662449400066,
+        "log_mass": 0.5174546727019556,
+        "speed": 0.5122365421854609
+      },
+      "poly2": {
+        "ball_x": 0.9073151320361403,
+        "ball_y": 0.8510777847277832,
+        "ball_vx": -0.055072899483048054,
+        "ball_vy": -0.37227057034786704,
+        "paddle_x": 0.9631533533377208,
+        "paddle_vx": -0.046783428076779154,
+        "mass": 0.9341069352214479,
+        "log_mass": 0.9802864877105457,
+        "speed": 0.9812392950875902
+      }
+    },
+    "h": {
+      "linear": {
+        "ball_x": 0.9906466581484331,
+        "ball_y": 0.9924568068950247,
+        "ball_vx": 0.8884162626837993,
+        "ball_vy": 0.8125260619447294,
+        "paddle_x": 0.9871027049545374,
+        "paddle_vx": 0.6483737166862247,
+        "mass": 0.9822288567514841,
+        "log_mass": 0.9915957888907443,
+        "speed": 0.9911950456590751
+      },
+      "knn": {
+        "ball_x": 0.9936697856426441,
+        "ball_y": 0.9941171684573319,
+        "ball_vx": 0.7109238615415102,
+        "ball_vy": 0.739754727716712,
+        "paddle_x": 0.6025683658302968,
+        "paddle_vx": 0.11192395791924836,
+        "mass": 0.6487956099842992,
+        "log_mass": 0.702546787395414,
+        "speed": 0.71649157487393
+      },
+      "poly2": {
+        "ball_x": 0.9962231579758063,
+        "ball_y": 0.9963563730904438,
+        "ball_vx": 0.9149093798215508,
+        "ball_vy": 0.920381890640769,
+        "paddle_x": 0.9927419446655007,
+        "paddle_vx": 0.3725457969843585,
+        "mass": 0.9785555785992056,
+        "log_mass": 0.9892679834395427,
+        "speed": 0.9891292186744289
+      }
+    },
+    "z+h": {
+      "linear": {
+        "ball_x": 0.990692114566579,
+        "ball_y": 0.9926617233624118,
+        "ball_vx": 0.8891761331978838,
+        "ball_vy": 0.8117273903998298,
+        "paddle_x": 0.9882964074276259,
+        "paddle_vx": 0.6490604432399836,
+        "mass": 0.9824142773430455,
+        "log_mass": 0.9915922068099983,
+        "speed": 0.9912277365005623
+      },
+      "knn": {
+        "ball_x": 0.9940528628841527,
+        "ball_y": 0.9942390049030396,
+        "ball_vx": 0.6956802960590636,
+        "ball_vy": 0.7224817329328204,
+        "paddle_x": 0.6273059734084745,
+        "paddle_vx": 0.11002492022155408,
+        "mass": 0.6375124042691981,
+        "log_mass": 0.6894899431992033,
+        "speed": 0.7022139452066768
+      },
+      "poly2": {
+        "ball_x": 0.9961776288042986,
+        "ball_y": 0.9962607444199549,
+        "ball_vx": 0.913836962747733,
+        "ball_vy": 0.9021425789486032,
+        "paddle_x": 0.9905143694027045,
+        "paddle_vx": 0.16736979071245717,
+        "mass": 0.9802865157960815,
+        "log_mass": 0.9910655620915523,
+        "speed": 0.9912714588715947
+      }
+    },
+    "c_linear": {
+      "ball_x": 0.987161493702863,
+      "ball_y": 0.990344388433049,
+      "ball_vx": 0.8383138976049136,
+      "ball_vy": 0.836495790750449,
+      "paddle_x": 0.9569801966778793,
+      "paddle_vx": 0.6119632219964944,
+      "mass": 0.9818617346316575,
+      "log_mass": 0.9826977794243211,
+      "speed": 0.9765543124364265
+    }
+  },
+  "d_actions": {
+    "paddle_sep_at_h30": 0.5865077253114888,
+    "paddle_drift_left": -0.29646093253366834,
+    "paddle_drift_right": 0.2900467927778205
+  },
+  "d_actions_ablated": {
+    "paddle_sep_at_h30": 0.0,
+    "paddle_drift_left": 0.017831593827136512,
+    "paddle_drift_right": 0.017831593827136512
+  },
+  "e_events": {
+    "base_rate": 0.008428571745753288,
+    "precision": 0.3181818181818182,
+    "recall": 0.8305084745762712,
+    "f1": 0.46009389671361506,
+    "pr_auc": 0.5863492969823255,
+    "n_events_in_curve": 58,
+    "best_f1": {
+      "f1": 0.5858585858585859,
+      "precision": 0.725,
+      "recall": 0.4915254237288136,
+      "threshold": 0.9892309308052063
+    },
+    "prob_at_lag_-3": 0.248557448387146,
+    "prob_at_lag_0": 0.8031610250473022,
+    "prob_at_lag_-10": 0.0199214369058609,
+    "note": "A good curve rises BEFORE lag 0. The contact is a deterministic consequence of where the ball and paddle are several frames earlier, so a model that has learned the geometry should be confident in advance; a model that has only learned to recognise contact after the fact would show a spike at lag 0 and nothing before it."
+  },
+  "f_bounces": {
+    "n_cases": 200,
+    "fraction_predicted": 0.545,
+    "fraction_at_random_time": 0.255
+  }
+}

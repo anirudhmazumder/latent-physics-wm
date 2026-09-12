@@ -1,0 +1,148 @@
+{
+  "main_name": "rnn_v2_mean",
+  "ckpts": {
+    "rnn_v2_mean": ""
+  },
+  "holdout_band": [
+    0.85,
+    1.2
+  ],
+  "warmup": 8,
+  "cold_horizon": 24,
+  "horizon": 64,
+  "a_cold_start": {
+    "rnn_v2_mean/val": {
+      "n": 175,
+      "pearson_r": 0.4584143565738186,
+      "slope": 0.7424139159091209,
+      "intercept": 0.0032949095937021542,
+      "log_slope_vs_mass": -0.8424917956075275,
+      "log_r_vs_mass": -0.47931794340134054,
+      "probe_floor_log_slope": -0.9360029943563993,
+      "relative_bias": 0.8763546295009992,
+      "dreamed_speed_mean": 0.021558122397794158,
+      "dreamed_speed_std": 0.017923589489707372,
+      "true_speed_mean": 0.024599770084023476,
+      "true_speed_std": 0.011067182756960392,
+      "probe_floor_slope": 0.9406352495804963,
+      "probe_floor_r": 0.9815359198590303
+    },
+    "rnn_v2_mean/holdout": {
+      "n": 150,
+      "pearson_r": 0.20934717638748548,
+      "slope": 1.6765375310481774,
+      "intercept": -0.018041674722663506,
+      "log_slope_vs_mass": -1.2129252725026172,
+      "log_r_vs_mass": -0.1474143049570246,
+      "probe_floor_log_slope": -0.6849642629544106,
+      "relative_bias": 0.8520226571075553,
+      "dreamed_speed_mean": 0.018643589537763867,
+      "dreamed_speed_std": 0.013756781322202908,
+      "true_speed_mean": 0.02188156545162201,
+      "true_speed_std": 0.0017177923582494259,
+      "probe_floor_slope": 0.6063823862893509,
+      "probe_floor_r": 0.3869037262763608
+    },
+    "vs_warmup": {
+      "rnn_v2_mean": {
+        "1": {
+          "pearson_r": 0.48829207746690095,
+          "slope": 0.7971684307697197,
+          "mean": 0.02108646761297552
+        },
+        "2": {
+          "pearson_r": 0.22155099746336027,
+          "slope": 0.17376210377468887,
+          "mean": 0.015109555739011822
+        },
+        "4": {
+          "pearson_r": 0.5645608859262117,
+          "slope": 0.4484097014493066,
+          "mean": 0.018821916555534012
+        },
+        "8": {
+          "pearson_r": 0.6237478139474427,
+          "slope": 0.503681399570713,
+          "mean": 0.019569937547201873
+        }
+      }
+    }
+  },
+  "b_recolor": {
+    "rnn_v2_mean/K8": {
+      "log_slope": -0.4448677960619222,
+      "log_r": -0.49743586481448043,
+      "log_slope_per_source_median": -0.4575271497946497,
+      "log_slope_per_source_iqr": 0.46004462492989057,
+      "n_sources": 12,
+      "dreamed_speed_by_mass": {
+        "0.5": 0.022794367087355258,
+        "0.7": 0.023452764995142317,
+        "1.0": 0.018748170228486113,
+        "1.4": 0.015086937122042407,
+        "2.0": 0.014395263766435523
+      },
+      "true_law_by_mass": {
+        "0.5": 0.044,
+        "0.7": 0.03142857142857143,
+        "1.0": 0.022,
+        "1.4": 0.015714285714285715,
+        "2.0": 0.011
+      },
+      "masses_in_holdout_band": [
+        1.0
+      ]
+    },
+    "rnn_v2_mean/K1": {
+      "log_slope": -0.7708037368410592,
+      "log_r": -0.4833879000497902,
+      "log_slope_per_source_median": -0.683974636453137,
+      "log_slope_per_source_iqr": 1.0647270804057074,
+      "n_sources": 12,
+      "dreamed_speed_by_mass": {
+        "0.5": 0.027824390702233956,
+        "0.7": 0.01821399134477884,
+        "1.0": 0.012004008554442953,
+        "1.4": 0.010905928781820645,
+        "2.0": 0.008286904675646996
+      },
+      "true_law_by_mass": {
+        "0.5": 0.044,
+        "0.7": 0.03142857142857143,
+        "1.0": 0.022,
+        "1.4": 0.015714285714285715,
+        "2.0": 0.011
+      },
+      "masses_in_holdout_band": [
+        1.0
+      ]
+    },
+    "color_persistence": {
+      "0.5": {
+        "decoded_mass_step0": 0.5374526138406179,
+        "decoded_mass_step_last": 1.623276079669092,
+        "target_mass": 0.5
+      },
+      "0.7": {
+        "decoded_mass_step0": 0.6301922202477488,
+        "decoded_mass_step_last": 1.3205108947001594,
+        "target_mass": 0.7
+      },
+      "1.0": {
+        "decoded_mass_step0": 0.8615034952800424,
+        "decoded_mass_step_last": 1.4769062324723126,
+        "target_mass": 1.0
+      },
+      "1.4": {
+        "decoded_mass_step0": 1.3856997972369363,
+        "decoded_mass_step_last": 1.492367768318842,
+        "target_mass": 1.4
+      },
+      "2.0": {
+        "decoded_mass_step0": 1.7464930343310598,
+        "decoded_mass_step_last": 1.5381835802220976,
+        "target_mass": 2.0
+      }
+    }
+  }
+}

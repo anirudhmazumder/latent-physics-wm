@@ -14,9 +14,13 @@ a privileged-state oracle.
 speed. The dynamics model reads speed off colour from a single frame (r 0.56 vs
 0.12 for a colour-blind control), and repainting the ball in a dream changes its
 dreamed speed with the right sign (slope −0.6 vs +0.01) — an appearance →
-dynamics causal edge learned from pixels. A dream-trained controller handles the
-4× speed range uniformly; a mass-blind one nearly matches it, and we found out
-why (colour diffuses in stochastic dreams). Docs in `docs/v2/`.
+dynamics causal edge learned from pixels. The first dream-trained
+controller reached only 79% of the oracle, because the dreamed ball's colour
+diffused in stochastic dreams; a conservation penalty on M fixed the drift, and
+a controller retrained in the fixed dream plays at **oracle level across all
+masses and on never-seen colours**, still on zero real frames. Repainting the
+ball in a real history shifts its decisions in the direction the physics
+predicts. Docs in `docs/v2/`.
 
 **Start with the docs:** [`docs/README.md`](docs/README.md) — written so that
 someone new to world models can follow what was built, why, what was measured,

@@ -22,6 +22,8 @@ they build on one another.
 | v2-02 | [M and the causal tests](v2/02_v2_dynamics_and_causal_tests.md) | Cold-start speed from colour, repaint-and-redream, interpolation — against a colour-blind control |
 | v2-03 | [C by mass](v2/03_v2_controller.md) | Uniform skill across a 4× speed range; the mass-blind v1 policy ties it; colour drifts in stochastic dreams |
 | v2-04 | [Results and lessons](v2/04_v2_results_and_lessons.md) | v2 in one page, and the plan for v3 |
+| v2-05 | [Fixing the colour drift](v2/05_v2_fixing_colour_drift.md) | A conserved quantity diffuses in sampled dreams; a conservation metric and three fixes compared |
+| v2-06 | [C in the fixed dream](v2/06_v2_controller_fixed.md) | Oracle-level skill across masses; the repaint intervention shows the agent uses colour |
 
 **See it live.** `python -m wm.live` opens a window with the real game (arrow
 keys) next to what the VAE sees, what the RNN predicted this frame would look
@@ -32,5 +34,5 @@ control to the dream-trained controller. `python -m wm.live --record out.gif
 
 Technical run logs with exact commands and every number, written by the
 implementing agents and reviewed: [`../wm/README_M.md`](../wm/README_M.md),
-[`../wm/README_C.md`](../wm/README_C.md); for v2: [`../wm/README_V2.md`](../wm/README_V2.md), [`../wm/README_M2.md`](../wm/README_M2.md), [`../wm/README_C2.md`](../wm/README_C2.md). The environment's own notes:
+[`../wm/README_C.md`](../wm/README_C.md); for v2: [`../wm/README_V2.md`](../wm/README_V2.md), [`../wm/README_M2.md`](../wm/README_M2.md), [`../wm/README_C2.md`](../wm/README_C2.md), [`../wm/README_FIX.md`](../wm/README_FIX.md), [`../wm/README_C2_FIX.md`](../wm/README_C2_FIX.md). The environment's own notes:
 [`../worldsim/worldsim.md`](../worldsim/worldsim.md).

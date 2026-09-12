@@ -197,6 +197,11 @@ class Episodes:
     names: List[str]
 
     @property
+    def has_mass(self) -> bool:
+        """False on a v1 dataset, where the ball has no mass factor at all."""
+        return "mass" in self.names
+
+    @property
     def mass(self) -> np.ndarray:
         return self.state[:, 0, self.names.index("mass")]
 
@@ -991,7 +996,20 @@ def main() -> None:
     p.add_argument("--probe-samples-h", type=int, default=6000)
     p.add_argument("--device", default="cpu")
     p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--name", default=None,
+                   help="label for the main model in the printout and the "
+                        "report keys. Defaults to the checkpoint's run "
+                        "directory name, so re-running this on a candidate fix "
+                        "does not produce a report full of rows labelled "
+                        '"rnn_v2".')
+    p.add_argument("--parts", default="abcdef",
+                   help="which experiments to run, as letters. Default all. "
+                        "Use e.g. --parts ab to re-check only the two that "
+                        "depend on the colour->speed edge; pass "
+                        '--nocolor-ckpt "" as well to skip the control, whose '
+                        "numbers do not change when a NEW v2 model is trained.")
     a = p.parse_args()
+    parts_wanted = set(a.parts.lower())
 
     device = pick_device(a.device)
     out = Path(a.out)
@@ -1003,13 +1021,17 @@ def main() -> None:
     cfg = BoxConfig(**meta["config"])
     band = tuple(meta.get("mass_holdout") or (0.85, 1.2))
 
+    main_name = a.name or Path(a.ckpt).parent.name
     setups: List[Setup] = []
     for name, ck, vae_path, sfx in (
-        ("rnn_v2", a.ckpt, a.vae, ""),
+        (main_name, a.ckpt, a.vae, ""),
         ("rnn_v2_nocolor", a.nocolor_ckpt, a.nocolor_vae, a.nocolor_suffix),
     ):
-        if not Path(ck).exists():
-            print(f"skipping {name}: {ck} not found")
+        # Note the `not ck`: Path("") is Path("."), which exists, so an empty
+        # string -- the natural way to say "skip the control" on the command
+        # line -- would otherwise sail past the existence check.
+        if not ck or not Path(ck).exists():
+            print(f"skipping {name}: {ck or '(not given)'} not found")
             continue
         model, _ = load_rnn(ck, device)
         vae, _, _ = load_ckpt(vae_path, device)
@@ -1027,26 +1049,36 @@ def main() -> None:
           f"(masses only in {band})")
 
     report: Dict[str, object] = {
+        "main_name": main_name,
         "ckpts": {s.name: s.suffix for s in setups},
         "holdout_band": list(band),
         "warmup": a.warmup, "cold_horizon": a.cold_horizon, "horizon": a.horizon,
     }
-    report["a_cold_start"] = part_a_cold_start(
-        setups, data, out, device, a.cold_horizon, a.starts_per_ep, a.seed)
-    report["b_recolor"] = part_b_recolor(
-        setups, a.val, out, device, a.warmup, a.cold_horizon,
-        a.n_recolor_src, a.seed, cfg, band)
-    report["c_speed_in_h"] = part_c_speed_in_h(
-        setups, data, out, device, a.probe_samples_h, a.seed)
-    report["df_horizon"] = part_df_horizon(
-        setups, data, out, device, a.warmup, a.horizon, a.seed)
-    report["e_english"] = part_e_english(setups, data, out, device, a.seed)
+    if "a" in parts_wanted:
+        report["a_cold_start"] = part_a_cold_start(
+            setups, data, out, device, a.cold_horizon, a.starts_per_ep, a.seed)
+    if "b" in parts_wanted:
+        report["b_recolor"] = part_b_recolor(
+            setups, a.val, out, device, a.warmup, a.cold_horizon,
+            a.n_recolor_src, a.seed, cfg, band)
+    if "c" in parts_wanted:
+        report["c_speed_in_h"] = part_c_speed_in_h(
+            setups, data, out, device, a.probe_samples_h, a.seed)
+    if "d" in parts_wanted or "f" in parts_wanted:
+        report["df_horizon"] = part_df_horizon(
+            setups, data, out, device, a.warmup, a.horizon, a.seed)
+    if "e" in parts_wanted:
+        report["e_english"] = part_e_english(setups, data, out, device, a.seed)
 
     (out / "report.json").write_text(json.dumps(report, indent=2, default=float))
-    _summary(report, out, band)
+    if parts_wanted >= set("abcdef"):
+        _summary(report, out, band, main_name)
+    else:
+        print(f"\nran parts {sorted(parts_wanted)} only -- the full-run summary "
+              f"needs all six; numbers are in {out / 'report.json'}")
 
 
-def _summary(r: Dict, out: Path, band) -> None:
+def _summary(r: Dict, out: Path, band, main: str = "rnn_v2") -> None:
     def g(d, *ks, default=float("nan")):
         for k in ks:
             d = d.get(k, {}) if isinstance(d, dict) else {}
@@ -1057,7 +1089,7 @@ def _summary(r: Dict, out: Path, band) -> None:
     c = r["c_speed_in_h"]
     h = r["df_horizon"]
     e = r["e_english"]
-    main, ctl = "rnn_v2", "rnn_v2_nocolor"
+    ctl = "rnn_v2_nocolor"
     print("\n" + "=" * 74)
     print("SUMMARY -- did M learn that colour causes speed?")
     print("=" * 74)

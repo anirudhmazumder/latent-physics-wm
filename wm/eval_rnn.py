@@ -45,6 +45,7 @@ import torch
 from worldsim.render import frame_grid, save_gif, side_by_side, upscale
 
 from .analyze import add_derived_targets, load_ckpt
+from .conservation import rolling_speed, speed_horizon
 from .probes import probe_suite
 from .rnn import MDNRNN, load_rnn
 from .seq_data import episode_arrays
@@ -53,6 +54,11 @@ from .train_vae import pick_device
 TAUS = (0.0, 0.5, 1.0)
 BALL_RADIUS = 0.08  # from the dataset meta; the "useful horizon" threshold
 BASE_SPEED = 0.022  # v2: the ball's speed is BASE_SPEED / mass
+# Tolerance for the speed-based dream horizon (see part (b)). 25 % is loose
+# enough that the kNN position probe's own smoothing does not trip it -- the
+# probe floor on true latents sits at a ratio of ~0.90-1.00 -- and tight enough
+# that a ball going half again too fast is called wrong.
+SPEED_TOL = 0.25
 
 
 # --------------------------------------------------------------- plumbing
@@ -381,8 +387,25 @@ def part_b_state(
         ball_err = ball_err_ep.mean(0)                         # (H,)
         bad = np.where(ball_err > BALL_RADIUS)[0]
         useful = int(bad[0]) if len(bad) else horizon
+        # A SECOND horizon, and at tau > 0 the one to read. The metric above
+        # asks "is the dreamed ball still on top of the real one", which for a
+        # sampled dream is the wrong question: a tau = 1 dream is a different
+        # plausible future, so it is *supposed* to diverge in position, and the
+        # number it scores is mostly a measure of how wide the predictive
+        # distribution is. Speed is the part the world's law pins down no
+        # matter which future you are in (v1: a hard 0.022; v2: 0.022 / mass),
+        # so "how long does the dreamed speed stay within 25 % of the law"
+        # separates a wrong dream from a merely different one. Added after the
+        # colour-drift finding; see wm/eval_conservation.py.
+        sp = rolling_speed(est[..., :2])
+        true_sp = (BASE_SPEED / mass) if mass is not None \
+            else np.full(E, BASE_SPEED)
+        sp_h = speed_horizon(sp, true_sp, tol=SPEED_TOL)
         res[f"tau{tau}"] = {
             "useful_dream_horizon": useful,
+            "speed_horizon_mean": float(sp_h.mean()),
+            "speed_ratio_median_final": float(
+                np.median(sp[:, -1] / true_sp)),
             "ball_x_err_h16": float(err[min(15, horizon - 1), 0]),
             "ball_y_err_h16": float(err[min(15, horizon - 1), 1]),
             "paddle_x_err_h16": float(err[min(15, horizon - 1), 4]),
@@ -393,8 +416,9 @@ def part_b_state(
                 ball_err_ep, mass, horizon
             )
         print(f"    tau={tau}: useful dream horizon {useful} steps "
-              f"(|ball| err > {BALL_RADIUS}); |dx|@16 {err[15,0]:.3f} "
-              f"|dpaddle|@16 {err[15,4]:.3f}")
+              f"(|ball| err > {BALL_RADIUS}); speed horizon "
+              f"{sp_h.mean():5.1f} steps (>{SPEED_TOL:.0%} off the law); "
+              f"|dx|@16 {err[15,0]:.3f} |dpaddle|@16 {err[15,4]:.3f}")
     if mass is not None:
         t = res["tau0.0"]["by_mass_tercile"]
         print("    by mass tercile (tau=0):")

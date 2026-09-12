@@ -1,0 +1,19 @@
+rnn_v2_cons      runs/rnn_v2_cons/rnn.pt  latents=mu.npy  vae=runs/vae_v2/vae.pt
+skipping rnn_v2_nocolor: (not given) not found
+val 35 episodes, holdout 30 episodes (masses only in (0.85, 1.2))
+
+(a) cold-start speed inference (K=1: no motion information)
+    rnn_v2_cons/val              n= 175  r=+0.436  slope=+0.262  dlog(speed)/dlog(m)=-0.513 (law -1, floor -0.936)  probe floor r=+0.982  dreamed speed 0.0131 +- 0.0067 (true 0.0246)
+    rnn_v2_cons/holdout          n= 150  r=+0.081  slope=+0.272  dlog(speed)/dlog(m)=-0.454 (law -1, floor -0.685)  probe floor r=+0.387  dreamed speed 0.0115 +- 0.0057 (true 0.0219)
+
+    dreamed speed vs warm-up length K
+      rnn_v2_cons        K=1  r=+0.174  slope=+0.129
+      rnn_v2_cons        K=2  r=+0.732  slope=+0.565
+      rnn_v2_cons        K=4  r=+0.958  slope=+0.915
+      rnn_v2_cons        K=8  r=+0.965  slope=+0.950
+
+(b) recolour counterfactual
+    rnn_v2_cons/K8             d log(speed) / d log(m1) = -0.652 (true law -1.000, r=-0.741); per-source median -0.641
+    rnn_v2_cons/K1             d log(speed) / d log(m1) = -0.406 (true law -1.000, r=-0.245); per-source median -0.310
+
+ran parts ['a', 'b'] only -- the full-run summary needs all six; numbers are in runs/rnn_v2_cons/causal/report.json

@@ -18,6 +18,23 @@ denoiser and no dynamics.
 The rollout metric here is in LATENT space and uses no decoder, so it is cheap
 enough to run every few epochs. ``wm.eval_rnn`` does the expensive pixel-space
 and state-space versions once, at the end.
+
+Three optional extra loss terms, added after stage three found that a tau = 1
+dream does not conserve the ball's mass (see ``wm/conservation.py`` for the
+diagnosis and ``wm/README_FIX.md`` for the measurements):
+
+    --rollout-loss-steps K   roll the model open-loop for K steps on its own
+    --rollout-loss-weight w  reparameterised samples and add the MDN NLL of the
+                             TRUE latents along the way. The generic fix.
+    --cons-loss-weight w     penalise the change of a frozen poly-2 log-mass
+                             probe's reading along that same rollout. The
+                             targeted fix, which names the conserved quantity.
+    --mass-head              a linear head on h predicting log(mass), with a
+                             privileged training-time-only target.
+
+``--rollout-loss-steps 0`` (the default) disables all of the rollout machinery
+and reproduces the original loss bit for bit, which ``tests/test_conservation``
+asserts.
 """
 
 from __future__ import annotations
@@ -31,9 +48,52 @@ from typing import Dict, List
 import numpy as np
 import torch
 
+from .conservation import (
+    Poly2Probe, conservation_penalty, rollout_losses,
+)
 from .rnn import MDNRNN, RNNConfig, rnn_loss, save_rnn
 from .seq_data import LatentSequenceDataset, episode_arrays, make_seq_loader
 from .train_vae import pick_device
+
+
+# ----------------------------------------------------- conservation probe
+
+
+def _fit_cons_probe(roots, latent_suffix: str, n: int, seed: int):
+    """Fit the frozen poly-2 ``mu -> log(mass)`` probe on TRAINING latents.
+
+    Fitted on ``mu`` (posterior means) even when the model trains on samples:
+    the probe is supposed to read the mass a frame actually has, and the mean
+    is the best estimate of that. Reports a held-out (by episode) R^2 so a
+    silently broken probe is visible before 35 epochs are spent on it.
+    """
+    mus, masses, groups = [], [], []
+    for ri, r in enumerate(roots):
+        d = episode_arrays(r, latent_suffix=latent_suffix)
+        mu, st = d["mu"], d["state"]
+        E, T = mu.shape[0], mu.shape[1]
+        mus.append(mu.reshape(E * T, -1))
+        masses.append(st[:, :, 6].reshape(E * T))
+        groups.append(np.repeat(np.arange(E) + 1000 * ri, T))
+    M = np.concatenate(mus)
+    Y = np.log(np.concatenate(masses))
+    G = np.concatenate(groups)
+
+    rng = np.random.default_rng(seed)
+    if len(M) > n:
+        sel = rng.choice(len(M), n, replace=False)
+        M, Y, G = M[sel], Y[sel], G[sel]
+
+    from .probes import make_split
+
+    tr, te = make_split(len(M), seed=seed, group_ids=G)
+    held = Poly2Probe().fit(M[tr], Y[tr])
+    pred = held(M[te])
+    r2 = 1.0 - float(((Y[te] - pred) ** 2).sum()) / max(
+        float(((Y[te] - Y[te].mean()) ** 2).sum()), 1e-12)
+    # Refit on everything for the probe we actually use -- the split above was
+    # only to produce an honest quality number.
+    return Poly2Probe().fit(M, Y), r2
 
 
 # --------------------------------------------------------------- open loop
@@ -159,6 +219,30 @@ def main() -> None:
                         "note below on why the ablation is at the DATA level.")
     p.add_argument("--w-hit", type=float, default=1.0)
     p.add_argument("--w-reward", type=float, default=1.0)
+    # ------------------------------------------------------ conservation
+    # See wm/conservation.py for why teacher forcing alone cannot teach a model
+    # to hold a constant, and wm/README_FIX.md for the measured effect.
+    p.add_argument("--rollout-loss-steps", type=int, default=0,
+                   help="K: length of the extra OPEN-LOOP rollout inside each "
+                        "training window, fed by the model's own reparameterised "
+                        "samples. 0 (default) disables the whole mechanism and "
+                        "reproduces the plain teacher-forced loss exactly.")
+    p.add_argument("--rollout-loss-weight", type=float, default=1.0,
+                   help="weight on the mean MDN NLL of the TRUE latents along "
+                        "that rollout. Set to 0 to run the rollout only for the "
+                        "conservation penalty below.")
+    p.add_argument("--cons-loss-weight", type=float, default=0.0,
+                   help="weight on mean_k (g(z_dreamed_k) - g(z_true_t0))^2 for "
+                        "a frozen poly-2 log-mass probe g. Requires "
+                        "--rollout-loss-steps > 0 and a dataset with a mass "
+                        "column.")
+    p.add_argument("--mass-head", action="store_true",
+                   help="add a linear head on h predicting log(mass). The target "
+                        "is privileged (simulator state), training-time only, "
+                        "exactly like the reward head.")
+    p.add_argument("--w-mass", type=float, default=1.0)
+    p.add_argument("--cons-probe-samples", type=int, default=20000,
+                   help="frames used to FIT the frozen conservation probe")
     p.add_argument("--grad-clip", type=float, default=1.0)
     p.add_argument("--stride", type=int, default=4,
                    help="window stride. 1 gives maximal overlap (and a big, "
@@ -228,6 +312,7 @@ def main() -> None:
     cfg = RNNConfig(
         z_dim=z_dim, n_actions=3, hidden=a.hidden, n_gauss=a.n_gauss,
         predict_delta=not a.no_delta, ablate_actions=a.ablate_actions,
+        mass_head=a.mass_head,
     )
     model = MDNRNN(cfg).to(device)
     print(f"params={sum(p_.numel() for p_ in model.parameters())/1e3:.0f}k  cfg={cfg}")
@@ -236,13 +321,35 @@ def main() -> None:
     # Held-out episodes for the open-loop metric, taken from the first val root.
     roll_src = episode_arrays(val_roots[0], latent_suffix=latent_suffix)
 
+    # --- the frozen conservation probe ------------------------------------
+    # Fitted ONCE, on training latents, before a single gradient step, and then
+    # never updated. It has to be frozen: a probe that co-adapts with the model
+    # can be satisfied by moving the probe rather than by conserving anything,
+    # and the number the eval reports would stop meaning what it says.
+    cons_probe = None
+    if a.cons_loss_weight > 0.0:
+        if a.rollout_loss_steps <= 0:
+            raise SystemExit("--cons-loss-weight needs --rollout-loss-steps > 0")
+        cons_probe, cons_r2 = _fit_cons_probe(
+            a.data, latent_suffix, a.cons_probe_samples, a.seed)
+        print(f"conservation probe: poly-2 ridge, mu -> log(mass), "
+              f"held-out R^2 {cons_r2:.4f}")
+
+    roll_rng = np.random.default_rng(a.seed + 1)
+    mass_col = 6  # v2 state vector: [x, y, vx, vy, paddle_x, paddle_vx, mass]
+    if (a.mass_head or cons_probe is not None) and train_ds.eps[0].state.shape[-1] <= mass_col:
+        raise SystemExit("this dataset has no mass column; --mass-head / "
+                         "--cons-loss-weight are v2-only")
+
     history: List[dict] = []
     best = float("inf")
     t0 = time.time()
 
+    extra_keys = ("roll_nll", "cons", "mass_mse")
     for epoch in range(a.epochs):
         model.train()
         agg = {"loss": 0.0, "nll": 0.0, "hit_bce": 0.0, "reward_mse": 0.0, "n": 0}
+        agg.update({k: 0.0 for k in extra_keys})
         for batch in train_loader:
             batch = {k: v.to(device) for k, v in batch.items()}
             parts, _ = model(batch["z"], batch["a"])
@@ -250,6 +357,36 @@ def main() -> None:
                 model, parts, batch, pos_weight=pos_weight,
                 w_hit=a.w_hit, w_reward=a.w_reward,
             )
+            d.update({k: torch.zeros((), device=device) for k in extra_keys})
+
+            # log(mass) from h. The window's state rows are all one episode and
+            # mass is constant within an episode, so this is a constant target
+            # across the window -- which is precisely the point: it is asking
+            # the recurrent state to hold still.
+            if model.mass_head is not None:
+                log_m = torch.log(batch["state"][..., mass_col])
+                mass_mse = torch.nn.functional.mse_loss(
+                    parts["log_mass"].squeeze(-1), log_m)
+                loss = loss + a.w_mass * mass_mse
+                d["mass_mse"] = mass_mse.detach()
+
+            if a.rollout_loss_steps > 0:
+                # A fresh random start inside the window every batch. Fixing t0
+                # would let the model learn a position-specific fix; sampling it
+                # makes "do not drift" a property of every point in the window.
+                K = a.rollout_loss_steps
+                start = int(roll_rng.integers(0, a.seq_len - K))
+                roll = rollout_losses(model, batch["z"], batch["a"], start, K)
+                if a.rollout_loss_weight > 0.0:
+                    loss = loss + a.rollout_loss_weight * roll["nll"]
+                    d["roll_nll"] = roll["nll"].detach()
+                if cons_probe is not None:
+                    cons = conservation_penalty(
+                        cons_probe, roll["z_dreamed"], roll["z_ref"])
+                    loss = loss + a.cons_loss_weight * cons
+                    d["cons"] = cons.detach()
+
+            d["loss"] = loss.detach()
             opt.zero_grad(set_to_none=True)
             loss.backward()
             # Clipping is not optional for an MDN. A single window where one
@@ -259,7 +396,7 @@ def main() -> None:
             opt.step()
 
             n = batch["z"].shape[0]
-            for k in ("loss", "nll", "hit_bce", "reward_mse"):
+            for k in ("loss", "nll", "hit_bce", "reward_mse") + extra_keys:
                 agg[k] += float(d[k]) * n
             agg["n"] += n
 
@@ -270,6 +407,7 @@ def main() -> None:
             "train_nll": agg["nll"] / n,
             "secs": time.time() - t0,
         }
+        row.update({f"train_{k}": agg[k] / n for k in extra_keys})
         va = evaluate(model, val_loader, pos_weight, device)
         row.update({f"val_{k}": v for k, v in va.items()})
 
@@ -278,6 +416,11 @@ def main() -> None:
             f"val_nll {va['nll']:8.3f}  hit_f1 {va['hit_f1']:.3f}  "
             f"rew_mse {va['reward_mse']:.5f}  ({row['secs']:.0f}s)"
         )
+        if a.rollout_loss_steps > 0:
+            msg += (f"  roll_nll {row['train_roll_nll']:7.3f}"
+                    f"  cons {row['train_cons']:.4f}")
+        if model.mass_head is not None:
+            msg += f"  mass_mse {row['train_mass_mse']:.4f}"
 
         if (epoch + 1) % a.eval_every == 0 or epoch == a.epochs - 1:
             ro = latent_rollout(
@@ -304,6 +447,13 @@ def main() -> None:
                                                             "val_nll": va["nll"],
                                                             "pos_weight": pos_weight})
 
+    # The selection rule is best-teacher-forced-val-NLL, unchanged from v1 so
+    # that every run in the comparison is selected the same way. But a run with
+    # a rollout loss is optimising something the selection rule cannot see, so
+    # the FINAL epoch is saved alongside it -- if the two differ by much, the
+    # selection rule is the thing to question, not the model.
+    save_rnn(out / "rnn_last.pt", model, vars(a),
+             extra={"epoch": a.epochs - 1, "pos_weight": pos_weight})
     (out / "history.json").write_text(json.dumps(history, indent=2, default=float))
     _plot_history(history, out / "training_curves.png", a.rollout_horizon)
     print(f"\nbest val NLL {best:.3f}  ->  {out / 'rnn.pt'}")

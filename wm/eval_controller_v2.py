@@ -410,6 +410,65 @@ class Spec:
         self.name, self.ctrl, self.vae, self.rnn = name, ctrl, vae, rnn
 
 
+class StackCache:
+    """Load each (V, M) checkpoint at most once, and remember which is which.
+
+    A controller reads ``[z_t, h_pre_t]``, so **M is part of the policy**: a
+    controller trained inside ``rnn_v2_cons``'s dream must be driven by
+    ``rnn_v2_cons`` at evaluation time or it is being fed a differently-coded
+    hidden state than the one CMA-ES optimised against. Getting this wrong is
+    silent -- the shapes match, the run completes, and the number is simply
+    meaningless -- so the mapping is explicit, cached by path, and unit-tested
+    (``tests/test_ctrl_intervention.py::test_evaluator_maps_each_run_to_its_rnn``).
+    """
+
+    def __init__(self, device: str = "cpu"):
+        self.device = device
+        self._vae: Dict[str, object] = {}
+        self._rnn: Dict[str, object] = {}
+
+    def vae(self, path: str):
+        if path not in self._vae:
+            self._vae[path], _, _ = load_ckpt(path, self.device)
+        return self._vae[path]
+
+    def rnn(self, path: str):
+        if path not in self._rnn:
+            self._rnn[path], _ = load_rnn(path, self.device)
+        return self._rnn[path]
+
+
+def parse_overrides(items: Sequence[str]) -> Dict[str, str]:
+    """``["ctrl_v2_cons=runs/rnn_v2_cons/rnn.pt", ...] -> {name: path}``."""
+    out: Dict[str, str] = {}
+    for it in items or ():
+        if "=" not in it:
+            raise ValueError(f"expected NAME=PATH, got {it!r}")
+        k, v = it.split("=", 1)
+        out[k.strip()] = v.strip()
+    return out
+
+
+def stack_for_run(run: str, rnn_over: Dict[str, str], vae_over: Dict[str, str],
+                  default_rnn: str, default_vae: str) -> Tuple[str, str]:
+    """Which (M, V) a training run's controller must be evaluated with.
+
+    An explicit ``--run-rnn NAME=PATH`` wins. Otherwise we read it off the
+    run's own ``history.json``, which records the exact ``--rnn`` / ``--vae``
+    the run was trained with -- so a new run is paired correctly with no flag at
+    all, and a *wrong* pairing has to be typed on purpose.
+    """
+    nm = Path(run).name
+    rnn_path, vae_path = rnn_over.get(nm), vae_over.get(nm)
+    if rnn_path is None or vae_path is None:
+        hist = Path(run) / "history.json"
+        if hist.exists():
+            args = json.loads(hist.read_text()).get("meta", {}).get("args", {})
+            rnn_path = rnn_path or args.get("rnn")
+            vae_path = vae_path or args.get("vae")
+    return rnn_path or default_rnn, vae_path or default_vae
+
+
 def run_all(specs: Sequence[Spec], episodes: int, steps: int, seed_base: int,
             env: Dict, device: str) -> Dict[str, Dict[str, np.ndarray]]:
     rolls = {}
@@ -459,6 +518,19 @@ def main() -> None:
     p.add_argument("--runs", nargs="*",
                    default=["runs/ctrl_v2", "runs/ctrl_v2_mix",
                             "runs/ctrl_v2_z_only", "runs/ctrl_v2_real"])
+    p.add_argument("--run-rnn", nargs="*", default=[], metavar="NAME=PATH",
+                   help="pin a run's dynamics model. Defaults to the --rnn "
+                        "recorded in that run's history.json, then to --rnn")
+    p.add_argument("--run-vae", nargs="*", default=[], metavar="NAME=PATH",
+                   help="same, for the encoder")
+    p.add_argument("--params", nargs="*", default=["params_best_real"],
+                   choices=["params_best_real", "params_last_dream",
+                            "params_best_dream_sample"],
+                   help="which stored parameter vector(s) to evaluate. Passing "
+                        "two adds one row per run per vector")
+    p.add_argument("--holdout-names", nargs="*", default=None,
+                   help="rows to re-run on the held-out colour band "
+                        "(default: stay, oracle and every linear controller)")
     p.add_argument("--episodes", type=int, default=150)
     p.add_argument("--holdout-episodes", type=int, default=60)
     p.add_argument("--steps", type=int, default=200)
@@ -476,36 +548,52 @@ def main() -> None:
     out.mkdir(parents=True, exist_ok=True)
     t0 = time.time()
 
-    vae, _, _ = load_ckpt(a.vae, a.device)
-    rnn, _ = load_rnn(a.rnn, a.device)
+    stacks = StackCache(a.device)
+    vae, rnn = stacks.vae(a.vae), stacks.rnn(a.rnn)
+    rnn_over = parse_overrides(a.run_rnn)
+    vae_over = parse_overrides(a.run_vae)
 
+    # The baselines see the world through the default v2 stack. `stay`,
+    # `random` and `oracle` do not read (z, h) at all, so which stack they are
+    # handed changes nothing -- it only has to exist.
     specs: List[Spec] = [Spec(c.name, c, vae, rnn) for c in build_baselines()]
+    stack_of: Dict[str, Tuple[str, str]] = {}
     for r in a.runs:
         ck = Path(r) / "controller.pt"
+        if not ck.exists() and (Path("runs") / r / "controller.pt").exists():
+            r = str(Path("runs") / r)          # accept a bare run name too
+            ck = Path(r) / "controller.pt"
         if not ck.exists():
-            print(f"  (skipping {r}: no controller.pt)")
-            continue
+            raise SystemExit(f"--runs {r}: no controller.pt found (pass a run "
+                             f"directory such as runs/ctrl_v2)")
         nm = Path(r).name
-        specs.append(Spec(nm, load_controller(ck, name=nm), vae, rnn))
-        if nm == "ctrl_v2":
-            # CMA-ES's final distribution mean: what the DREAM alone would have
-            # chosen, with zero real episodes consulted. The gap between this
-            # row and the selected one is the price of the periodic real check.
-            specs.append(Spec(
-                "ctrl_v2_lastdream",
-                load_controller(ck, name="ctrl_v2_lastdream",
-                                which="params_last_dream"),
-                vae, rnn))
+        r_path, v_path = stack_for_run(r, rnn_over, vae_over, a.rnn, a.vae)
+        print(f"  {nm:<22} M={r_path}  V={v_path}")
+        for which in a.params:
+            # `params_best_real` is the selected policy; `params_last_dream` is
+            # CMA-ES's final mean, i.e. the best the DREAM alone believes in,
+            # with zero real episodes consulted. The gap between the two rows is
+            # the price of the periodic real check -- and, read across the
+            # temperature and M variants, a measure of how exploitable each
+            # dream was.
+            suffix = "" if which == "params_best_real" else "_lastdream"
+            name = nm + suffix
+            try:
+                c = load_controller(ck, name=name, which=which)
+            except KeyError:
+                print(f"    (no {which} in {ck})")
+                continue
+            specs.append(Spec(name, c, stacks.vae(v_path), stacks.rnn(r_path)))
+            stack_of[name] = (r_path, v_path)
 
     # The transfer baseline: v1's controller, on v1's V and M, dropped into the
     # v2 world. It has never seen a coloured ball or a fast one, and its
     # encoder cannot even represent the colour.
     if Path(a.ctrl_v1).exists():
-        v1_vae, _, _ = load_ckpt(a.vae_v1, a.device)
-        v1_rnn, _ = load_rnn(a.rnn_v1, a.device)
         specs.append(Spec("ctrl_v1_on_v2",
                           load_controller(a.ctrl_v1, name="ctrl_v1_on_v2"),
-                          v1_vae, v1_rnn))
+                          stacks.vae(a.vae_v1), stacks.rnn(a.rnn_v1)))
+        stack_of["ctrl_v1_on_v2"] = (a.rnn_v1, a.vae_v1)
 
     base_env = {"ball_radius": a.ball_radius, "mass_from_color": True}
     in_env = {**base_env, "mass_holdout": HOLDOUT_BAND}
@@ -520,19 +608,22 @@ def main() -> None:
 
     print(f"\nheld-out band {HOLDOUT_BAND}: {a.holdout_episodes} episodes, "
           f"seeds {a.holdout_seed_base}..")
-    ho_specs = [sp for sp in specs
-                if sp.name in ("stay", "oracle", "ctrl_v2", "ctrl_v1_on_v2")]
+    keep = (set(a.holdout_names) if a.holdout_names is not None
+            else {"stay", "oracle"} | set(stack_of))
+    ho_specs = [sp for sp in specs if sp.name in keep] if a.holdout_episodes > 0 else []
     ho_rolls = run_all(ho_specs, a.holdout_episodes, a.steps,
-                       a.holdout_seed_base, ho_env, a.device)
+                       a.holdout_seed_base, ho_env, a.device) if ho_specs else {}
     # One "tercile" only -- the band is narrow by construction, so splitting it
     # would just be noise. Everything lands in `overall`.
     ho_terc = np.zeros(a.holdout_episodes, np.int64)
     ho_rows = [by_mass_rows(sp.name, ho_rolls[sp.name], ho_terc) for sp in ho_specs]
 
+    # Every linear controller, not a hand-picked three: the regression is cheap
+    # and a table with one row per policy is the only way to see that the
+    # "interaction term" test does not separate them (see README_C2_FIX).
     decisions = {
-        nm: decision_analysis(rolls[nm])
-        for nm in ("ctrl_v2", "ctrl_v2_z_only", "ctrl_v1_on_v2")
-        if nm in rolls
+        sp.name: decision_analysis(rolls[sp.name])
+        for sp in specs if "logits" in rolls[sp.name]
     }
 
     plot_by_mass(rows, "interceptions_per_visit",
@@ -548,7 +639,7 @@ def main() -> None:
         render_gifs(rolls, specs, vae, rnn, out, a)
 
     write_report(rows, ho_rows, decisions, cuts, mass, a, out,
-                 round(time.time() - t0, 1))
+                 round(time.time() - t0, 1), stack_of)
     print(f"\nwrote {out}  ({time.time() - t0:.0f}s)")
 
 
@@ -592,8 +683,10 @@ def render_gifs(rolls, specs, vae, rnn, out: Path, a) -> None:
 
 
 def write_report(rows, ho_rows, decisions, cuts, mass, a, out: Path,
-                 wall: float) -> None:
+                 wall: float, stack_of: Optional[Dict] = None) -> None:
     payload = {
+        "stacks": {k: {"rnn": v[0], "vae": v[1]}
+                   for k, v in (stack_of or {}).items()},
         "in_distribution": rows,
         "holdout": ho_rows,
         "decisions": decisions,
@@ -623,6 +716,14 @@ def write_report(rows, ho_rows, decisions, cuts, mass, a, out: Path,
         "ball reaches the floor several times more often than a heavy one, so "
         "per-episode counts are not comparable across terciles and "
         "**interceptions per floor visit** is the metric to read.",
+        "",
+        "Each controller is driven by **the (V, M) it was trained with** - the "
+        "policy reads `h`, so M is part of the policy:",
+        "",
+        "| controller | M (dynamics) | V (encoder) |",
+        "|---|---|---|",
+    ] + [f"| `{k}` | `{v[0]}` | `{v[1]}` |"
+         for k, v in sorted((stack_of or {}).items())] + [
         "",
         "## Interceptions per floor visit (the mass-fair skill metric)",
         "",

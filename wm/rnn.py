@@ -81,6 +81,11 @@ class RNNConfig:
     n_gauss: int = 5
     predict_delta: bool = True
     ablate_actions: bool = False  # zero the action input; see eval part (d)
+    # Optional auxiliary head predicting log(mass) from h. Off by default, so
+    # every checkpoint trained before it existed still loads: the field simply
+    # takes its default and no parameter is created, leaving the state dict
+    # identical. See the note on privileged targets in the Heads section above.
+    mass_head: bool = False
 
 
 class MDNRNN(nn.Module):
@@ -102,6 +107,13 @@ class MDNRNN(nn.Module):
         self.mdn = nn.Linear(c.hidden, c.n_gauss * (1 + 2 * c.z_dim))
         self.hit_head = nn.Linear(c.hidden, 1)
         self.reward_head = nn.Linear(c.hidden, 1)
+        # Privileged at TRAINING time only, exactly like the reward head: the
+        # target comes from the simulator's state vector, never from anything
+        # the model can see at dream time, and nothing downstream reads it.
+        # Its job is to force the colour -> mass factor to stay explicitly
+        # represented in h rather than being smeared through whatever mixture
+        # of latent directions happens to minimise the one-step NLL.
+        self.mass_head = nn.Linear(c.hidden, 1) if c.mass_head else None
 
         # Start with small MDN outputs so the initial predicted delta is ~0,
         # i.e. the model starts life as the identity map. With predict_delta
@@ -146,6 +158,8 @@ class MDNRNN(nn.Module):
         parts = self._split(self.mdn(out))
         parts["hit_logit"] = self.hit_head(out)          # (B, T, 1)
         parts["reward"] = self.reward_head(out)          # (B, T, 1)
+        if self.mass_head is not None:
+            parts["log_mass"] = self.mass_head(out)      # (B, T, 1)
         parts["h"] = out                                 # (B, T, hidden)
         # Stash z so the delta bookkeeping lives in one place.
         parts["z_in"] = z

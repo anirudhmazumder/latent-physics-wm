@@ -1,0 +1,64 @@
+model runs/rnn_v2_ms_cons/rnn.pt
+vae   runs/vae_v2/vae.pt  z_dim=16
+30 episodes x 200 dream steps, warm-up 8, taus [0.0, 0.5, 1.0], device=cpu
+log-mass probe: poly-2 ridge on 3580 frames from ['data/v2/probe', 'data/v2/val_mix'], in-sample R^2 0.9807
+
+  dreaming at tau=0.0 ...
+
+  dreaming at tau=0.5 ...
+
+  dreaming at tau=1.0 ...
+
+==============================================================================
+CONSERVATION -- rnn_v2_ms_cons
+==============================================================================
+
+(i) corr(dreamed log-mass, true log-mass), across episodes, by dream step
+       tau        0       24       60      120      199
+      0.00    0.979    0.974    0.953    0.864    0.725
+      0.50    0.881    0.543    0.513    0.176    0.157
+      1.00    0.698    0.413    0.272    0.215    0.110
+     floor    0.985    0.992    0.993    0.992      nan   (the probe on TRUE latents; blank past step 192)
+
+(ii) RMSE of the dreamed log-mass (the whole range of log-mass is log(2/0.5) = 1.386)
+       tau        0       24       60      120      199
+      0.00    0.123    0.180    0.225    0.359    0.502
+      0.50    0.229    0.474    0.600    0.705    0.734
+      1.00    0.617    0.684    0.532    0.515    0.600
+
+(iii) dreamed speed / true speed (the law says 1.000)
+       tau        0       24       60      120      199   horizon
+      0.00    0.963    0.937    0.804    0.780    0.745      31.6
+      0.50    1.242    1.481    1.190    1.525    1.469       4.6
+      1.00    4.231    4.408    6.012    5.255    4.628       2.0
+     floor    1.000    1.000    1.000    1.000      nan     128.1
+    'horizon' = mean first step at which the dreamed speed is off the law by > 25% (max 200)
+    At tau > 0 the RATIO is inflated by per-step sampling jitter that the position
+    probe cannot separate from motion. The correlation below is the clean version:
+       tau        0       24       60      120      199
+      0.00    0.643    0.739    0.954    0.715    0.184
+      0.50   -0.186   -0.173   -0.351    0.254   -0.205
+      1.00   -0.278   -0.342   -0.076   -0.046    0.081
+     floor    0.909    0.969    0.976    0.961      nan
+
+(iv) fraction of dreamed frames with a well-formed ball (area within 50-150% of the VAE reference)
+    tau=0.00  mean over the dream 0.999   at the end 1.000
+    tau=0.50  mean over the dream 0.888   at the end 0.867
+    tau=1.00  mean over the dream 0.802   at the end 0.700
+
+In plain English:
+  At tau=1.0 the dreamed ball's mass starts at corr 0.70 with the
+  truth, is 0.41 by step 24 and 0.13 by step 150. It falls below 0.5
+  at step 8.
+  At step 150 the dreamed ball moves at 9.32 x the speed the law gives it.
+  It correlates with the speed its colour implies at r = 0.32 (probe floor
+  0.82 where that is defined).
+  The dream stays inside +-25% of the law for 2 steps on average (the
+  measuring probe's own floor is 128).  80% of the dreamed frames still
+  contain a ball of roughly the right size.
+  At tau=0.0 (deterministic) the same numbers are log-mass corr 0.82, speed ratio 0.84, speed horizon 32.
+  The gap between the two rows is the cost of sampling, which is the whole
+  finding: the model KNOWS the quantity is constant, and loses it anyway
+  as soon as it has to feed on its own draws.
+
+artifacts in runs/rnn_v2_ms_cons/conservation

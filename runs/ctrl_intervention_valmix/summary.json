@@ -1,0 +1,589 @@
+{
+  "rows": [
+    {
+      "name": "ctrl_v2",
+      "source": "['data/v2/val_mix'], first 40 episodes",
+      "n_frames": 300,
+      "n_episodes": 19,
+      "mass_range": [
+        0.5097943544387817,
+        1.939778447151184
+      ],
+      "drive_std": 58.609524857799,
+      "repaints": {
+        "null": {
+          "m1": null,
+          "in_holdout_band": false,
+          "n_frames": 300,
+          "drive_std": 58.609524857799,
+          "mean_abs_delta": 0.0,
+          "effect_size": 0.0,
+          "mean_delta": 0.0,
+          "flip_fraction": 0.0,
+          "direction_beta": NaN,
+          "direction_ci95": [
+            NaN,
+            NaN
+          ]
+        },
+        "m0.5": {
+          "m1": 0.5,
+          "in_holdout_band": false,
+          "n_frames": 300,
+          "drive_std": 58.609524857799,
+          "mean_abs_delta": 9.31103372035541,
+          "effect_size": 0.15886553837360476,
+          "mean_delta": -2.502057447708815,
+          "flip_fraction": 0.06,
+          "direction_beta": -0.06299412441263229,
+          "direction_ci95": [
+            -0.1296966392126653,
+            0.0033069560130293708
+          ]
+        },
+        "m1": {
+          "m1": 1.0,
+          "in_holdout_band": true,
+          "n_frames": 300,
+          "drive_std": 58.609524857799,
+          "mean_abs_delta": 7.846651380324411,
+          "effect_size": 0.13388013977868443,
+          "mean_delta": 0.0004161717473337963,
+          "flip_fraction": 0.04666666666666667,
+          "direction_beta": -0.12114328828284168,
+          "direction_ci95": [
+            -0.1937281320870127,
+            -0.05166923656093709
+          ]
+        },
+        "m2": {
+          "m1": 2.0,
+          "in_holdout_band": false,
+          "n_frames": 300,
+          "drive_std": 58.609524857799,
+          "mean_abs_delta": 12.624774285996237,
+          "effect_size": 0.215404822281481,
+          "mean_delta": 1.1445939954982358,
+          "flip_fraction": 0.06666666666666667,
+          "direction_beta": -0.17778056330691894,
+          "direction_ci95": [
+            -0.2529366357384039,
+            -0.09725332576081042
+          ]
+        }
+      },
+      "effect_size_mean": 0.16938350014459005,
+      "flip_fraction_mean": 0.05777777777777778,
+      "null_effect_size": 0.0,
+      "null_flip_fraction": 0.0,
+      "wall_s": 13.9
+    },
+    {
+      "name": "ctrl_v2_cons",
+      "source": "['data/v2/val_mix'], first 40 episodes",
+      "n_frames": 300,
+      "n_episodes": 19,
+      "mass_range": [
+        0.5097943544387817,
+        1.939778447151184
+      ],
+      "drive_std": 31.43446102121144,
+      "repaints": {
+        "null": {
+          "m1": null,
+          "in_holdout_band": false,
+          "n_frames": 300,
+          "drive_std": 31.43446102121144,
+          "mean_abs_delta": 0.0,
+          "effect_size": 0.0,
+          "mean_delta": 0.0,
+          "flip_fraction": 0.0,
+          "direction_beta": NaN,
+          "direction_ci95": [
+            NaN,
+            NaN
+          ]
+        },
+        "m0.5": {
+          "m1": 0.5,
+          "in_holdout_band": false,
+          "n_frames": 300,
+          "drive_std": 31.43446102121144,
+          "mean_abs_delta": 7.539518062552773,
+          "effect_size": 0.2398488097971597,
+          "mean_delta": -1.3942085713765222,
+          "flip_fraction": 0.12666666666666668,
+          "direction_beta": -0.041056235857552775,
+          "direction_ci95": [
+            -0.1611639686757707,
+            0.05795208408910933
+          ]
+        },
+        "m1": {
+          "m1": 1.0,
+          "in_holdout_band": true,
+          "n_frames": 300,
+          "drive_std": 31.43446102121144,
+          "mean_abs_delta": 6.268170490214246,
+          "effect_size": 0.19940442070836178,
+          "mean_delta": -1.8672454223149444,
+          "flip_fraction": 0.08333333333333333,
+          "direction_beta": -0.07858811783350488,
+          "direction_ci95": [
+            -0.1508853866634297,
+            -0.008236015635819475
+          ]
+        },
+        "m2": {
+          "m1": 2.0,
+          "in_holdout_band": false,
+          "n_frames": 300,
+          "drive_std": 31.43446102121144,
+          "mean_abs_delta": 9.447122330997383,
+          "effect_size": 0.3005339370896999,
+          "mean_delta": 2.617424528715009,
+          "flip_fraction": 0.12333333333333334,
+          "direction_beta": -0.09945900460831403,
+          "direction_ci95": [
+            -0.18214149491505485,
+            -0.017027689053477988
+          ]
+        }
+      },
+      "effect_size_mean": 0.24659572253174045,
+      "flip_fraction_mean": 0.11111111111111112,
+      "null_effect_size": 0.0,
+      "null_flip_fraction": 0.0,
+      "wall_s": 15.0
+    },
+    {
+      "name": "ctrl_v2_cons_tau0.5",
+      "source": "['data/v2/val_mix'], first 40 episodes",
+      "n_frames": 300,
+      "n_episodes": 19,
+      "mass_range": [
+        0.5097943544387817,
+        1.939778447151184
+      ],
+      "drive_std": 37.58186844218432,
+      "repaints": {
+        "null": {
+          "m1": null,
+          "in_holdout_band": false,
+          "n_frames": 300,
+          "drive_std": 37.58186844218432,
+          "mean_abs_delta": 0.0,
+          "effect_size": 0.0,
+          "mean_delta": 0.0,
+          "flip_fraction": 0.0,
+          "direction_beta": NaN,
+          "direction_ci95": [
+            NaN,
+            NaN
+          ]
+        },
+        "m0.5": {
+          "m1": 0.5,
+          "in_holdout_band": false,
+          "n_frames": 300,
+          "drive_std": 37.58186844218432,
+          "mean_abs_delta": 6.310246650095359,
+          "effect_size": 0.16790667712019156,
+          "mean_delta": -2.283620851206621,
+          "flip_fraction": 0.056666666666666664,
+          "direction_beta": -0.0975801975236023,
+          "direction_ci95": [
+            -0.16460793502192383,
+            -0.013897245118867646
+          ]
+        },
+        "m1": {
+          "m1": 1.0,
+          "in_holdout_band": true,
+          "n_frames": 300,
+          "drive_std": 37.58186844218432,
+          "mean_abs_delta": 6.822862118055427,
+          "effect_size": 0.1815466447218203,
+          "mean_delta": -1.3209018913426205,
+          "flip_fraction": 0.06666666666666667,
+          "direction_beta": -0.1438818218637672,
+          "direction_ci95": [
+            -0.21354782880518342,
+            -0.07161103616366944
+          ]
+        },
+        "m2": {
+          "m1": 2.0,
+          "in_holdout_band": false,
+          "n_frames": 300,
+          "drive_std": 37.58186844218432,
+          "mean_abs_delta": 11.035016583919848,
+          "effect_size": 0.29362607665172474,
+          "mean_delta": 5.042698767131176,
+          "flip_fraction": 0.09,
+          "direction_beta": -0.18518245416312615,
+          "direction_ci95": [
+            -0.30431641110588636,
+            -0.06564661546063232
+          ]
+        }
+      },
+      "effect_size_mean": 0.2143597994979122,
+      "flip_fraction_mean": 0.07111111111111111,
+      "null_effect_size": 0.0,
+      "null_flip_fraction": 0.0,
+      "wall_s": 14.2
+    },
+    {
+      "name": "ctrl_v2_tau0.5",
+      "source": "['data/v2/val_mix'], first 40 episodes",
+      "n_frames": 300,
+      "n_episodes": 19,
+      "mass_range": [
+        0.5097943544387817,
+        1.939778447151184
+      ],
+      "drive_std": 37.379290410044014,
+      "repaints": {
+        "null": {
+          "m1": null,
+          "in_holdout_band": false,
+          "n_frames": 300,
+          "drive_std": 37.379290410044014,
+          "mean_abs_delta": 0.0,
+          "effect_size": 0.0,
+          "mean_delta": 0.0,
+          "flip_fraction": 0.0,
+          "direction_beta": NaN,
+          "direction_ci95": [
+            NaN,
+            NaN
+          ]
+        },
+        "m0.5": {
+          "m1": 0.5,
+          "in_holdout_band": false,
+          "n_frames": 300,
+          "drive_std": 37.379290410044014,
+          "mean_abs_delta": 10.46986852946242,
+          "effect_size": 0.28009810819333025,
+          "mean_delta": 2.472790567050588,
+          "flip_fraction": 0.09666666666666666,
+          "direction_beta": -0.009818432202268136,
+          "direction_ci95": [
+            -0.16104144478523294,
+            0.1335443187375391
+          ]
+        },
+        "m1": {
+          "m1": 1.0,
+          "in_holdout_band": true,
+          "n_frames": 300,
+          "drive_std": 37.379290410044014,
+          "mean_abs_delta": 8.319373737228288,
+          "effect_size": 0.2225663902649374,
+          "mean_delta": -0.380431463468747,
+          "flip_fraction": 0.06666666666666667,
+          "direction_beta": -0.028768048143920266,
+          "direction_ci95": [
+            -0.1539340838103723,
+            0.07988169441190957
+          ]
+        },
+        "m2": {
+          "m1": 2.0,
+          "in_holdout_band": false,
+          "n_frames": 300,
+          "drive_std": 37.379290410044014,
+          "mean_abs_delta": 12.552340494789233,
+          "effect_size": 0.3358100262763777,
+          "mean_delta": -3.65239270980986,
+          "flip_fraction": 0.13333333333333333,
+          "direction_beta": -0.14807221539811888,
+          "direction_ci95": [
+            -0.3038279898672263,
+            0.006466369530741983
+          ]
+        }
+      },
+      "effect_size_mean": 0.2794915082448818,
+      "flip_fraction_mean": 0.09888888888888887,
+      "null_effect_size": 0.0,
+      "null_flip_fraction": 0.0,
+      "wall_s": 14.3
+    },
+    {
+      "name": "ctrl_v2_z_only",
+      "source": "['data/v2/val_mix'], first 40 episodes",
+      "n_frames": 300,
+      "n_episodes": 19,
+      "mass_range": [
+        0.5097943544387817,
+        1.939778447151184
+      ],
+      "drive_std": 11.353567700001998,
+      "repaints": {
+        "null": {
+          "m1": null,
+          "in_holdout_band": false,
+          "n_frames": 300,
+          "drive_std": 11.353567700001998,
+          "mean_abs_delta": 0.0,
+          "effect_size": 0.0,
+          "mean_delta": 0.0,
+          "flip_fraction": 0.0,
+          "direction_beta": NaN,
+          "direction_ci95": [
+            NaN,
+            NaN
+          ]
+        },
+        "m0.5": {
+          "m1": 0.5,
+          "in_holdout_band": false,
+          "n_frames": 300,
+          "drive_std": 11.353567700001998,
+          "mean_abs_delta": 2.095791645661051,
+          "effect_size": 0.18459322223979713,
+          "mean_delta": -1.8340156931815705,
+          "flip_fraction": 0.09333333333333334,
+          "direction_beta": -0.09161556783839189,
+          "direction_ci95": [
+            -0.14459146855613506,
+            -0.038567911011970685
+          ]
+        },
+        "m1": {
+          "m1": 1.0,
+          "in_holdout_band": true,
+          "n_frames": 300,
+          "drive_std": 11.353567700001998,
+          "mean_abs_delta": 1.3887181122673253,
+          "effect_size": 0.12231557066128923,
+          "mean_delta": 0.07214006054379898,
+          "flip_fraction": 0.04666666666666667,
+          "direction_beta": -0.1484313278559244,
+          "direction_ci95": [
+            -0.20634018563027193,
+            -0.08164606481975907
+          ]
+        },
+        "m2": {
+          "m1": 2.0,
+          "in_holdout_band": false,
+          "n_frames": 300,
+          "drive_std": 11.353567700001998,
+          "mean_abs_delta": 2.3080629926246434,
+          "effect_size": 0.20328966661503567,
+          "mean_delta": 2.162038586154681,
+          "flip_fraction": 0.09333333333333334,
+          "direction_beta": -0.07827142420899129,
+          "direction_ci95": [
+            -0.16220503859385213,
+            0.0020053179518884556
+          ]
+        }
+      },
+      "effect_size_mean": 0.17006615317204066,
+      "flip_fraction_mean": 0.07777777777777778,
+      "null_effect_size": 0.0,
+      "null_flip_fraction": 0.0,
+      "wall_s": 14.2
+    },
+    {
+      "name": "ctrl_v1_on_v2",
+      "source": "['data/v2/val_mix'], first 40 episodes",
+      "n_frames": 300,
+      "n_episodes": 19,
+      "mass_range": [
+        0.5097943544387817,
+        1.939778447151184
+      ],
+      "drive_std": 36.683059692770016,
+      "repaints": {
+        "null": {
+          "m1": null,
+          "in_holdout_band": false,
+          "n_frames": 300,
+          "drive_std": 36.683059692770016,
+          "mean_abs_delta": 0.0,
+          "effect_size": 0.0,
+          "mean_delta": 0.0,
+          "flip_fraction": 0.0,
+          "direction_beta": NaN,
+          "direction_ci95": [
+            NaN,
+            NaN
+          ]
+        },
+        "m0.5": {
+          "m1": 0.5,
+          "in_holdout_band": false,
+          "n_frames": 300,
+          "drive_std": 36.683059692770016,
+          "mean_abs_delta": 4.606263737232521,
+          "effect_size": 0.12556923484058186,
+          "mean_delta": -3.3990014538487867,
+          "flip_fraction": 0.04,
+          "direction_beta": -0.03148243455897711,
+          "direction_ci95": [
+            -0.06882361420238466,
+            0.008377526815199569
+          ]
+        },
+        "m1": {
+          "m1": 1.0,
+          "in_holdout_band": true,
+          "n_frames": 300,
+          "drive_std": 36.683059692770016,
+          "mean_abs_delta": 8.67643531824662,
+          "effect_size": 0.23652430824783918,
+          "mean_delta": 7.0080025049358134,
+          "flip_fraction": 0.11333333333333333,
+          "direction_beta": 0.03289906787331412,
+          "direction_ci95": [
+            -0.07882667124873886,
+            0.14847114857121751
+          ]
+        },
+        "m2": {
+          "m1": 2.0,
+          "in_holdout_band": false,
+          "n_frames": 300,
+          "drive_std": 36.683059692770016,
+          "mean_abs_delta": 4.526798452273805,
+          "effect_size": 0.12340296829618078,
+          "mean_delta": -3.557846677061353,
+          "flip_fraction": 0.03666666666666667,
+          "direction_beta": 0.008348580798031616,
+          "direction_ci95": [
+            -0.023642956527053494,
+            0.048423154651008535
+          ]
+        }
+      },
+      "effect_size_mean": 0.16183217046153395,
+      "flip_fraction_mean": 0.06333333333333334,
+      "null_effect_size": 0.0,
+      "null_flip_fraction": 0.0,
+      "wall_s": 14.3
+    },
+    {
+      "name": "oracle",
+      "source": "['data/v2/val_mix'], first 40 episodes",
+      "n_frames": 300,
+      "n_episodes": 19,
+      "mass_range": [
+        0.5097943544387817,
+        1.939778447151184
+      ],
+      "drive_std": 0.7781102464018551,
+      "repaints": {
+        "null": {
+          "m1": null,
+          "in_holdout_band": false,
+          "n_frames": 300,
+          "drive_std": 0.7781102464018551,
+          "mean_abs_delta": 0.0,
+          "effect_size": 0.0,
+          "mean_delta": 0.0,
+          "flip_fraction": 0.0,
+          "direction_beta": NaN,
+          "direction_ci95": [
+            NaN,
+            NaN
+          ]
+        },
+        "m0.5": {
+          "m1": 0.5,
+          "in_holdout_band": false,
+          "n_frames": 300,
+          "drive_std": 0.7781102464018551,
+          "mean_abs_delta": 0.0,
+          "effect_size": 0.0,
+          "mean_delta": 0.0,
+          "flip_fraction": 0.0,
+          "direction_beta": 0.0,
+          "direction_ci95": [
+            0.0,
+            0.0
+          ]
+        },
+        "m1": {
+          "m1": 1.0,
+          "in_holdout_band": true,
+          "n_frames": 300,
+          "drive_std": 0.7781102464018551,
+          "mean_abs_delta": 0.0,
+          "effect_size": 0.0,
+          "mean_delta": 0.0,
+          "flip_fraction": 0.0,
+          "direction_beta": 0.0,
+          "direction_ci95": [
+            0.0,
+            0.0
+          ]
+        },
+        "m2": {
+          "m1": 2.0,
+          "in_holdout_band": false,
+          "n_frames": 300,
+          "drive_std": 0.7781102464018551,
+          "mean_abs_delta": 0.0,
+          "effect_size": 0.0,
+          "mean_delta": 0.0,
+          "flip_fraction": 0.0,
+          "direction_beta": 0.0,
+          "direction_ci95": [
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "effect_size_mean": 0.0,
+      "flip_fraction_mean": 0.0,
+      "null_effect_size": 0.0,
+      "null_flip_fraction": 0.0,
+      "wall_s": 0.7
+    }
+  ],
+  "args": {
+    "vae": "runs/vae_v2/vae.pt",
+    "rnn": "runs/rnn_v2/rnn.pt",
+    "vae_v1": "runs/vae_b1/vae.pt",
+    "rnn_v1": "runs/rnn_v1/rnn.pt",
+    "ctrl_v1": "runs/ctrl_v1/controller.pt",
+    "runs": [
+      "runs/ctrl_v2",
+      "runs/ctrl_v2_cons",
+      "runs/ctrl_v2_cons_tau0.5",
+      "runs/ctrl_v2_tau0.5",
+      "runs/ctrl_v2_z_only"
+    ],
+    "run_rnn": [],
+    "run_vae": [],
+    "frames": "val_mix",
+    "shared_roots": [
+      "data/v2/val_mix"
+    ],
+    "n_frames": 300,
+    "episodes": 40,
+    "steps": 200,
+    "seed": 0,
+    "seed_base": 5000,
+    "ball_radius": 0.08,
+    "device": "cpu",
+    "no_oracle": false,
+    "out": "runs/ctrl_intervention_valmix"
+  },
+  "repaint_masses": [
+    0.5,
+    1.0,
+    2.0
+  ],
+  "holdout_band": [
+    0.85,
+    1.2
+  ],
+  "wall_clock_s": 87.3
+}

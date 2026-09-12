@@ -1,0 +1,41 @@
+device=cpu  z_dim=16  latents=mu.npy  windows=19350 (train) / 210 (val)
+hit_rate=0.7467%  pos_weight=132.9
+params=327k  cfg=RNNConfig(z_dim=16, n_actions=3, hidden=256, n_gauss=5, predict_delta=True, ablate_actions=False, mass_head=True)
+conservation probe: poly-2 ridge, mu -> log(mass), held-out R^2 0.9768
+ep   0  train_nll   18.414  val_nll    8.933  hit_f1 0.110  rew_mse 0.03345  (89s)  roll_nll   0.000  cons 4.9738  mass_mse 0.1695
+ep   1  train_nll   15.365  val_nll    7.448  hit_f1 0.172  rew_mse 0.01491  (157s)  roll_nll   0.000  cons 0.7629  mass_mse 0.0502  roll[1]=0.2713 roll[32]=1.0745
+ep   2  train_nll   13.815  val_nll    6.064  hit_f1 0.198  rew_mse 0.01142  (254s)  roll_nll   0.000  cons 0.7083  mass_mse 0.0313
+ep   3  train_nll   12.579  val_nll    5.189  hit_f1 0.216  rew_mse 0.00930  (355s)  roll_nll   0.000  cons 0.6403  mass_mse 0.0243  roll[1]=0.1475 roll[32]=0.8215
+ep   4  train_nll   11.766  val_nll    4.465  hit_f1 0.248  rew_mse 0.00838  (453s)  roll_nll   0.000  cons 0.5953  mass_mse 0.0205
+ep   5  train_nll   11.201  val_nll    3.725  hit_f1 0.252  rew_mse 0.00708  (588s)  roll_nll   0.000  cons 0.5467  mass_mse 0.0179  roll[1]=0.1150 roll[32]=0.9073
+ep   6  train_nll   10.817  val_nll    3.559  hit_f1 0.258  rew_mse 0.00642  (682s)  roll_nll   0.000  cons 0.5313  mass_mse 0.0163
+ep   7  train_nll   10.526  val_nll    3.093  hit_f1 0.271  rew_mse 0.00587  (752s)  roll_nll   0.000  cons 0.5209  mass_mse 0.0151  roll[1]=0.1093 roll[32]=0.9472
+ep   8  train_nll   10.305  val_nll    2.894  hit_f1 0.259  rew_mse 0.00572  (882s)  roll_nll   0.000  cons 0.4975  mass_mse 0.0141
+ep   9  train_nll   10.130  val_nll    2.718  hit_f1 0.287  rew_mse 0.00516  (984s)  roll_nll   0.000  cons 0.4924  mass_mse 0.0133  roll[1]=0.0925 roll[32]=0.4988
+ep  10  train_nll    9.977  val_nll    2.393  hit_f1 0.296  rew_mse 0.00499  (1037s)  roll_nll   0.000  cons 0.4796  mass_mse 0.0127
+ep  11  train_nll    9.869  val_nll    2.400  hit_f1 0.305  rew_mse 0.00485  (1107s)  roll_nll   0.000  cons 0.4782  mass_mse 0.0122  roll[1]=0.0987 roll[32]=0.7627
+ep  12  train_nll    9.767  val_nll    2.192  hit_f1 0.326  rew_mse 0.00460  (1158s)  roll_nll   0.000  cons 0.4747  mass_mse 0.0119
+ep  13  train_nll    9.689  val_nll    2.195  hit_f1 0.330  rew_mse 0.00421  (1214s)  roll_nll   0.000  cons 0.4734  mass_mse 0.0116  roll[1]=0.0856 roll[32]=0.4682
+ep  14  train_nll    9.626  val_nll    2.048  hit_f1 0.338  rew_mse 0.00423  (1267s)  roll_nll   0.000  cons 0.4797  mass_mse 0.0115
+ep  15  train_nll    9.568  val_nll    1.929  hit_f1 0.319  rew_mse 0.00400  (1319s)  roll_nll   0.000  cons 0.4694  mass_mse 0.0109  roll[1]=0.0954 roll[32]=0.7663
+ep  16  train_nll    9.506  val_nll    1.879  hit_f1 0.344  rew_mse 0.00384  (1367s)  roll_nll   0.000  cons 0.4661  mass_mse 0.0108
+ep  17  train_nll    9.461  val_nll    2.017  hit_f1 0.348  rew_mse 0.00370  (1416s)  roll_nll   0.000  cons 0.4608  mass_mse 0.0107  roll[1]=0.0901 roll[32]=0.4697
+ep  18  train_nll    9.419  val_nll    1.936  hit_f1 0.349  rew_mse 0.00388  (1463s)  roll_nll   0.000  cons 0.4711  mass_mse 0.0104
+ep  19  train_nll    9.377  val_nll    1.788  hit_f1 0.343  rew_mse 0.00363  (1534s)  roll_nll   0.000  cons 0.4595  mass_mse 0.0102  roll[1]=0.0906 roll[32]=0.7407
+ep  20  train_nll    9.332  val_nll    1.693  hit_f1 0.332  rew_mse 0.00352  (1596s)  roll_nll   0.000  cons 0.4629  mass_mse 0.0103
+ep  21  train_nll    9.306  val_nll    1.639  hit_f1 0.327  rew_mse 0.00337  (1633s)  roll_nll   0.000  cons 0.4584  mass_mse 0.0100  roll[1]=0.0889 roll[32]=0.4568
+ep  22  train_nll    9.262  val_nll    1.569  hit_f1 0.352  rew_mse 0.00335  (1680s)  roll_nll   0.000  cons 0.4536  mass_mse 0.0098
+ep  23  train_nll    9.228  val_nll    1.760  hit_f1 0.365  rew_mse 0.00341  (1734s)  roll_nll   0.000  cons 0.4532  mass_mse 0.0097  roll[1]=0.0883 roll[32]=0.4522
+ep  24  train_nll    9.215  val_nll    1.607  hit_f1 0.355  rew_mse 0.00329  (1774s)  roll_nll   0.000  cons 0.4542  mass_mse 0.0096
+ep  25  train_nll    9.186  val_nll    1.513  hit_f1 0.332  rew_mse 0.00312  (1811s)  roll_nll   0.000  cons 0.4699  mass_mse 0.0094  roll[1]=0.0831 roll[32]=0.6034
+ep  26  train_nll    9.159  val_nll    1.491  hit_f1 0.356  rew_mse 0.00317  (1853s)  roll_nll   0.000  cons 0.4491  mass_mse 0.0093
+ep  27  train_nll    9.128  val_nll    1.535  hit_f1 0.349  rew_mse 0.00316  (1889s)  roll_nll   0.000  cons 0.4466  mass_mse 0.0093  roll[1]=0.0899 roll[32]=0.5556
+ep  28  train_nll    9.109  val_nll    1.528  hit_f1 0.361  rew_mse 0.00315  (1923s)  roll_nll   0.000  cons 0.4522  mass_mse 0.0090
+ep  29  train_nll    9.089  val_nll    1.347  hit_f1 0.369  rew_mse 0.00309  (1958s)  roll_nll   0.000  cons 0.4366  mass_mse 0.0091  roll[1]=0.0801 roll[32]=0.2836
+ep  30  train_nll    9.070  val_nll    1.315  hit_f1 0.351  rew_mse 0.00304  (2008s)  roll_nll   0.000  cons 0.4408  mass_mse 0.0090
+ep  31  train_nll    9.054  val_nll    1.364  hit_f1 0.384  rew_mse 0.00294  (2043s)  roll_nll   0.000  cons 0.4507  mass_mse 0.0089  roll[1]=0.0849 roll[32]=0.4283
+ep  32  train_nll    9.033  val_nll    1.363  hit_f1 0.370  rew_mse 0.00291  (2099s)  roll_nll   0.000  cons 0.4546  mass_mse 0.0088
+ep  33  train_nll    9.025  val_nll    1.345  hit_f1 0.370  rew_mse 0.00306  (2134s)  roll_nll   0.000  cons 0.4528  mass_mse 0.0088  roll[1]=0.0872 roll[32]=0.6755
+ep  34  train_nll    9.008  val_nll    1.290  hit_f1 0.372  rew_mse 0.00294  (2162s)  roll_nll   0.000  cons 0.4438  mass_mse 0.0089  roll[1]=0.0826 roll[32]=0.2767
+
+best val NLL 1.290  ->  runs/rnn_v2_cons/rnn.pt
