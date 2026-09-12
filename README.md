@@ -22,6 +22,15 @@ masses and on never-seen colours**, still on zero real frames. Repainting the
 ball in a real history shifts its decisions in the direction the physics
 predicts. Docs in `docs/v2/`.
 
+**v3 (occlusion band):** an opaque band hides the ball for ~10 frames per
+traverse. The dynamics model carries the hidden ball's *vertical* state and the
+time since it vanished (exit side 92% right) but not its horizontal position,
+because one-step prediction never pays for it until the ball reappears; a
+privileged position head proves the LSTM could hold it. A memoryless oracle
+then catches 99% of balls, so the default band never required object
+permanence for play — the honest result, and the reason the next step is a
+harder band. Docs in `docs/v3/`.
+
 **Start with the docs:** [`docs/README.md`](docs/README.md) — written so that
 someone new to world models can follow what was built, why, what was measured,
 and what it means.
@@ -38,5 +47,5 @@ tests/      unit tests: python -m tests.test_rnn && python -m tests.test_control
 Python environment: conda `NN` (`/opt/miniconda3/envs/NN/bin/python`), PyTorch
 2.12, numpy, scikit-learn, matplotlib, Pillow, scipy, `cma`.
 
-Roadmap: v3 occlusion → v4 gravity switch (see
+Roadmap: v3.1 (a band that requires memory, VAE on all band heights) → v4 gravity switch (see
 `worldsim/worldsim.md` and `docs/05_results_and_lessons.md`).

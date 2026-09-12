@@ -1,0 +1,55 @@
+model runs/rnn_v3_ms/rnn.pt
+vae   runs/vae_v3/vae.pt  z_dim=16
+30 episodes x 200 dream steps, warm-up 8, taus [0.0, 0.5, 1.0], device=cpu
+no mass column in this dataset -- running (iii) and (iv) only; the speed is a hard constant here, so those ARE the conservation tests for v1
+occluder band (0.28, 0.58); metric (v) -- the hidden ball's velocity -- is on
+
+  dreaming at tau=0.0 ...
+
+  dreaming at tau=0.5 ...
+
+  dreaming at tau=1.0 ...
+
+==============================================================================
+CONSERVATION -- rnn_v3_ms
+==============================================================================
+
+(iii) dreamed speed / true speed (the law says 1.000)
+       tau        0       24       60      120      199   horizon
+      0.00    1.062    1.594    1.037    2.751    2.507      14.7
+      0.50    3.178    3.712    3.206    3.928    3.716       2.0
+      1.00    4.853    3.080    2.671    2.461    6.030       0.3
+     floor    1.000    1.000    1.000    1.000      nan      41.4
+    'horizon' = mean first step at which the dreamed speed is off the law by > 25% (max 200)
+    At tau > 0 the RATIO is inflated by per-step sampling jitter that the position
+    probe cannot separate from motion. 
+    (the across-episode speed correlation is undefined here: in v1 every
+    episode has the SAME true speed, so there is no variance to correlate with.)
+
+(v) v3: the HIDDEN ball's velocity across a dreamed occlusion.
+    Nothing inside the band can turn a ball around, so vy must keep its sign and
+    |v| and |vx| must be unchanged. This compares the dream with ITSELF, so it is
+    the one metric here that is meaningful at tau = 1.
+       tau  stretches  vy sign kept  |v| out/in  |vx| out/in  vx flipped
+      0.00        107         0.486       0.996        0.926       0.467
+      0.50        406         0.470       0.934        0.912       0.537
+      1.00        242         0.500       1.051        0.941       0.492
+     floor         90         0.989       1.000        1.000       0.267
+    ('floor' is the same estimator on TRUE latents: the instrument's own score.)
+
+(iv) fraction of dreamed frames with a well-formed ball (area within 50-150% of the VAE reference)
+    tau=0.00  mean over the dream 0.165   at the end 0.000
+    tau=0.50  mean over the dream 0.193   at the end 0.100
+    tau=1.00  mean over the dream 0.287   at the end 0.300
+
+In plain English:
+  At step 150 the dreamed ball moves at 8.10 x the speed the law gives it.
+  The dream stays inside +-25% of the law for 0 steps on average (the
+  measuring probe's own floor is 41).  29% of the dreamed frames still
+  contain a ball of roughly the right size.
+  At tau=0.0 (deterministic) the same numbers are speed ratio 2.70, speed horizon 15.
+  The gap between the two rows is the cost of sampling, which is the whole
+  finding: the model KNOWS the quantity is constant, and loses it anyway
+  as soon as it has to feed on its own draws.
+
+artifacts in runs/rnn_v3_ms/conservation

@@ -336,6 +336,73 @@ class OracleController(BaseController):
         )
 
 
+# The six columns every version of the world has. Anything past them is a v2 or
+# v3 diagnostic, and in an occluded world the last one is ``ball_visible``.
+_BASE_STATE_NAMES = (
+    "ball_x", "ball_y", "ball_vx", "ball_vy", "paddle_x", "paddle_vx",
+)
+STAY_ACTION = 1
+
+
+class WaitAndSeeOracleController(BaseController):
+    """v3: the oracle, blinded whenever the ball is behind the band.
+
+    The MEMORYLESS UPPER BOUND, and the single most informative reference in
+    stage three of v3. It is handed the same privileged true state as
+    ``OracleController`` -- exact position, no encoder, no inference -- but it is
+    only allowed to look at it while ``ball_visible > threshold``; on every other
+    frame it STAYs. So it has perfect vision and zero memory, which is exactly
+    the policy class a controller with no object permanence is confined to, at
+    its theoretical best.
+
+    Read it against ``OracleController`` (perfect vision AND perfect memory):
+    the gap between the two is the *entire* value of object permanence for this
+    task, measured behaviourally and with no world model in the loop at all. If
+    that gap is small, no controller -- fair, privileged or otherwise -- can gain
+    much from permanence here, and the whole C-stage question is answered before
+    a single trained policy is scored.
+
+    ``ball_visible`` is the LAST state column when the environment has an
+    occluder (``[..., paddle_vx, (mass), ball_visible]``), so a state vector
+    with no extra column means "never occluded" and this degrades exactly into
+    the plain oracle.
+    """
+
+    name = "wait_and_see"
+    uses_true_state = True
+
+    def __init__(
+        self,
+        paddle_w: float = 0.26,
+        dead_zone_frac: float = 0.25,
+        threshold: float = 0.5,
+        name: str = "wait_and_see",
+    ):
+        self.paddle_w = float(paddle_w)
+        self.dead_zone_frac = float(dead_zone_frac)
+        self.threshold = float(threshold)
+        self.name = name
+
+    def act(self, z, h, state=None) -> np.ndarray:
+        from worldsim.policies import tracking_action
+
+        if state is None:
+            raise ValueError("WaitAndSeeOracleController needs the true state")
+        state = np.atleast_2d(np.asarray(state))
+        visible = (
+            state[:, -1] if state.shape[-1] > len(_BASE_STATE_NAMES)
+            else np.ones(len(state))
+        )
+        return np.array(
+            [
+                tracking_action(s, self.paddle_w, self.dead_zone_frac)
+                if v > self.threshold else STAY_ACTION
+                for s, v in zip(state, visible)
+            ],
+            dtype=np.int64,
+        )
+
+
 # --------------------------------------------------- normalisation statistics
 
 

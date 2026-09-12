@@ -35,6 +35,19 @@ diagnosis and ``wm/README_FIX.md`` for the measurements):
 ``--rollout-loss-steps 0`` (the default) disables all of the rollout machinery
 and reproduces the original loss bit for bit, which ``tests/test_conservation``
 asserts.
+
+Two more, added in v3 after the occluded world turned out to give the model no
+reason to remember where a hidden ball is (``wm/README_M3.md`` Section 10,
+``wm/README_FIX3.md`` for the results):
+
+    --emerge-weight w        up-weight the NLL on the frames where the ball
+                             comes back out from behind the band. Still
+                             self-supervised: the privileged visibility flag
+                             chooses WHICH transitions count, not what to
+                             predict.
+    --pos-head --w-pos w     a linear head on h predicting the true ball
+                             position on every frame, hidden included. Openly
+                             privileged: the CEILING experiment.
 """
 
 from __future__ import annotations
@@ -59,6 +72,75 @@ from .train_vae import pick_device
 # ----------------------------------------------------- conservation probe
 
 
+def _state_column(roots, name: str) -> int | None:
+    """Index of a named column in ``states.npy``, or None if absent.
+
+    Looked up from ``meta["state_names"]`` rather than by position, because the
+    versions disagree about what column 6 is: v2's is ``mass`` and v3's is
+    ``ball_visible``. Getting this wrong once already nearly trained a "log
+    mass" head on an occlusion flag (README_M3 Section 9), so every column this
+    file needs -- mass, ball_visible, ball_x, ball_y -- goes through here.
+    """
+    names = json.loads((Path(roots[0]) / "meta.json").read_text()).get(
+        "state_names", [])
+    return names.index(name) if name in names else None
+
+
+def _mass_column(roots) -> int | None:
+    """Back-compatible alias; see ``_state_column``."""
+    return _state_column(roots, "mass")
+
+
+# ------------------------------------------------------- emergence weighting
+
+
+def emergence_weight_mask(
+    visible: torch.Tensor,          # (B, L+1) 1.0 where the ball is visible
+    n_frames: int = 3,
+) -> torch.Tensor:
+    """Which TARGET frames are "the ball has just come back". (B, L) bool.
+
+    ``visible`` is the window's full visibility sequence, frames t0 .. t0+L:
+    entry 0 is the frame before the first target and entries 1..L are the L
+    target frames. The returned mask lines up with the targets.
+
+    A target frame is an *emergence* frame if the ball is visible there and it
+    is within the first ``n_frames`` frames of a visible run that a hidden
+    frame preceded. ``n_frames = 1`` is the strict "the previous frame was
+    fully hidden" reading; 3 is what v3 uses, because the exit is spread over
+    two or three frames by the ball's radius and by the mixture's hedging, and
+    a single frame of signal per nine-frame occlusion is very little gradient.
+
+    The window's own first frame has no history inside the window, so a visible
+    run already in progress at entry 0 is never marked -- we cannot tell
+    whether it began behind the band. That is a small, conservative loss (it
+    can only mark fewer frames than the truth) and it is what makes this
+    computable from one window.
+
+    PRIVILEGE NOTE. ``visible`` comes from the simulator's state vector, which
+    the model never sees. It is used here only to decide *how much a
+    transition counts*, never as an input and never as a target: the model is
+    still asked to predict exactly the same latents from exactly the same
+    inputs. Re-weighting a loss with a privileged label is a much weaker form
+    of cheating than ``--pos-head``, but it is not zero, and README_FIX3 says
+    so out loud.
+    """
+    vis = visible > 0.5
+    B, Lp1 = vis.shape
+    BIG = Lp1 + 1
+    # runpos[j] = how many frames the current visible run has lasted at j, or 0
+    # if hidden. The first entry is seeded with BIG when visible, which is the
+    # "run of unknown age" case the docstring describes.
+    runpos = torch.zeros(B, Lp1, dtype=torch.long, device=vis.device)
+    runpos[:, 0] = torch.where(vis[:, 0], torch.full_like(runpos[:, 0], BIG),
+                               torch.zeros_like(runpos[:, 0]))
+    for j in range(1, Lp1):
+        runpos[:, j] = torch.where(vis[:, j], runpos[:, j - 1] + 1,
+                                   torch.zeros_like(runpos[:, j]))
+    mask = (runpos >= 1) & (runpos <= n_frames)
+    return mask[:, 1:]                                                # (B, L)
+
+
 def _fit_cons_probe(roots, latent_suffix: str, n: int, seed: int):
     """Fit the frozen poly-2 ``mu -> log(mass)`` probe on TRAINING latents.
 
@@ -67,13 +149,16 @@ def _fit_cons_probe(roots, latent_suffix: str, n: int, seed: int):
     is the best estimate of that. Reports a held-out (by episode) R^2 so a
     silently broken probe is visible before 35 epochs are spent on it.
     """
+    col = _mass_column(roots)
+    if col is None:
+        raise SystemExit("--cons-loss-weight needs a dataset with a mass column")
     mus, masses, groups = [], [], []
     for ri, r in enumerate(roots):
         d = episode_arrays(r, latent_suffix=latent_suffix)
         mu, st = d["mu"], d["state"]
         E, T = mu.shape[0], mu.shape[1]
         mus.append(mu.reshape(E * T, -1))
-        masses.append(st[:, :, 6].reshape(E * T))
+        masses.append(st[:, :, col].reshape(E * T))
         groups.append(np.repeat(np.arange(E) + 1000 * ri, T))
     M = np.concatenate(mus)
     Y = np.log(np.concatenate(masses))
@@ -211,6 +296,10 @@ def main() -> None:
                    help="feed mu instead of a fresh posterior sample")
     p.add_argument("--ablate-actions", action="store_true",
                    help="zero the action input -- the 'do actions matter' control")
+    p.add_argument("--feedforward", action="store_true",
+                   help="v3 control: replace the LSTM with a 2x256 MLP on "
+                        "[z_t, a_t]. No recurrence, so no memory -- the floor "
+                        "for every object-permanence test.")
     p.add_argument("--latent-suffix", default="",
                    help='read mu<suffix>.npy instead of mu.npy, e.g. "v1vae"')
     p.add_argument("--ablate-color", action="store_true",
@@ -241,6 +330,30 @@ def main() -> None:
                         "is privileged (simulator state), training-time only, "
                         "exactly like the reward head.")
     p.add_argument("--w-mass", type=float, default=1.0)
+    # ------------------------------------------------- v3 permanence fixes
+    # Diagnosis in wm/README_M3.md Section 10, measurements in
+    # wm/README_FIX3.md. One-step teacher forcing pays only for what changes
+    # the NEXT latent, and behind an opaque band the next latent is the blank
+    # band whatever the ball's x is -- so tracking x buys nothing until the
+    # ball comes back out. These two flags attack that from opposite ends.
+    p.add_argument("--emerge-weight", type=float, default=1.0,
+                   help="up-weight the MDN NLL by this factor on target frames "
+                        "where the ball has just re-emerged from behind the "
+                        "occluder (the first --emerge-frames frames of a "
+                        "visible run that a hidden frame preceded). Applies to "
+                        "both the teacher-forced term and the open-loop rollout "
+                        "term. Needs a dataset with a ball_visible column. 1.0 "
+                        "(default) is a no-op. Uses a privileged label for "
+                        "WEIGHTING only -- never as an input or a target.")
+    p.add_argument("--emerge-frames", type=int, default=3,
+                   help="how many frames after a hidden run count as emergence")
+    p.add_argument("--pos-head", action="store_true",
+                   help="add a linear head on h predicting the TRUE (ball_x, "
+                        "ball_y) on EVERY frame, hidden ones included. This is "
+                        "the privileged CEILING experiment, not a fair "
+                        "world-model result: it tells the recurrent state what "
+                        "to remember. Nothing downstream reads the head.")
+    p.add_argument("--w-pos", type=float, default=1.0)
     p.add_argument("--cons-probe-samples", type=int, default=20000,
                    help="frames used to FIT the frozen conservation probe")
     p.add_argument("--grad-clip", type=float, default=1.0)
@@ -312,7 +425,8 @@ def main() -> None:
     cfg = RNNConfig(
         z_dim=z_dim, n_actions=3, hidden=a.hidden, n_gauss=a.n_gauss,
         predict_delta=not a.no_delta, ablate_actions=a.ablate_actions,
-        mass_head=a.mass_head,
+        mass_head=a.mass_head, feedforward=a.feedforward,
+        pos_head=a.pos_head,
     )
     model = MDNRNN(cfg).to(device)
     print(f"params={sum(p_.numel() for p_ in model.parameters())/1e3:.0f}k  cfg={cfg}")
@@ -336,28 +450,77 @@ def main() -> None:
               f"held-out R^2 {cons_r2:.4f}")
 
     roll_rng = np.random.default_rng(a.seed + 1)
-    mass_col = 6  # v2 state vector: [x, y, vx, vy, paddle_x, paddle_vx, mass]
-    if (a.mass_head or cons_probe is not None) and train_ds.eps[0].state.shape[-1] <= mass_col:
+    # The mass column is found BY NAME, not by index. v2's 7th column is mass;
+    # v3's 7th column is ball_visible. A hard-coded index 6 would have let
+    # --mass-head run happily on v3 and train a "mass" head on the occlusion
+    # flag -- a privileged target leak that no assertion on shape could catch.
+    mass_col = _mass_column(a.data)
+    if (a.mass_head or cons_probe is not None) and mass_col is None:
         raise SystemExit("this dataset has no mass column; --mass-head / "
                          "--cons-loss-weight are v2-only")
+
+    # Same by-name discipline for the v3 columns.
+    vis_col = _state_column(a.data, "ball_visible")
+    if a.emerge_weight != 1.0 and vis_col is None:
+        raise SystemExit("this dataset has no ball_visible column; "
+                         "--emerge-weight is v3-only")
+    pos_cols = [_state_column(a.data, n) for n in ("ball_x", "ball_y")]
+    if a.pos_head and any(c is None for c in pos_cols):
+        raise SystemExit("this dataset has no ball_x/ball_y columns")
 
     history: List[dict] = []
     best = float("inf")
     t0 = time.time()
 
-    extra_keys = ("roll_nll", "cons", "mass_mse")
+    extra_keys = ("roll_nll", "cons", "mass_mse", "pos_mse", "emerge_frac")
     for epoch in range(a.epochs):
         model.train()
         agg = {"loss": 0.0, "nll": 0.0, "hit_bce": 0.0, "reward_mse": 0.0, "n": 0}
         agg.update({k: 0.0 for k in extra_keys})
         for batch in train_loader:
             batch = {k: v.to(device) for k, v in batch.items()}
+
+            # The emergence weights. Built once per batch from the privileged
+            # visibility flag and reused by both NLL terms, so the two always
+            # agree about which frames matter. ``weights`` is (B, L) and lines
+            # up with the targets; ``roll_w`` is the same thing padded on the
+            # left by one so that rollout step k indexes position t0 + k.
+            weights = roll_w = None
+            emerge_frac = 0.0
+            if a.emerge_weight != 1.0:
+                vis = torch.cat(
+                    [batch["state_in"][:, :1, vis_col],
+                     batch["state"][..., vis_col]], dim=1)            # (B, L+1)
+                mask = emergence_weight_mask(vis, a.emerge_frames)     # (B, L)
+                weights = torch.where(
+                    mask, torch.full_like(mask, a.emerge_weight, dtype=torch.float32),
+                    torch.ones_like(mask, dtype=torch.float32))
+                emerge_frac = float(mask.float().mean())
+                # rollout_losses slices ``weights[:, t0+1 : t0+K+1]``, i.e. it
+                # indexes the same (B, L) target axis one position later, so it
+                # needs a column for the position it never scores. Prepending a
+                # 1.0 keeps the alignment exact.
+                roll_w = torch.cat(
+                    [torch.ones_like(weights[:, :1]), weights], dim=1)
+
             parts, _ = model(batch["z"], batch["a"])
             loss, d = rnn_loss(
                 model, parts, batch, pos_weight=pos_weight,
-                w_hit=a.w_hit, w_reward=a.w_reward,
+                w_hit=a.w_hit, w_reward=a.w_reward, nll_weights=weights,
             )
             d.update({k: torch.zeros((), device=device) for k in extra_keys})
+            d["emerge_frac"] = torch.as_tensor(emerge_frac, device=device)
+
+            # (ball_x, ball_y) from h, on every frame including the hidden
+            # ones. Privileged, training-time only, and the point of the
+            # experiment: it is the upper reference for how much position a
+            # 256-unit LSTM state CAN hold, not a claim that self-supervision
+            # would ever put it there.
+            if model.pos_head is not None:
+                tgt = batch["state"][..., pos_cols]                   # (B, L, 2)
+                pos_mse = torch.nn.functional.mse_loss(parts["ball_pos"], tgt)
+                loss = loss + a.w_pos * pos_mse
+                d["pos_mse"] = pos_mse.detach()
 
             # log(mass) from h. The window's state rows are all one episode and
             # mass is constant within an episode, so this is a constant target
@@ -376,7 +539,8 @@ def main() -> None:
                 # makes "do not drift" a property of every point in the window.
                 K = a.rollout_loss_steps
                 start = int(roll_rng.integers(0, a.seq_len - K))
-                roll = rollout_losses(model, batch["z"], batch["a"], start, K)
+                roll = rollout_losses(model, batch["z"], batch["a"], start, K,
+                                      weights=roll_w)
                 if a.rollout_loss_weight > 0.0:
                     loss = loss + a.rollout_loss_weight * roll["nll"]
                     d["roll_nll"] = roll["nll"].detach()
@@ -421,6 +585,10 @@ def main() -> None:
                     f"  cons {row['train_cons']:.4f}")
         if model.mass_head is not None:
             msg += f"  mass_mse {row['train_mass_mse']:.4f}"
+        if model.pos_head is not None:
+            msg += f"  pos_mse {row['train_pos_mse']:.5f}"
+        if a.emerge_weight != 1.0:
+            msg += f"  emerge {row['train_emerge_frac']:.3%}"
 
         if (epoch + 1) % a.eval_every == 0 or epoch == a.epochs - 1:
             ro = latent_rollout(

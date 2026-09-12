@@ -97,7 +97,14 @@ class StartPool:
     mu: np.ndarray        # (E, T+1, z)
     actions: np.ndarray   # (E, T)   int64
     state: np.ndarray     # (E, T+1, S)  diagnostics only -- never an input
-    warmup: int           # S = 6 in v1, 7 in v2 (mass is the extra column)
+    warmup: int           # S = 6 in v1, 7 in v2 (mass) and in v3 (ball_visible)
+    # Which state column is the mass, read from the dataset's own
+    # ``meta["state_names"]``. None means the world has no mass. Carried
+    # explicitly because the column INDEX is not recoverable from the array's
+    # width: v3's seventh column is ``ball_visible``, and treating it as a mass
+    # would silently make ``sample_mass_range`` select "episodes whose ball was
+    # visible at t = 0".
+    mass_col: Optional[int] = None
 
     @property
     def z_dim(self) -> int:
@@ -105,16 +112,16 @@ class StartPool:
 
     @property
     def mass(self) -> Optional[np.ndarray]:
-        """``(E,)`` per-episode mass, or None for a v1 pool.
+        """``(E,)`` per-episode mass, or None for a pool with no mass column.
 
         The dream itself never sees this -- M works in latent space and the
         colour is already inside ``mu``. It is here so a *caller* can choose
         which kind of ball to start a dream from, which is the only way to make
         a demo GIF that shows a fast ball rather than whatever the rng picked.
         """
-        if self.state.shape[-1] < 7:
+        if self.mass_col is None:
             return None
-        return np.asarray(self.state[:, 0, 6], np.float64)
+        return np.asarray(self.state[:, 0, self.mass_col], np.float64)
 
     def sample_mass_range(
         self, n: int, rng: np.random.Generator, lo: float, hi: float
@@ -152,18 +159,24 @@ def load_start_pool(
     candidate look good and give CMA-ES nothing to rank on.
     """
     mus, acts, sts = [], [], []
+    mass_col: Optional[int] = None
     for r in roots:
         d = episode_arrays(r)
         mus.append(d["mu"])
         acts.append(d["actions"])
         sts.append(d["state"])
+        names = list(d["meta"].get("state_names", ()))
+        col = names.index("mass") if "mass" in names else None
+        if mass_col is not None and col != mass_col:
+            raise ValueError("start-pool roots disagree about the mass column")
+        mass_col = col
     T = min(a.shape[1] for a in acts)
     mu = np.concatenate([m[:, : T + 1] for m in mus], 0).astype(np.float32)
     a = np.concatenate([x[:, :T] for x in acts], 0).astype(np.int64)
     s = np.concatenate([x[:, : T + 1] for x in sts], 0).astype(np.float32)
     if max_episodes is not None:
         mu, a, s = mu[:max_episodes], a[:max_episodes], s[:max_episodes]
-    return StartPool(mu, a, s, int(warmup))
+    return StartPool(mu, a, s, int(warmup), mass_col)
 
 
 # ----------------------------------------------------------------- the env

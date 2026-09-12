@@ -30,6 +30,13 @@ def main() -> None:
                    help="v2: random mass each reset, shown as ball colour. "
                         "Press R a few times -- a yellow ball is visibly fast "
                         "and easy to deflect, a purple one slow and stubborn.")
+    p.add_argument("--occluder", action="store_true",
+                   help="v3: an opaque band hides the ball across the middle "
+                        "of the box. Try to catch it -- you will find you have "
+                        "to commit to a side before it reappears, which is "
+                        "exactly the problem the controller is given.")
+    p.add_argument("--occluder-y", type=float, nargs=2, default=(0.28, 0.58),
+                   metavar=("LO", "HI"))
     a = p.parse_args()
 
     try:
@@ -38,13 +45,23 @@ def main() -> None:
         raise SystemExit("play mode needs pygame:  pip install pygame")
 
     env = BouncingBox(
-        BoxConfig(res=a.res, mass_from_color=a.mass_from_color), seed=a.seed
+        BoxConfig(
+            res=a.res,
+            mass_from_color=a.mass_from_color,
+            occluder=a.occluder,
+            occluder_y=tuple(a.occluder_y),
+        ),
+        seed=a.seed,
     )
     side = a.res * a.scale
 
     pygame.init()
     screen = pygame.display.set_mode((side, side))
-    title = "worldsim v2" if a.mass_from_color else "worldsim v1"
+    title = "worldsim v1"
+    if a.mass_from_color:
+        title = "worldsim v2"
+    if a.occluder:
+        title = "worldsim v3" if not a.mass_from_color else "worldsim v2+v3"
     pygame.display.set_caption(f"{title} - arrows to move, R to reset, Q to quit")
     clock = pygame.time.Clock()
 

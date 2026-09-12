@@ -1,0 +1,40 @@
+device=cpu  z_dim=16  latents=mu.npy  windows=19350 (train) / 210 (val)
+hit_rate=0.7589%  pos_weight=130.8
+params=327k  cfg=RNNConfig(z_dim=16, n_actions=3, hidden=256, n_gauss=5, predict_delta=True, ablate_actions=False, mass_head=False, feedforward=False, pos_head=False)
+ep   0  train_nll   16.569  val_nll    7.957  hit_f1 0.245  rew_mse 0.02538  (12s)  emerge 5.155%
+ep   1  train_nll   14.259  val_nll    6.756  hit_f1 0.249  rew_mse 0.01733  (25s)  emerge 5.155%  roll[1]=0.0813 roll[32]=0.8187
+ep   2  train_nll   13.541  val_nll    6.130  hit_f1 0.280  rew_mse 0.01505  (37s)  emerge 5.155%
+ep   3  train_nll   13.173  val_nll    5.857  hit_f1 0.312  rew_mse 0.01314  (50s)  emerge 5.155%  roll[1]=0.0585 roll[32]=0.7998
+ep   4  train_nll   12.913  val_nll    5.581  hit_f1 0.328  rew_mse 0.01246  (62s)  emerge 5.155%
+ep   5  train_nll   12.729  val_nll    5.393  hit_f1 0.356  rew_mse 0.01168  (74s)  emerge 5.155%  roll[1]=0.0551 roll[32]=0.6590
+ep   6  train_nll   12.591  val_nll    5.170  hit_f1 0.392  rew_mse 0.01114  (87s)  emerge 5.155%
+ep   7  train_nll   12.469  val_nll    5.146  hit_f1 0.392  rew_mse 0.01140  (99s)  emerge 5.155%  roll[1]=0.0534 roll[32]=0.7018
+ep   8  train_nll   12.376  val_nll    5.092  hit_f1 0.403  rew_mse 0.01014  (112s)  emerge 5.155%
+ep   9  train_nll   12.296  val_nll    4.913  hit_f1 0.405  rew_mse 0.00955  (124s)  emerge 5.155%  roll[1]=0.0488 roll[32]=0.5128
+ep  10  train_nll   12.211  val_nll    4.904  hit_f1 0.446  rew_mse 0.00910  (137s)  emerge 5.155%
+ep  11  train_nll   12.162  val_nll    4.803  hit_f1 0.454  rew_mse 0.00926  (149s)  emerge 5.155%  roll[1]=0.0457 roll[32]=0.5775
+ep  12  train_nll   12.095  val_nll    4.743  hit_f1 0.466  rew_mse 0.00940  (161s)  emerge 5.155%
+ep  13  train_nll   12.056  val_nll    4.705  hit_f1 0.435  rew_mse 0.00903  (176s)  emerge 5.155%  roll[1]=0.0452 roll[32]=0.5074
+ep  14  train_nll   12.021  val_nll    4.639  hit_f1 0.454  rew_mse 0.00913  (188s)  emerge 5.155%
+ep  15  train_nll   11.984  val_nll    4.578  hit_f1 0.456  rew_mse 0.00902  (200s)  emerge 5.155%  roll[1]=0.0417 roll[32]=0.5031
+ep  16  train_nll   11.943  val_nll    4.491  hit_f1 0.435  rew_mse 0.00876  (213s)  emerge 5.155%
+ep  17  train_nll   11.911  val_nll    4.476  hit_f1 0.458  rew_mse 0.00840  (225s)  emerge 5.155%  roll[1]=0.0406 roll[32]=0.4820
+ep  18  train_nll   11.889  val_nll    4.418  hit_f1 0.452  rew_mse 0.00846  (239s)  emerge 5.155%
+ep  19  train_nll   11.866  val_nll    4.398  hit_f1 0.439  rew_mse 0.00852  (252s)  emerge 5.155%  roll[1]=0.0396 roll[32]=0.4787
+ep  20  train_nll   11.828  val_nll    4.392  hit_f1 0.505  rew_mse 0.00843  (266s)  emerge 5.155%
+ep  21  train_nll   11.811  val_nll    4.349  hit_f1 0.502  rew_mse 0.00805  (280s)  emerge 5.155%  roll[1]=0.0425 roll[32]=0.4793
+ep  22  train_nll   11.792  val_nll    4.329  hit_f1 0.454  rew_mse 0.00831  (293s)  emerge 5.155%
+ep  23  train_nll   11.771  val_nll    4.389  hit_f1 0.473  rew_mse 0.00864  (317s)  emerge 5.155%  roll[1]=0.0395 roll[32]=0.4455
+ep  24  train_nll   11.756  val_nll    4.329  hit_f1 0.475  rew_mse 0.00831  (330s)  emerge 5.155%
+ep  25  train_nll   11.736  val_nll    4.280  hit_f1 0.491  rew_mse 0.00813  (345s)  emerge 5.155%  roll[1]=0.0381 roll[32]=0.4839
+ep  26  train_nll   11.720  val_nll    4.219  hit_f1 0.491  rew_mse 0.00827  (362s)  emerge 5.155%
+ep  27  train_nll   11.709  val_nll    4.212  hit_f1 0.495  rew_mse 0.00795  (376s)  emerge 5.155%  roll[1]=0.0418 roll[32]=0.4654
+ep  28  train_nll   11.697  val_nll    4.252  hit_f1 0.477  rew_mse 0.00768  (389s)  emerge 5.155%
+ep  29  train_nll   11.681  val_nll    4.179  hit_f1 0.517  rew_mse 0.00766  (404s)  emerge 5.155%  roll[1]=0.0382 roll[32]=0.4759
+ep  30  train_nll   11.674  val_nll    4.163  hit_f1 0.498  rew_mse 0.00743  (418s)  emerge 5.155%
+ep  31  train_nll   11.658  val_nll    4.155  hit_f1 0.528  rew_mse 0.00742  (432s)  emerge 5.155%  roll[1]=0.0399 roll[32]=0.5199
+ep  32  train_nll   11.646  val_nll    4.187  hit_f1 0.528  rew_mse 0.00760  (445s)  emerge 5.155%
+ep  33  train_nll   11.646  val_nll    4.140  hit_f1 0.528  rew_mse 0.00744  (1360s)  emerge 5.155%  roll[1]=0.0381 roll[32]=0.4608
+ep  34  train_nll   11.630  val_nll    4.068  hit_f1 0.573  rew_mse 0.00737  (1375s)  emerge 5.155%  roll[1]=0.0395 roll[32]=0.5832
+
+best val NLL 4.068  ->  runs/rnn_v3_emerge_only/rnn.pt

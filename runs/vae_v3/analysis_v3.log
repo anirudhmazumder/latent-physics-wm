@@ -1,0 +1,29 @@
+z_dim=16  free_bits=0.5  frames=3000  band y=0.28..0.58
+  visible    1304 frames (43.5%)  100 episodes
+  partial    1138 frames (37.9%)  109 episodes
+  hidden      558 frames (18.6%)   76 episodes
+
+active units: 6/16
+  per-dim KL (sorted): 1.33 1.26 1.06 1.00 0.97 0.92 0.74 0.66 0.65 0.64 0.59 0.58 0.56 0.49 0.48 0.38
+
+ball position from mu, conditioned on visibility (held-out R^2 / rmse in world units):
+  bin       frames  eps        linear.x         poly2.x           knn.x        linear.y         poly2.y           knn.y
+  visible     1304  100    0.501/0.182    0.878/0.090    0.984/0.033    0.118/0.256    0.930/0.072    0.984/0.035
+  partial     1138  109    0.767/0.105    0.825/0.091    0.725/0.115    0.880/0.050    0.947/0.033    0.926/0.040
+  hidden       558   76   -0.266/0.237   -0.158/0.227   -0.506/0.259   -0.188/0.047   -0.418/0.051   -0.419/0.051
+
+ball_visible from mu: linear=-0.037  poly2=0.984  knn=0.949
+  from ONE dim (poly2): z[1]=0.086  z[5]=0.071  z[7]=0.059  z[6]=-0.004  z[10]=-0.022
+
+ball-coloured pixel mass OUTSIDE the band, in units of one ball
+  (the 'real' columns calibrate the measure: they are what the actual frames score)
+  bin           real    recon  real pk  recon pk   pk max
+  visible      1.001    1.023    1.000     0.999    1.000
+  partial      0.416    0.446    1.000     0.997    1.000
+  hidden       0.001    0.024    0.005     0.071    0.095
+
+  hallucination rate = 0.0239 balls of spurious ball mass on fully hidden frames, against 1.0231 on fully visible ones.
+  brightest ball-like pixel on a hidden frame: 0.095 (median 0.071). Well under 1, so the residual is diffuse haze, not a ball drawn in the wrong place.
+
+wrote runs/vae_v3/analysis/recon_by_visibility.png  (row pairs real/recon: visible vis 1.00-1.00, partial vis 0.04-0.97, hidden vis 0.00-0.01)
+wrote runs/vae_v3/analysis/report_v3.json

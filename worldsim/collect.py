@@ -11,7 +11,8 @@ never holds more than one episode in memory.
 Layout (E episodes of T steps):
     frames.npy   uint8    (E, T + 1, res, res, 3)
     actions.npy  int8     (E, T)
-    states.npy   float32  (E, T + 1, S)   S = 6 (v1) or 7 (v2, mass appended)
+    states.npy   float32  (E, T + 1, S)   S = 6 (v1), +1 for v2 (mass),
+                                          +1 for v3 (ball_visible)
     events.npy   uint8    (E, T)
     meta.json                             ``state_names`` tells you S
 
@@ -30,6 +31,13 @@ v2 (mass from colour), with a held-out band of masses reserved for testing:
         --ball-radius 0.08 --mass-from-color --mass-holdout 0.85 1.2
     python -m worldsim.collect --out data/v2/holdout --episodes 30 --steps 200 \
         --ball-radius 0.08 --mass-from-color --mass-only 0.85 1.2 --policy mix --seed 21
+
+v3 (occlusion band). Mass is left off so the two effects are not compounded:
+
+    python -m worldsim.collect --out data/v3/train --episodes 150 --steps 200 \
+        --ball-radius 0.08 --res 64 --occluder
+    python -m worldsim.collect --out data/v3/tall --episodes 30 --steps 200 \
+        --ball-radius 0.08 --res 64 --occluder --occluder-y 0.22 0.64 --policy mix --seed 31
 """
 
 from __future__ import annotations
@@ -43,7 +51,7 @@ from typing import Optional, Tuple
 import numpy as np
 from numpy.lib.format import open_memmap
 
-from .bouncing_box import BouncingBox, BoxConfig
+from .bouncing_box import EVENT_HIDDEN, EVENT_WALL_X, BouncingBox, BoxConfig
 from .policies import MixedPolicy, sticky_random_actions, uniform_random_actions
 
 
@@ -60,6 +68,8 @@ def collect(
     mass_from_color: bool = False,
     mass_holdout: Optional[Tuple[float, float]] = None,
     mass_only: Optional[Tuple[float, float]] = None,
+    occluder: bool = False,
+    occluder_y: Tuple[float, float] = (0.28, 0.58),
 ) -> Path:
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -70,9 +80,11 @@ def collect(
         mass_from_color=mass_from_color,
         mass_holdout=mass_holdout,
         mass_only=mass_only,
+        occluder=occluder,
+        occluder_y=tuple(occluder_y),
     )
     env = BouncingBox(cfg)
-    state_names = env.state_names          # 6 cols in v1, 7 in v2
+    state_names = env.state_names          # 6 in v1, +mass in v2, +ball_visible in v3
     rng = np.random.default_rng(seed)
 
     frames = open_memmap(
@@ -142,6 +154,7 @@ def collect(
             )
 
     _sanity_check(states, events, cfg, state_names)
+    occ_stats = _occlusion_report(states, events, cfg, state_names) if occluder else None
 
     for arr in (frames, actions, states, events):
         arr.flush()
@@ -149,7 +162,10 @@ def collect(
     meta = {
         # The version string is what downstream code keys off to know whether a
         # mass column exists; keep it in sync with state_names.
-        "version": "v2_mass_from_color" if mass_from_color else "v1_bouncing_box",
+        "version": (
+            "v3_occluder" if occluder
+            else ("v2_mass_from_color" if mass_from_color else "v1_bouncing_box")
+        ),
         "episodes": episodes,
         "steps": steps,
         "res": res,
@@ -161,6 +177,12 @@ def collect(
         "mass_from_color": mass_from_color,
         "mass_holdout": list(mass_holdout) if mass_holdout else None,
         "mass_only": list(mass_only) if mass_only else None,
+        "occluder": occluder,
+        "occluder_y": list(cfg.occluder_y) if occluder else None,
+        # The occlusion statistics are cheap to recompute but expensive to
+        # remember to recompute, and every v3 result is conditioned on them, so
+        # they travel with the dataset.
+        "occlusion": occ_stats,
         "action_names": ["left", "stay", "right"],
         "config": env.config_dict(),
         "frame_convention": (
@@ -230,6 +252,100 @@ def _mass_report(masses: np.ndarray, cfg: BoxConfig) -> None:
         print(f"    [{lo:5.3f},{hi:5.3f})  {c:4d} {bar}")
 
 
+def hidden_runs(hidden: np.ndarray) -> list:
+    """Lengths of maximal runs of consecutive True along the last axis.
+
+    Takes the whole (E, T) boolean array rather than one episode at a time so
+    that run detection is a single vectorised diff: pad each row with False on
+    both sides, and a run is a rising edge followed by a falling edge. Returns
+    a list of ``(episode, start, length)`` triples so callers can go back and
+    ask what else happened during a run -- which is exactly what the "did a
+    wall bounce happen while hidden" statistic needs.
+    """
+    h = np.asarray(hidden, dtype=bool)
+    if h.ndim == 1:
+        h = h[None]
+    pad = np.zeros((h.shape[0], 1), dtype=bool)
+    d = np.diff(np.concatenate([pad, h, pad], axis=1).astype(np.int8), axis=1)
+    starts = np.argwhere(d == 1)
+    ends = np.argwhere(d == -1)
+    return [
+        (int(e), int(t0), int(t1 - t0))
+        for (e, t0), (_, t1) in zip(starts, ends)
+    ]
+
+
+def _occlusion_report(states, events, cfg: BoxConfig, state_names) -> dict:
+    """v3 per-split summary. Printed AND written into meta.json.
+
+    Three numbers decide whether a v3 split is usable, and they are not
+    interchangeable:
+
+    * how much of the data is fully hidden -- the frames where ``z`` provably
+      cannot carry the ball, i.e. the ones every memory claim rests on;
+    * how long a typical hidden stretch is -- the number of steps ``h`` has to
+      bridge, which is what the "memory horizon" experiment varies;
+    * how often the ball bounces off a side wall *while* hidden -- those are
+      the runs where "keep extrapolating the last seen velocity" gives the
+      wrong exit x, so they are the ones that separate a simulator from an
+      extrapolator. If this is ~0 the split cannot test that claim at all.
+    """
+    s = np.asarray(states)
+    ev = np.asarray(events)
+    j = list(state_names).index("ball_visible")
+    vis = s[..., j]
+
+    hidden_f = vis < 1e-3
+    full_f = vis > 1.0 - 1e-3
+    part_f = ~hidden_f & ~full_f
+
+    # Runs are detected on the EVENT array (one entry per transition, length T)
+    # rather than on the states (length T+1), because the wall-bounce flag we
+    # want to intersect them with lives there. events[e, t] and
+    # states[e, t + 1] describe the same instant.
+    hid_ev = (ev & EVENT_HIDDEN).astype(bool)
+    runs = hidden_runs(hid_ev)
+    lengths = np.array([n for _, _, n in runs], dtype=np.int64)
+    wall_x = (ev & EVENT_WALL_X).astype(bool)
+    with_bounce = sum(
+        1 for e, t0, n in runs if wall_x[e, t0 : t0 + n].any()
+    )
+
+    stats = {
+        "frac_frames_hidden": float(hidden_f.mean()),
+        "frac_frames_partial": float(part_f.mean()),
+        "frac_frames_visible": float(full_f.mean()),
+        "n_hidden_runs": int(len(runs)),
+        "mean_hidden_run_frames": float(lengths.mean()) if len(lengths) else 0.0,
+        "median_hidden_run_frames": float(np.median(lengths)) if len(lengths) else 0.0,
+        "max_hidden_run_frames": int(lengths.max()) if len(lengths) else 0,
+        "frac_hidden_runs_with_wall_x": (
+            float(with_bounce / len(runs)) if runs else 0.0
+        ),
+        "runs_per_episode": float(len(runs) / s.shape[0]),
+        "occluder_y": list(cfg.occluder_y),
+    }
+    print(
+        f"  occlusion: band y={cfg.occluder_y[0]:.2f}..{cfg.occluder_y[1]:.2f}  "
+        f"frames hidden {stats['frac_frames_hidden']:.1%} / "
+        f"partial {stats['frac_frames_partial']:.1%} / "
+        f"visible {stats['frac_frames_visible']:.1%}"
+    )
+    print(
+        f"    hidden runs: {stats['n_hidden_runs']} "
+        f"({stats['runs_per_episode']:.1f}/episode)  "
+        f"mean {stats['mean_hidden_run_frames']:.1f} frames  "
+        f"median {stats['median_hidden_run_frames']:.0f}  "
+        f"max {stats['max_hidden_run_frames']}  "
+        f"with a wall-x bounce while hidden: "
+        f"{stats['frac_hidden_runs_with_wall_x']:.1%}"
+    )
+    if stats["frac_frames_hidden"] < 0.02:
+        print("  warning: almost nothing is ever hidden -- check --occluder-y "
+              "against the ball radius")
+    return stats
+
+
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--out", required=True)
@@ -253,6 +369,16 @@ def main() -> None:
                    metavar=("LO", "HI"),
                    help="v2: sample ONLY inside [LO, HI] -- the interpolation "
                         "test set matching --mass-holdout")
+    p.add_argument("--occluder", action="store_true",
+                   help="v3: draw an opaque band across the frame, hiding the "
+                        "ball for part of every vertical traverse. Physics "
+                        "unchanged; states gain a ball_visible column and "
+                        "events an EVENT_HIDDEN bit.")
+    p.add_argument("--occluder-y", type=float, nargs=2, default=(0.28, 0.58),
+                   metavar=("LO", "HI"),
+                   help="v3: bottom and top edge of the band in world "
+                        "coordinates (y up). A taller band means longer "
+                        "occlusions -- that is the memory-horizon knob.")
     p.add_argument("--ball-radius", type=float, default=0.055,
                    help="0.08 makes the ball ~2x more of the loss; "
                         "recommended for your first VAE")
@@ -270,6 +396,8 @@ def main() -> None:
         mass_from_color=a.mass_from_color,
         mass_holdout=tuple(a.mass_holdout) if a.mass_holdout else None,
         mass_only=tuple(a.mass_only) if a.mass_only else None,
+        occluder=a.occluder,
+        occluder_y=tuple(a.occluder_y),
     )
 
 

@@ -218,6 +218,7 @@ def rollout_losses(
     t0: int,
     k_steps: int,
     generator: Optional[torch.Generator] = None,
+    weights: Optional[torch.Tensor] = None,
 ) -> Dict[str, torch.Tensor]:
     """K steps of open-loop dreaming from window position ``t0``, with grads.
 
@@ -253,6 +254,12 @@ def rollout_losses(
     ``z_ref`` is the true latent at ``t0`` -- the anchor a conservation penalty
     compares against.
 
+    ``weights`` (B, L), if given, is indexed at ``t0 + k`` for each step and
+    multiplies that step's NLL before the mean, normalised to mean 1 over the
+    (B, K) block actually used. That is v3 fix (b): inside a long rollout the
+    step where the occluded ball re-emerges is the only one whose target
+    depends on where the ball went, and it is one step in ten.
+
     Indexing. After the teacher-forced pass over ``[0 .. t0]`` the LSTM state
     has consumed ``(z_t0, a_t0)``, and the output at that position predicts
     ``z_{t0+1}``. So step ``k = 1`` is still effectively teacher-forced (its
@@ -279,18 +286,25 @@ def rollout_losses(
     # the residual bookkeeping in ``mdn_nll`` correct.
     p = {k: v[:, -1:] for k, v in parts.items()}
 
-    nlls: List[torch.Tensor] = []
+    nlls: List[torch.Tensor] = []            # each (B,)
     dreamed: List[torch.Tensor] = []
     for k in range(1, k_steps + 1):
-        nlls.append(model.mdn_nll(p, z[:, t0 + k : t0 + k + 1]))
+        nlls.append(model.mdn_nll_per_step(p, z[:, t0 + k : t0 + k + 1])[:, 0])
         z_s = reparam_sample(model, p, generator=generator)          # (B, 1, z)
         dreamed.append(z_s[:, 0])
         if k < k_steps:
             p, h = model(z_s, a_onehot[:, t0 + k : t0 + k + 1], h)
 
+    nll_bk = torch.stack(nlls, 1)                                    # (B, K)
+    if weights is None:
+        nll = nll_bk.mean()                  # mean over B and k, so w is interpretable
+    else:
+        w = weights[:, t0 + 1 : t0 + k_steps + 1].to(nll_bk.dtype)
+        nll = (nll_bk * w).mean() / w.mean().clamp_min(1e-8)
+
     return {
-        "nll": torch.stack(nlls).mean(),      # mean over k, so w is interpretable
-        "nll_per_step": torch.stack(nlls).detach(),
+        "nll": nll,
+        "nll_per_step": nll_bk.detach().mean(0),
         "z_dreamed": torch.stack(dreamed, 1),                        # (B, K, z)
         "z_ref": z[:, t0],                                           # (B, z)
     }

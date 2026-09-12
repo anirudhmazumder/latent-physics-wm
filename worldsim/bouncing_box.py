@@ -64,6 +64,36 @@ of the probability mass sits -- exactly where you least want the colour signal
 to be weak. Routing through the v1 red keeps every ball vivid, keeps the whole
 ramp far from the blue paddle (70,150,235) and the near-black background, and
 has the pleasing property that the median v2 ball is literally the v1 ball.
+
+v3: the occlusion band
+----------------------
+With ``occluder=True`` an opaque horizontal band is painted across the full
+width of the frame, *after* the ball and the paddle, between world heights
+``occluder_y = (lo, hi)``. The physics is not touched at all: the ball flies
+straight through, bounces off walls behind it, and is simply not drawn.
+
+Why that is the right third environment. v1 hid *velocity* (invisible in any
+single frame, inferable from two). v2 hid *mass* behind an appearance cue. v3
+hides **position itself**, for a stretch of every vertical traverse. While the
+ball is behind the band the frame is pixel-identical for every ball position,
+so no encoder can recover the ball from the image -- the information has to be
+carried in a recurrent state or not at all. That is object permanence.
+
+Two diagnostics come with it, both for grading only (the model never sees them):
+
+``ball_visible``
+    The fraction of the ball's disc area NOT covered by the band, computed
+    analytically from the circular-segment formula (no sampling, no pixel
+    counting, so it is exact and resolution-independent). 1 far from the band,
+    0 when the ball is entirely inside it, and a smooth monotone ramp in
+    between as the ball slides in or out.
+
+``EVENT_HIDDEN``
+    A bit in the per-step event mask, set when ``ball_visible < 1e-3`` at the
+    end of the step. Redundant with the state column by construction, which is
+    why one of the tests asserts they agree: it exists so that analysis code
+    can slice hidden stretches straight out of ``events.npy`` without loading
+    the (much larger) states array or re-deriving the geometry.
 """
 
 from __future__ import annotations
@@ -82,11 +112,18 @@ STATE_NAMES = ("ball_x", "ball_y", "ball_vx", "ball_vy", "paddle_x", "paddle_vx"
 # mass_from_color is off, so v1 datasets and every v1 consumer are untouched;
 # downstream code should read ``meta["state_names"]`` rather than assume 6.
 STATE_NAMES_V2 = STATE_NAMES + ("mass",)
+# v3 appends ball_visible LAST, after the (optional) mass column, so the two
+# switches compose: the column order is always
+#   [ball_x, ball_y, ball_vx, ball_vy, paddle_x, paddle_vx, (mass), (ball_visible)]
+# and a consumer that reads meta["state_names"] never has to know which
+# combination of flags produced the file.
+STATE_NAMES_V3 = STATE_NAMES + ("ball_visible",)
 
 # Bit flags for the per-step event mask.
 EVENT_WALL_X = 1
 EVENT_WALL_Y = 2
 EVENT_PADDLE = 4
+EVENT_HIDDEN = 8  # v3: the ball was fully behind the occluder at the end of the step
 
 
 @dataclass
@@ -133,6 +170,19 @@ class BoxConfig:
     mass_holdout: Optional[Tuple[float, float]] = None
     mass_only: Optional[Tuple[float, float]] = None
 
+    # ------------------------------------------------------------------ v3
+    # Inert while occluder is False, so BoxConfig() is still exactly v1 and
+    # BoxConfig(mass_from_color=True) is still exactly v2.
+    occluder: bool = False
+    occluder_y: Tuple[float, float] = (0.28, 0.58)  # (bottom, top) in world coords
+    # A mid grey-blue. Chosen to sit >100 RGB units from all three existing
+    # colours (ball, paddle, background) -- the same margin the v2 colour ramp
+    # is held to -- while being desaturated and dim enough to read as *scenery*
+    # rather than as a second moving object. The nearest neighbour is the
+    # paddle blue at ~115 units, but the two differ in saturation and
+    # brightness, not just hue, so they are not confusable by eye either.
+    occluder_color: Tuple[int, int, int] = (95, 110, 130)
+
     def __post_init__(self) -> None:
         if self.paddle_y is None:
             self.paddle_y = self.paddle_h / 2.0
@@ -144,6 +194,13 @@ class BoxConfig:
             self.mass_holdout = (float(self.mass_holdout[0]), float(self.mass_holdout[1]))
         if self.mass_only is not None:
             self.mass_only = (float(self.mass_only[0]), float(self.mass_only[1]))
+        lo, hi = float(self.occluder_y[0]), float(self.occluder_y[1])
+        if hi <= lo:
+            raise ValueError(
+                "occluder_y must be (bottom, top) with top > bottom, got "
+                f"{self.occluder_y}"
+            )
+        self.occluder_y = (lo, hi)
 
 
 # --------------------------------------------------------------- mass <-> colour
@@ -213,6 +270,52 @@ def color_to_mass(color, cfg: Optional["BoxConfig"] = None) -> float:
         if resid < best[0]:
             best = (resid, 0.5 * (k + t))
     return u_to_mass(best[1], cfg)
+
+
+# ---------------------------------------------------------------- v3 geometry
+#
+# Free function for the same reason as the colour maps: analysis code wants to
+# ask "how much of this ball was visible" about a ball position it read out of
+# a states array, or predicted, without instantiating an environment.
+
+
+def _disc_area_below(cy: float, r: float, line_y: float) -> float:
+    """Area of the disc (centre ``cy``, radius ``r``) lying below ``line_y``.
+
+    Circular-segment formula, written so the two degenerate cases fall out of
+    the clamp rather than needing branches::
+
+        A(d) = pi r^2 / 2 + r^2 asin(d/r) + d sqrt(r^2 - d^2),   d = line_y - cy
+
+    with A(-r) = 0 and A(+r) = pi r^2 exactly.
+    """
+    d = float(np.clip(line_y - cy, -r, r))
+    return float(
+        0.5 * np.pi * r * r + r * r * np.arcsin(d / r) + d * np.sqrt(max(r * r - d * d, 0.0))
+    )
+
+
+def visible_fraction(ball_y: float, r: float, band: Tuple[float, float]) -> float:
+    """Fraction of a ball's disc area NOT covered by a full-width band.
+
+    Exact and analytic, so it does not depend on the render resolution -- which
+    matters, because ``ball_visible`` is a *grading* variable and we do not want
+    the grading to move when someone renders at 128 instead of 64. The only
+    approximation left is that the renderer antialiases the ball's edge, so at
+    the extreme ends of the ramp a pixel or two of fringe can survive at
+    ``ball_visible`` slightly below 1e-3; that is what makes the EVENT_HIDDEN
+    threshold a threshold rather than an exact zero (see the note there).
+    """
+    lo, hi = band
+    # Short-circuit the no-overlap case rather than letting it fall out of the
+    # arithmetic. The segment formula does give ~1 there, but only to within a
+    # few ulps -- the two halves of A(-r) = pi r^2 / 2 + r^2 asin(-1) associate
+    # their multiplications differently -- and "exactly 1.0 when the ball is
+    # clear of the band" is a property downstream code and the tests rely on.
+    if ball_y - r >= hi or ball_y + r <= lo:
+        return 1.0
+    covered = _disc_area_below(ball_y, r, hi) - _disc_area_below(ball_y, r, lo)
+    return float(np.clip(1.0 - covered / (np.pi * r * r), 0.0, 1.0))
 
 
 class BouncingBox:
@@ -295,7 +398,18 @@ class BouncingBox:
     @property
     def state_names(self) -> Tuple[str, ...]:
         """Column names matching ``state()``. Write these into meta.json."""
-        return STATE_NAMES_V2 if self.cfg.mass_from_color else STATE_NAMES
+        names = STATE_NAMES_V2 if self.cfg.mass_from_color else STATE_NAMES
+        if self.cfg.occluder:
+            names = names + ("ball_visible",)
+        return names
+
+    def ball_visible(self) -> float:
+        """v3: fraction of the ball's area not hidden by the band. 1.0 in v1/v2."""
+        if not self.cfg.occluder:
+            return 1.0
+        return visible_fraction(
+            float(self.ball[1]), self.cfg.ball_radius, self.cfg.occluder_y
+        )
 
     # ------------------------------------------------------------------- step
 
@@ -323,11 +437,19 @@ class BouncingBox:
             self._collide_walls()
             self._collide_paddle()
 
+        # v3: a *state* flag rather than a collision, so it is evaluated once
+        # at the end of the step (after every substep has moved the ball)
+        # rather than inside the substep loop. Computed from the same
+        # ``ball_visible`` the state column reports, so the two can never
+        # disagree -- asserted in tests/test_env_v3.py.
+        if self.cfg.occluder and self.ball_visible() < 1e-3:
+            self._events |= EVENT_HIDDEN
+
         self.t += 1
         return self.render(), self.state(), self._events
 
     def state(self) -> np.ndarray:
-        """6 columns in v1 mode, 7 (with mass) when mass_from_color is on.
+        """6 columns in v1 mode; +mass for v2, +ball_visible for v3, in that order.
 
         A variable-width state vector is a little impolite, but the alternative
         -- always emitting a constant mass=1 column -- would change the shape of
@@ -343,6 +465,8 @@ class BouncingBox:
         ]
         if self.cfg.mass_from_color:
             s.append(self.mass)
+        if self.cfg.occluder:
+            s.append(self.ball_visible())
         return np.array(s, dtype=np.float32)
 
     # -------------------------------------------------------------- collisions
@@ -471,6 +595,18 @@ class BouncingBox:
         # rendering diff for v2 -- the physics/appearance coupling lives in
         # reset() and the collision code, not here.
         img += (np.asarray(self.ball_color, dtype=np.float64) - img) * a_ball
+
+        # v3: the occlusion band, LAST, so it covers both ball and paddle.
+        # Full width, so only the vertical coverage term is non-trivial -- the
+        # same separable box coverage the paddle uses, which keeps the band's
+        # edges antialiased like everything else in the frame. That matters:
+        # a hard-edged band would be the only quantised object in the image and
+        # the VAE would find its edge easier to code than the ball.
+        if cfg.occluder:
+            lo, hi = cfg.occluder_y
+            cy, hh_b = 0.5 * (lo + hi), 0.5 * (hi - lo)
+            a_band = np.clip(0.5 + (hh_b - np.abs(gy - cy)) / px_size, 0.0, 1.0)[..., None]
+            img += (np.asarray(cfg.occluder_color, dtype=np.float64) - img) * a_band
 
         return np.clip(img + 0.5, 0, 255).astype(np.uint8)
 

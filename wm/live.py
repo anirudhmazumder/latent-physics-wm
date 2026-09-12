@@ -3,6 +3,8 @@
     python -m wm.live                     # arrow keys; needs pygame
     python -m wm.live --autopilot         # let the dream-trained controller play
     python -m wm.live --record out.gif --steps 300 --autopilot   # headless, no pygame
+    python -m wm.live --v2                # the mass-from-colour world + v2 checkpoints
+    python -m wm.live --v3                # the occlusion-band world + v3 checkpoints
 
 Four panels, left to right, all showing the SAME instant:
 
@@ -143,10 +145,18 @@ class LiveWorldModel:
 
 class LiveGame:
     def __init__(self, wm: LiveWorldModel, seed: Optional[int], resync_every: int,
-                 mass_from_color: bool = False):
+                 mass_from_color: bool = False, occluder: bool = False,
+                 occluder_y=(0.28, 0.58)):
         self.wm = wm
         self.env = BouncingBox(
-            BoxConfig(res=64, ball_radius=0.08, mass_from_color=mass_from_color), seed=seed
+            BoxConfig(
+                res=64,
+                ball_radius=0.08,
+                mass_from_color=mass_from_color,
+                occluder=occluder,
+                occluder_y=tuple(occluder_y),
+            ),
+            seed=seed,
         )
         self.resync_every = resync_every
         self.freeze_resync = False
@@ -188,9 +198,15 @@ class LiveGame:
         wm = self.wm
         a = {LEFT: "left", STAY: "stay", RIGHT: "right"}[self.last_action]
         st = self.env.state()
-        mass = f"   mass {st[6]:.2f} (speed {0.022 / st[6]:.3f})" if len(st) > 6 else ""
+        names = self.env.state_names
+        mass = (f"   mass {st[names.index('mass')]:.2f}"
+                if "mass" in names else "")
+        # v3: how much of the ball is on screen right now. The number to watch
+        # in the M PREDICTED / M DREAMS panels is what those do while this is 0.
+        seen = (f"   seen {st[names.index('ball_visible')]:.0%}"
+                if "ball_visible" in names else "")
         return [
-            f"step {self.t:4d}   hits {self.hits}   action {a:5s}{mass}   "
+            f"step {self.t:4d}   hits {self.hits}   action {a:5s}{mass}{seen}   "
             f"{'AUTOPILOT (' + wm.ctrl.name + ')' if autopilot else 'MANUAL'}",
             f"P(contact next) {wm.p_hit:5.2f}   predicted reward {wm.r_dense:5.2f}   "
             f"dream age {wm.dream_age:3d}  tau {wm.temperature:.1f}  "
@@ -344,7 +360,24 @@ def main() -> None:
                         "--mass-from-color --vae runs/vae_v2/vae.pt --rnn runs/rnn_v2/rnn.pt "
                         "--ctrl runs/ctrl_v2/controller.pt")
     p.add_argument("--mass-from-color", action="store_true", help="v2 environment")
+    p.add_argument("--v3", action="store_true",
+                   help="v3 world (occlusion band) with the v3 checkpoints: shorthand for "
+                        "--occluder --vae runs/vae_v3/vae.pt --rnn runs/rnn_v3/rnn.pt "
+                        "--ctrl runs/ctrl_v3/controller.pt. Checkpoints that do not "
+                        "exist yet are skipped, so this works at every stage of v3.")
+    p.add_argument("--occluder", action="store_true", help="v3 environment")
+    p.add_argument("--occluder-y", type=float, nargs=2, default=(0.28, 0.58),
+                   metavar=("LO", "HI"))
     a = p.parse_args()
+    if a.v3:
+        a.occluder = True
+        # Same "only override what the user did not set" rule as --v2, so
+        # `--v3 --vae something_else.pt` still does what it says.
+        for attr, path in (("vae", "runs/vae_v3/vae.pt"),
+                           ("rnn", "runs/rnn_v3/rnn.pt"),
+                           ("ctrl", "runs/ctrl_v3/controller.pt")):
+            if getattr(a, attr) == p.get_default(attr):
+                setattr(a, attr, path)
     if a.v2:
         a.mass_from_color = True
         if a.vae == p.get_default("vae"):
@@ -356,9 +389,20 @@ def main() -> None:
     if a.ctrl and not Path(a.ctrl).exists():
         print(f"(no controller at {a.ctrl}; autopilot disabled)")
         a.ctrl = ""
+    # During v3 stage one only the VAE exists. Rather than refuse to start,
+    # fall back to the matching v1/v2 RNN so the REAL and V SEES panels are
+    # still usable for eyeballing the encoder -- with a loud note that the two
+    # right-hand panels are then meaningless.
+    if not Path(a.rnn).exists():
+        raise SystemExit(
+            f"no dynamics model at {a.rnn}. Stage two of v3 has not been run "
+            "yet; pass --rnn explicitly to borrow another one, or use "
+            "`python -m worldsim.play --occluder` to just play the world."
+        )
 
     wm = LiveWorldModel(a.vae, a.rnn, a.ctrl or None, a.ctrl_which, a.device, a.temperature)
-    game = LiveGame(wm, a.seed, a.resync, mass_from_color=a.mass_from_color)
+    game = LiveGame(wm, a.seed, a.resync, mass_from_color=a.mass_from_color,
+                    occluder=a.occluder, occluder_y=tuple(a.occluder_y))
     if a.record:
         record(game, a.steps, a.record, a.scale, a.autopilot, a.fps, a.seed or 0)
     else:

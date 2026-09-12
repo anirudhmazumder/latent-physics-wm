@@ -1,4 +1,4 @@
-# worldsim — v1 and v2
+# worldsim — v1, v2 and v3
 
 A ball bouncing in a unit box with a paddle you move left/right/stay. Renders to
 64×64 RGB, hands you ground-truth latent state alongside every frame.
@@ -21,14 +21,16 @@ python -m worldsim.play          # arrow keys, needs pygame
 |---|---|---|
 | `frames.npy` | uint8 | `(E, T+1, 64, 64, 3)` |
 | `actions.npy` | int8 | `(E, T)` — 0 left, 1 stay, 2 right |
-| `states.npy` | float32 | `(E, T+1, 6)` |
-| `events.npy` | uint8 | `(E, T)` — bitmask: 1 wall-x, 2 wall-y, 4 paddle |
+| `states.npy` | float32 | `(E, T+1, S)` — S = 6, +1 for v2, +1 for v3 |
+| `events.npy` | uint8 | `(E, T)` — bitmask: 1 wall-x, 2 wall-y, 4 paddle, 8 hidden (v3) |
 | `meta.json` | | config + conventions |
 
 `(frames[e,t], actions[e,t]) -> frames[e,t+1]`. T+1 frames give T transitions.
 
-State columns: `ball_x, ball_y, ball_vx, ball_vy, paddle_x, paddle_vx`. World
-coords are `[0,1]²` with y=0 at the *bottom* of the image.
+State columns: `ball_x, ball_y, ball_vx, ball_vy, paddle_x, paddle_vx`, then
+`mass` if v2 and `ball_visible` if v3, in that order. Read
+`meta["state_names"]` rather than assuming 6. World coords are `[0,1]²` with
+y=0 at the *bottom* of the image.
 
 Load with `mmap_mode="r"` — these are separate `.npy` files rather than one
 `.npz` specifically so you can train on data larger than 8 GB of RAM:
@@ -243,18 +245,217 @@ python -m tests.test_controller
 
 ---
 
-## Extending to v3–v4
+# v3 — the occlusion band
 
-`BoxConfig` / `BouncingBox` are structured so these are additive (v2 above was):
+Everything above still describes the environment exactly when `occluder` is
+`False`, which is the default. `BoxConfig()` is still bit-for-bit v1 and
+`BoxConfig(mass_from_color=True)` is still bit-for-bit v2 —
+`tests/test_env_v3.py` replays the collector's seeding for *both* and compares
+against `data/v1/val/frames.npy` and `data/v2/val/frames.npy` pixel for pixel.
 
-- **v3 occlusion band** — draw an opaque rect in `render` after the ball, leave
-  physics untouched. Object permanence, and a real test of whether `z` carries
-  state through occlusion.
+## The idea
+
+With `occluder=True`, an opaque horizontal band is painted across the full
+width of the frame, **after** the ball and the paddle, between world heights
+`occluder_y = (0.28, 0.58)`. That is the entire change. The physics is not
+touched: the ball flies straight through the band, bounces off the side walls
+behind it, and is simply not drawn.
+
+| field | default | meaning |
+|---|---|---|
+| `occluder` | `False` | draw the band at all |
+| `occluder_y` | `(0.28, 0.58)` | bottom and top edge, world coords, y up |
+| `occluder_color` | `(95, 110, 130)` | a mid grey-blue |
+
+**Why this is the right third world.** v1 had two kinds of variable: visible in
+a frame (positions) and invisible in *any* frame (velocities). v2 added a
+third: visible as *appearance*, with purely dynamical consequences. v3 takes
+away the first kind. For a stretch of every vertical traverse the frame
+contains **no information whatsoever** about where the ball is — the image is
+byte-identical for every ball position behind the band, which
+`test_band_hides_the_ball_completely` asserts directly. If anything downstream
+is to know where the ball is during that stretch, it has to be carrying it.
+That is object permanence.
+
+**Why those numbers.** The ball's diameter is 0.16 and the band is 0.30 tall,
+so the ball is *completely* hidden for `(0.30 − 0.16)/|v_y|` frames — measured
+at **9.7 frames on average**, with about 39% of all frames partially occluded
+around them. The band's bottom edge at 0.28 means a descending ball reappears
+only ~10 frames before it reaches the paddle, while the paddle needs ~30 frames
+to cross the box. A controller that waits until it can see the ball therefore
+cannot catch it from far away: it has to commit while the ball is hidden. That
+is what makes the band matter for C and not only for M.
+
+Mass-from-colour is left **off** for the v3 datasets, so the two questions are
+not compounded. The switches are independent and compose — with both on the
+state has 8 columns.
+
+## The band colour
+
+`(95, 110, 130)`, a desaturated grey-blue. It has to be distinguishable from
+all three existing colours, for the same reason the v2 ramp did: if the band
+were near the paddle blue, "the VAE lost the band" and "the VAE confused the
+band with the paddle" would be the same picture. Distances in RGB:
+
+| against | distance |
+|---|---|
+| background `(18,18,22)` | 160 |
+| ball `(235,90,70)` | 153 |
+| paddle `(70,150,235)` | **115** |
+
+The paddle is the nearest neighbour and 115 is the tightest margin in the
+project, but it clears the same >100 threshold the v2 ramp is held to
+(`test_band_colour_is_distinguishable_from_everything_else`), and the two
+differ in *saturation and brightness* as well as hue — a dim grey slab versus a
+small vivid blue bar. Looking at `runs/v3_env/sample_grid.png` settles it: they
+do not read as the same object. So the grey-blue stayed; no grey-green was
+needed.
+
+The band is drawn with the **same antialiased separable box coverage the paddle
+uses**, so its edges are soft like everything else in the frame. This is not
+cosmetic. A hard-edged band would be the only quantised object in the image,
+and a VAE will happily spend capacity on the one crisp edge available to it.
+
+## `ball_visible`
+
+`states.npy` gains a column, **last**, only when `occluder` is on:
+
+```
+v1:    ball_x, ball_y, ball_vx, ball_vy, paddle_x, paddle_vx                        (6)
+v2:    ... , mass                                                                    (7)
+v3:    ... , ball_visible                                                            (7)
+v2+v3: ... , mass, ball_visible                                                      (8)
+```
+
+`ball_visible` is the fraction of the ball's **disc area** not covered by the
+band, computed analytically from the circular-segment formula
+(`worldsim.visible_fraction`, exported):
+
+```
+A_below(c) = πr²/2 + r² asin(d/r) + d √(r² − d²),   d = clamp(c − y, −r, r)
+visible    = 1 − [A_below(hi) − A_below(lo)] / πr²
+```
+
+Analytic rather than by sampling pixels, deliberately: `ball_visible` is a
+*grading* variable, and grading must not move when someone renders at 128
+instead of 64. It is 1 when the ball is clear of the band, 0.5 when the centre
+sits exactly on an edge, 0 when the ball is entirely inside, and monotone in
+between. `test_visible_fraction_matches_a_brute_force_count` checks it against
+400k-point Monte Carlo on the disc to 3e-3.
+
+It is a diagnostic only — the model never sees it. The same goes for the new
+event bit.
+
+## `EVENT_HIDDEN = 8`
+
+A fourth bit in the per-step event mask, set when `ball_visible < 1e-3` at the
+end of the step. It is redundant with the state column by construction (and
+`test_event_hidden_agrees_with_ball_visible` asserts they never disagree); it
+exists so analysis code can slice hidden stretches straight out of the small
+`events.npy` without loading the states, and — the reason it earns its place —
+so that "was the ball hidden" and "did it hit a side wall" live in the *same*
+array and can be intersected in one line. `worldsim.collect.hidden_runs` does
+exactly that, and it is how the wall-bounce statistic below is computed.
+
+Why a threshold and not `== 0`: the renderer antialiases the ball, so a ball
+whose analytic coverage is a few parts in ten thousand can still tint a pixel
+under the band edge. `1e-3` of a disc is about 0.02 px² at 64×64 — safely below
+one pixel, and comfortably above the float noise.
+
+## Collecting v3
+
+```bash
+COMMON="--ball-radius 0.08 --steps 200 --res 64 --occluder"
+python -m worldsim.collect --out data/v3/train     --episodes 150 --seed 0   --policy sticky $COMMON
+python -m worldsim.collect --out data/v3/train_mix --episodes 300 --seed 10  --policy mix --p-track 0.5 $COMMON
+python -m worldsim.collect --out data/v3/val       --episodes 15  --seed 1   --policy sticky $COMMON
+python -m worldsim.collect --out data/v3/val_mix   --episodes 20  --seed 11  --policy mix $COMMON
+python -m worldsim.collect --out data/v3/probe     --episodes 120 --seed 777 --policy sticky --steps 24 --ball-radius 0.08 --res 64 --occluder
+python -m worldsim.collect --out data/v3/tall      --episodes 30  --seed 31  --policy mix $COMMON --occluder-y 0.22 0.64
+python -m worldsim.collect --out data/v3/taller    --episodes 30  --seed 32  --policy mix $COMMON --occluder-y 0.16 0.70
+python -m worldsim.v3_figures --data data/v3/train --gif-data data/v3/val --out runs/v3_env
+python -m worldsim.play --occluder      # try catching it yourself; it is hard
+```
+
+Whole set: ~1.4 GB, **63 s** of wall clock. The collector prints an occlusion
+summary per split and writes it into `meta["occlusion"]`, so every v3 result
+carries the occlusion statistics it was conditioned on.
+
+Measured (`runs/v3_env/collect.log`):
+
+| split | eps | band | frames hidden | partial | visible | hidden runs | mean run | median | max | runs with a wall-x bounce |
+|---|---|---|---|---|---|---|---|---|---|---|
+| train | 150 | 0.28–0.58 | 17.6% | 38.8% | 43.7% | 560 | 9.4 | 8 | 43 | 19.1% |
+| train_mix | 300 | 0.28–0.58 | 17.6% | 39.0% | 43.4% | 1093 | 9.7 | 8 | 44 | 15.5% |
+| val | 15 | 0.28–0.58 | 18.1% | 38.1% | 43.8% | 57 | 9.5 | 8 | 27 | 14.0% |
+| val_mix | 20 | 0.28–0.58 | 16.9% | 39.4% | 43.8% | 66 | 10.2 | 9 | 34 | 13.6% |
+| probe | 120×24 | 0.28–0.58 | 17.6% | 40.3% | 42.1% | 72 | 6.9 | 7 | 22 | 15.3% |
+| tall | 30 | 0.22–0.64 | **32.0%** | 39.8% | 28.2% | 120 | **16.0** | 14.5 | 47 | **31.7%** |
+| taller | 30 | 0.16–0.70 | **46.6%** | 36.0% | 17.4% | 119 | **23.5** | 21 | 66 | **42.0%** |
+
+Four things worth reading off that table.
+
+1. **The design estimate was right.** §2 of `docs/v3/00_v3_design.md` predicted
+   ~9 hidden frames and ~20 partial frames per traverse; the measurement is 9.7
+   and 39% of frames partial. Nothing needed retuning.
+2. **A sixth of the data is provably uninformative about ball position.** That
+   is the fraction on which every memory claim in v3 will be scored.
+3. **Hidden runs are short but heavy-tailed** — median 8, max 44 on the default
+   band. The tail is the ball entering the band at a shallow angle and crawling
+   through it, and it matters because those are the runs that need the longest
+   memory. See `runs/v3_env/hidden_run_lengths.png`.
+4. **15–19% of hidden runs contain a side-wall bounce**, rising to 42% on the
+   `taller` band. Those are the runs where "keep extrapolating the last seen
+   velocity" gives the *wrong* exit x, so they are the ones that separate an
+   internal simulator from an extrapolator. There are ~170 of them in
+   `train` + `train_mix`, which is enough to learn from and enough to test on.
+
+The `probe` split's runs are shorter (6.9) only because its episodes are 24
+steps long, so runs straddling the episode boundary are truncated.
+
+![sample grid](../runs/v3_env/sample_grid.png)
+
+32 frames stratified on `ball_visible` and sorted visible → hidden (a uniform
+sample would have shown almost no partial occlusions, which are the interesting
+case). The last row is fully hidden: those eight frames differ only in the
+paddle.
+
+`runs/v3_env/occlusion_episode.gif` is `data/v3/val` episode 0, frames 63–140.
+The ball enters the band from below at y = 0.36, is hidden for **27 frames**,
+hits the **left wall at x = 0.082 while completely out of sight** (the event
+mask for that step is `9` = `EVENT_WALL_X | EVENT_HIDDEN`), and re-emerges
+travelling right. The exit x depends entirely on a collision that never
+appeared in a single pixel. That one clip is the whole of v3.
+
+## Tests
+
+```bash
+python -m tests.test_env_v3      # 12 tests, includes the v1 AND v2 byte-identity checks
+python -m pytest tests/ -q       # 77 total
+```
+
+The four that matter: v1 and v2 frames unchanged; the band is exactly its own
+colour inside and touches nothing outside; `ball_visible` matches brute-force
+Monte Carlo and `EVENT_HIDDEN` matches `ball_visible`; and **the trajectory is
+bit-identical with and without the band**, for the same seed and actions. That
+last one is v3's premise — if the band ever perturbed the dynamics, "the model
+cannot see the ball" and "the ball does something different back there" would
+be confounded and no memory result would mean anything.
+
+---
+
+## Extending to v4
+
+`BoxConfig` / `BouncingBox` are structured so this stays additive (v2 and v3
+above both were):
+
 - **v4 gravity switch** — add a switch sprite and a `gravity_sign` field, flip it
   on paddle contact, apply in the substep loop. A latent variable that is *not*
   visible in the current frame at all — the long-range dependency where a
   transformer dynamics model should beat a GRU, and where you can measure the
   crossover cleanly.
 
-Keep `events.npy` in mind for v4 — you'll want a `EVENT_SWITCH` flag so you can
-condition analysis on "how many frames since the switch flipped."
+Keep `events.npy` in mind for v4 — you'll want an `EVENT_SWITCH` flag (16, the
+next free bit after `EVENT_HIDDEN = 8`) so you can condition analysis on "how
+many frames since the switch flipped." `worldsim.collect.hidden_runs` is
+written against a generic boolean mask and will find switch intervals too.

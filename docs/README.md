@@ -25,6 +25,17 @@ they build on one another.
 | v2-05 | [Fixing the colour drift](v2/05_v2_fixing_colour_drift.md) | A conserved quantity diffuses in sampled dreams; a conservation metric and three fixes compared |
 | v2-06 | [C in the fixed dream](v2/06_v2_controller_fixed.md) | Oracle-level skill across masses; the repaint intervention shows the agent uses colour |
 
+## v3 — the occlusion band (object permanence)
+
+| # | document | one line |
+|---|---|---|
+| v3-00 | [Design](v3/00_v3_design.md) | Hide the ball; position must be carried in memory |
+| v3-01 | [Environment, data, V](v3/01_v3_env_data_vae.md) | A frame knows the ball's position when visible and nothing when hidden; no hallucinations |
+| v3-02 | [M and the permanence tests](v3/02_v3_dynamics_and_permanence.md) | Vertical permanence yes, horizontal no — and the mechanism |
+| v3-03 | [Trying to fix permanence](v3/03_v3_fixing_permanence.md) | A privileged ceiling shows it is an objective problem; fair fixes get halfway |
+| v3-04 | [C: acting on memory](v3/04_v3_controller.md) | A memoryless oracle catches 99%: the default band does not require permanence |
+| v3-05 | [Results and lessons](v3/05_v3_results_and_lessons.md) | v3 in one page, and what to change before v4 |
+
 **See it live.** `python -m wm.live` opens a window with the real game (arrow
 keys) next to what the VAE sees, what the RNN predicted this frame would look
 like, and a free-running dream that drifts until you re-sync it. `A` hands
@@ -34,5 +45,5 @@ control to the dream-trained controller. `python -m wm.live --record out.gif
 
 Technical run logs with exact commands and every number, written by the
 implementing agents and reviewed: [`../wm/README_M.md`](../wm/README_M.md),
-[`../wm/README_C.md`](../wm/README_C.md); for v2: [`../wm/README_V2.md`](../wm/README_V2.md), [`../wm/README_M2.md`](../wm/README_M2.md), [`../wm/README_C2.md`](../wm/README_C2.md), [`../wm/README_FIX.md`](../wm/README_FIX.md), [`../wm/README_C2_FIX.md`](../wm/README_C2_FIX.md). The environment's own notes:
+[`../wm/README_C.md`](../wm/README_C.md); for v2: [`../wm/README_V2.md`](../wm/README_V2.md), [`../wm/README_M2.md`](../wm/README_M2.md), [`../wm/README_C2.md`](../wm/README_C2.md), [`../wm/README_FIX.md`](../wm/README_FIX.md), [`../wm/README_C2_FIX.md`](../wm/README_C2_FIX.md); for v3: [`../wm/README_V3.md`](../wm/README_V3.md), [`../wm/README_M3.md`](../wm/README_M3.md), [`../wm/README_FIX3.md`](../wm/README_FIX3.md), [`../wm/README_C3.md`](../wm/README_C3.md). The environment's own notes:
 [`../worldsim/worldsim.md`](../worldsim/worldsim.md).

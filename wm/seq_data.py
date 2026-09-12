@@ -16,7 +16,8 @@ A window of ``seq_len`` consecutive transitions from a single episode::
     hit     (L,)         1.0 if that transition was a paddle contact
     reward  (L,)         dense shaping reward for that transition
     state   (L, S)       TRUE state at times t0+1 .. t0+L  -- diagnostics only
-                         S = 6 in v1, 7 in v2 (mass is the extra column).
+                         S = 6 in v1, 7 in v2 (mass) / v3 (ball_visible).
+    state_in (L, S)      TRUE state at times t0 .. t0+L-1  -- diagnostics only
 
 Three points that are easy to get wrong.
 
@@ -218,6 +219,15 @@ class LatentSequenceDataset(Dataset):
             # Diagnostics only. Never reaches the model.
             "state": torch.from_numpy(
                 np.ascontiguousarray(ep.state[e, t0 + 1 : t1 + 1])
+            ),
+            # The PRE-transition states, times t0 .. t0+L-1, aligned with ``z``
+            # exactly as ``state`` is aligned with ``z_next``. Added for v3's
+            # emergence weighting, which needs to know whether the frame BEFORE
+            # each target frame had the ball hidden -- a question the window's
+            # own ``state`` cannot answer at t = 0. Diagnostics only, like
+            # ``state``: it never reaches the model.
+            "state_in": torch.from_numpy(
+                np.ascontiguousarray(ep.state[e, t0:t1])
             ),
         }
 

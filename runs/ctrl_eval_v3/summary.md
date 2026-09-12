@@ -1,0 +1,206 @@
+# v3 stage three (C) — real-environment evaluation by occlusion
+
+150 episodes x 200 steps, seeds 5000..5149, identical starts for every row. Band (0.28, 0.58): the ball is fully hidden on ~18 % of frames and partly hidden on ~39 %.
+
+`oracle` has perfect vision and perfect memory; **`wait_and_see` has perfect vision and NO memory** (it tracks the true ball only while `ball_visible > 0.5` and STAYs otherwise). Every trained row should be read as a position between those two. `ctrl_v3_poshead` is a **PRIVILEGED CEILING** — its dynamics model was trained with a supervised head on the simulator's true ball position — and is not a world-model result.
+
+Each controller is driven by the (V, M) it was trained with; the policy reads `h`, so M is part of the policy:
+
+| controller | M (dynamics) | V (encoder) |
+|---|---|---|
+| `ctrl_v3` | `runs/rnn_v3/rnn.pt` | `runs/vae_v3/vae.pt` |
+| `ctrl_v3_emerge` | `runs/rnn_v3_emerge/rnn.pt` | `runs/vae_v3/vae.pt` |
+| `ctrl_v3_emerge_lastdream` | `runs/rnn_v3_emerge/rnn.pt` | `runs/vae_v3/vae.pt` |
+| `ctrl_v3_ff` | `runs/rnn_v3_ff/rnn.pt` | `runs/vae_v3/vae.pt` |
+| `ctrl_v3_ff_lastdream` | `runs/rnn_v3_ff/rnn.pt` | `runs/vae_v3/vae.pt` |
+| `ctrl_v3_lastdream` | `runs/rnn_v3/rnn.pt` | `runs/vae_v3/vae.pt` |
+| `ctrl_v3_poshead` | `runs/rnn_v3_poshead/rnn.pt` | `runs/vae_v3/vae.pt` |
+| `ctrl_v3_poshead_lastdream` | `runs/rnn_v3_poshead/rnn.pt` | `runs/vae_v3/vae.pt` |
+| `ctrl_v3_tau1` | `runs/rnn_v3/rnn.pt` | `runs/vae_v3/vae.pt` |
+| `ctrl_v3_tau1_lastdream` | `runs/rnn_v3/rnn.pt` | `runs/vae_v3/vae.pt` |
+| `ctrl_v3_z_only` | `runs/rnn_v3/rnn.pt` | `runs/vae_v3/vae.pt` |
+| `ctrl_v3_z_only_lastdream` | `runs/rnn_v3/rnn.pt` | `runs/vae_v3/vae.pt` |
+
+## Interceptions per floor visit, by required move
+
+The **required move** is the distance between the paddle's x at the moment the ball became fully hidden on its way down and the ball's landing x. Flat across the bins = object permanence; collapsing on `long` = memoryless.
+
+| controller | overall | short | medium | long |
+|---|---|---|---|---|
+| `stay` | 0.51 [0.46, 0.58] | 1.00 [1.00, 1.00] | 0.38 [0.28, 0.48] | 0.00 [0.00, 0.00] |
+| `random` | 0.43 [0.37, 0.48] | 0.65 [0.56, 0.75] | 0.44 [0.32, 0.57] | 0.22 [0.14, 0.30] |
+| `oracle` | 1.00 [0.99, 1.00] | 0.99 [0.95, 1.00] | 1.00 [1.00, 1.00] | 1.00 [1.00, 1.00] |
+| `wait_and_see` | 0.99 [0.98, 1.01] | 1.00 [1.00, 1.00] | 1.00 [1.00, 1.00] | 0.97 [0.92, 1.02] |
+| `ctrl_v3` | 0.85 [0.80, 0.91] | 0.95 [0.89, 0.99] | 0.89 [0.82, 0.98] | 0.59 [0.42, 0.75] |
+| `ctrl_v3_lastdream` | 0.81 [0.76, 0.86] | 0.93 [0.87, 0.98] | 0.85 [0.77, 0.93] | 0.48 [0.32, 0.64] |
+| `ctrl_v3_tau1` | 0.79 [0.74, 0.84] | 0.84 [0.76, 0.91] | 0.82 [0.75, 0.89] | 0.58 [0.38, 0.78] |
+| `ctrl_v3_tau1_lastdream` | 0.81 [0.76, 0.86] | 0.95 [0.88, 1.00] | 0.82 [0.74, 0.89] | 0.33 [0.15, 0.54] |
+| `ctrl_v3_ff` | 0.53 [0.47, 0.59] | 0.89 [0.82, 0.95] | 0.37 [0.28, 0.45] | 0.09 [0.00, 0.19] |
+| `ctrl_v3_ff_lastdream` | 0.50 [0.44, 0.55] | 0.91 [0.85, 0.97] | 0.35 [0.27, 0.44] | 0.09 [0.02, 0.18] |
+| `ctrl_v3_poshead` | 0.69 [0.63, 0.75] | 0.97 [0.93, 1.00] | 0.67 [0.56, 0.78] | 0.23 [0.12, 0.35] |
+| `ctrl_v3_poshead_lastdream` | 0.68 [0.62, 0.74] | 0.89 [0.82, 0.95] | 0.60 [0.50, 0.69] | 0.38 [0.24, 0.53] |
+| `ctrl_v3_emerge` | 0.76 [0.70, 0.83] | 0.96 [0.91, 1.00] | 0.78 [0.68, 0.88] | 0.40 [0.21, 0.62] |
+| `ctrl_v3_emerge_lastdream` | 0.57 [0.51, 0.63] | 0.94 [0.89, 0.99] | 0.42 [0.33, 0.52] | 0.09 [0.02, 0.19] |
+| `ctrl_v3_z_only` | 0.80 [0.75, 0.86] | 1.00 [1.00, 1.00] | 0.55 [0.45, 0.65] | 0.91 [0.82, 1.01] |
+| `ctrl_v3_z_only_lastdream` | 0.76 [0.70, 0.81] | 1.00 [1.00, 1.00] | 0.54 [0.43, 0.64] | 0.74 [0.61, 0.86] |
+
+**The bins are policy-dependent and that is not a bug to hide.** The required move is measured from *this policy's own* paddle position, so a policy that already tends to stand near the ball generates few long visits and a policy that parks in a corner generates many. The counts are therefore reported per row, and a row with a handful of long visits should be read as noise. The episodes and seeds are identical throughout; only the paddle differs.
+
+| controller | visits (short / medium / long) | mean required move (short / medium / long) | visits with no occlusion on the descent |
+|---|---|---|---|
+| `stay` | 94 / 86 / 69 | 0.066 / 0.242 / 0.475 | 19 |
+| `random` | 84 / 68 / 97 | 0.076 / 0.248 / 0.530 | 19 |
+| `oracle` | 67 / 97 / 64 | 0.084 / 0.240 / 0.497 | 19 |
+| `wait_and_see` | 79 / 82 / 75 | 0.077 / 0.237 / 0.492 | 19 |
+| `ctrl_v3` | 93 / 95 / 46 | 0.072 / 0.239 / 0.462 | 19 |
+| `ctrl_v3_lastdream` | 89 / 101 / 46 | 0.070 / 0.239 / 0.430 | 19 |
+| `ctrl_v3_tau1` | 81 / 121 / 33 | 0.070 / 0.243 / 0.424 | 19 |
+| `ctrl_v3_tau1_lastdream` | 91 / 111 / 30 | 0.081 / 0.245 / 0.435 | 19 |
+| `ctrl_v3_ff` | 84 / 128 / 35 | 0.079 / 0.245 / 0.406 | 19 |
+| `ctrl_v3_ff_lastdream` | 81 / 122 / 46 | 0.084 / 0.241 / 0.404 | 19 |
+| `ctrl_v3_poshead` | 96 / 93 / 56 | 0.072 / 0.246 / 0.464 | 19 |
+| `ctrl_v3_poshead_lastdream` | 92 / 99 / 53 | 0.077 / 0.244 / 0.443 | 19 |
+| `ctrl_v3_emerge` | 79 / 105 / 48 | 0.081 / 0.243 / 0.434 | 19 |
+| `ctrl_v3_emerge_lastdream` | 88 / 112 / 44 | 0.078 / 0.240 / 0.437 | 19 |
+| `ctrl_v3_z_only` | 76 / 93 / 70 | 0.074 / 0.254 / 0.459 | 19 |
+| `ctrl_v3_z_only_lastdream` | 80 / 91 / 76 | 0.078 / 0.244 / 0.462 | 19 |
+
+## The reach curve (interceptions per visit at 0.1 resolution)
+
+The paddle is **0.26 wide** and a descending ball is visible for ~10 frames before it can be touched, which buys ~0.30 of travel. So a required move is covered whenever it is under roughly `0.13 + 0.30 = 0.43` even with no memory at all. This table says where `wait_and_see` actually falls off, and therefore which bins above carry any information about object permanence.
+
+| controller | <0.1 | 0.1-0.2 | 0.2-0.3 | 0.3-0.4 | 0.4-0.5 | 0.5-0.6 | >0.6 |
+|---|---|---|---|---|---|---|---|
+| `stay` | 1.00 | 0.98 | 0.21 | 0.00 | 0.00 | 0.00 | 0.00 |
+| `random` | 0.64 | 0.62 | 0.47 | 0.36 | 0.08 | 0.30 | 0.09 |
+| `oracle` | 0.97 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+| `wait_and_see` | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 0.80 |
+| `ctrl_v3` | 0.94 | 0.95 | 0.89 | 0.83 | 0.57 | 0.50 | -- |
+| `ctrl_v3_lastdream` | 0.95 | 0.86 | 0.84 | 0.67 | 0.39 | 1.00 | -- |
+| `ctrl_v3_tau1` | 0.83 | 0.91 | 0.78 | 0.74 | 0.47 | 0.67 | -- |
+| `ctrl_v3_tau1_lastdream` | 0.95 | 0.91 | 0.82 | 0.57 | 0.24 | 1.00 | -- |
+| `ctrl_v3_ff` | 0.94 | 0.76 | 0.28 | 0.04 | 0.12 | 1.00 | -- |
+| `ctrl_v3_ff_lastdream` | 0.96 | 0.75 | 0.27 | 0.07 | 0.10 | 1.00 | -- |
+| `ctrl_v3_poshead` | 0.97 | 0.92 | 0.65 | 0.35 | 0.21 | 0.29 | -- |
+| `ctrl_v3_poshead_lastdream` | 0.98 | 0.70 | 0.61 | 0.45 | 0.34 | 0.38 | 0.00 |
+| `ctrl_v3_emerge` | 0.94 | 0.97 | 0.78 | 0.51 | 0.37 | 0.43 | -- |
+| `ctrl_v3_emerge_lastdream` | 0.91 | 0.88 | 0.32 | 0.03 | 0.11 | 0.20 | -- |
+| `ctrl_v3_z_only` | 1.00 | 0.95 | 0.38 | 0.88 | 0.94 | 0.83 | 0.00 |
+| `ctrl_v3_z_only_lastdream` | 1.00 | 0.94 | 0.31 | 0.74 | 0.74 | 0.75 | 0.00 |
+
+| controller | visits per slice |
+|---|---|
+| `stay` | 71 / 48 / 43 / 40 / 25 / 12 / 10 |
+| `random` | 55 / 48 / 30 / 36 / 25 / 33 / 22 |
+| `oracle` | 38 / 58 / 49 / 34 / 21 / 17 / 11 |
+| `wait_and_see` | 57 / 51 / 39 / 31 / 28 / 20 / 10 |
+| `ctrl_v3` | 64 / 55 / 54 / 23 / 28 / 10 / 0 |
+| `ctrl_v3_lastdream` | 65 / 56 / 51 / 36 / 23 / 5 / 0 |
+| `ctrl_v3_tau1` | 59 / 55 / 67 / 34 / 17 / 3 / 0 |
+| `ctrl_v3_tau1_lastdream` | 60 / 57 / 68 / 28 / 17 / 2 / 0 |
+| `ctrl_v3_ff` | 54 / 67 / 64 / 45 / 16 / 1 / 0 |
+| `ctrl_v3_ff_lastdream` | 50 / 65 / 66 / 46 / 21 / 1 / 0 |
+| `ctrl_v3_poshead` | 62 / 63 / 43 / 31 / 29 / 17 / 0 |
+| `ctrl_v3_poshead_lastdream` | 59 / 57 / 61 / 29 / 29 / 8 / 1 |
+| `ctrl_v3_emerge` | 50 / 59 / 54 / 35 / 27 / 7 / 0 |
+| `ctrl_v3_emerge_lastdream` | 58 / 65 / 59 / 30 / 27 / 5 / 0 |
+| `ctrl_v3_z_only` | 50 / 43 / 58 / 34 / 35 / 18 / 1 |
+| `ctrl_v3_z_only_lastdream` | 52 / 52 / 48 / 34 / 39 / 20 / 2 |
+
+## Paddle motion during occlusion
+
+Over the descending hidden runs: the fraction of hidden frames whose ACTION moved the paddle toward the eventual landing x (chance **1/3** — three actions, STAY counts as not-toward), and the displacement the paddle actually achieved toward the landing point while blind, as a fraction of the required move.
+
+`oracle` is **not** the ceiling for these two columns and should not be read as one: it chases the ball's CURRENT x rather than its landing x, and it is usually already inside its dead zone when the ball vanishes, so it STAYs. The references that mean something here are chance (1/3) and `wait_and_see` (0.000 by construction).
+
+| controller | hidden runs | mean hidden frames | mean required move | moved on (frac. of hidden frames) | toward / all hidden frames (chance 1/3) | toward / moving frames (chance 1/2) | displacement fraction |
+|---|---|---|---|---|---|---|---|
+| `stay` | 249 | 9.4 | 0.240 | 0.000 | 0.000 [0.000, 0.000] | -- [--, --] | 0.000 [0.000, 0.000] |
+| `random` | 249 | 9.3 | 0.300 | 0.678 | 0.257 [0.205, 0.313] | 0.380 [0.308, 0.453] | 0.057 [0.008, 0.106] |
+| `oracle` | 228 | 9.8 | 0.266 | 0.444 | 0.369 [0.329, 0.408] | 0.831 [0.767, 0.889] | 0.260 [0.208, 0.311] |
+| `wait_and_see` | 236 | 9.6 | 0.265 | 0.000 | 0.000 [0.000, 0.000] | -- [--, --] | 0.000 [0.000, 0.000] |
+| `ctrl_v3` | 234 | 9.6 | 0.217 | 0.133 | 0.082 [0.055, 0.116] | 0.619 [0.466, 0.764] | 0.029 [-0.008, 0.068] |
+| `ctrl_v3_lastdream` | 236 | 9.8 | 0.213 | 0.216 | 0.154 [0.118, 0.192] | 0.715 [0.621, 0.802] | 0.095 [0.049, 0.143] |
+| `ctrl_v3_tau1` | 235 | 9.7 | 0.209 | 0.023 | 0.019 [0.010, 0.030] | 0.829 [0.628, 0.971] | 0.016 [0.005, 0.028] |
+| `ctrl_v3_tau1_lastdream` | 232 | 9.6 | 0.205 | 0.022 | 0.018 [0.005, 0.036] | 0.833 [0.500, 1.000] | 0.015 [-0.000, 0.034] |
+| `ctrl_v3_ff` | 247 | 9.5 | 0.211 | 0.995 | 0.514 [0.496, 0.533] | 0.517 [0.498, 0.536] | 0.033 [-0.004, 0.070] |
+| `ctrl_v3_ff_lastdream` | 249 | 9.3 | 0.220 | 0.995 | 0.515 [0.502, 0.529] | 0.518 [0.503, 0.533] | 0.034 [0.007, 0.063] |
+| `ctrl_v3_poshead` | 245 | 9.3 | 0.228 | 0.468 | 0.214 [0.181, 0.250] | 0.456 [0.402, 0.513] | -0.036 [-0.081, 0.011] |
+| `ctrl_v3_poshead_lastdream` | 244 | 9.3 | 0.224 | 0.404 | 0.253 [0.220, 0.287] | 0.625 [0.575, 0.680] | 0.094 [0.057, 0.134] |
+| `ctrl_v3_emerge` | 232 | 9.7 | 0.227 | 0.833 | 0.434 [0.409, 0.458] | 0.520 [0.496, 0.547] | 0.032 [-0.007, 0.074] |
+| `ctrl_v3_emerge_lastdream` | 244 | 9.3 | 0.217 | 0.933 | 0.479 [0.465, 0.494] | 0.513 [0.501, 0.527] | 0.023 [0.001, 0.048] |
+| `ctrl_v3_z_only` | 239 | 9.6 | 0.257 | 0.032 | 0.019 [0.003, 0.038] | 0.580 [0.184, 0.902] | 0.004 [-0.014, 0.025] |
+| `ctrl_v3_z_only_lastdream` | 247 | 9.4 | 0.257 | 0.042 | 0.025 [0.009, 0.047] | 0.597 [0.305, 0.884] | 0.007 [-0.013, 0.028] |
+
+## Overall
+
+| controller | interceptions/visit | interceptions/ep | floor visits/ep | gap at floor | approach sign agreement | left/stay/right |
+|---|---|---|---|---|---|---|
+| `stay` | 0.51 [0.46, 0.58] | 0.92 | 1.79 | 0.240 | -- | 0.00/1.00/0.00 |
+| `random` | 0.43 [0.37, 0.48] | 0.76 | 1.79 | 0.308 | 0.346 | 0.35/0.32/0.33 |
+| `oracle` | 1.00 [0.99, 1.00] | 1.64 | 1.65 | 0.059 | 1.000 | 0.24/0.52/0.24 |
+| `wait_and_see` | 0.99 [0.98, 1.01] | 1.69 | 1.70 | 0.080 | 1.000 | 0.17/0.67/0.17 |
+| `ctrl_v3` | 0.85 [0.80, 0.91] | 1.44 | 1.69 | 0.114 | 0.621 | 0.22/0.54/0.24 |
+| `ctrl_v3_lastdream` | 0.81 [0.76, 0.86] | 1.38 | 1.70 | 0.130 | 0.578 | 0.26/0.47/0.27 |
+| `ctrl_v3_tau1` | 0.79 [0.74, 0.84] | 1.34 | 1.69 | 0.124 | 0.620 | 0.22/0.54/0.24 |
+| `ctrl_v3_tau1_lastdream` | 0.81 [0.76, 0.86] | 1.36 | 1.67 | 0.130 | 0.690 | 0.12/0.72/0.16 |
+| `ctrl_v3_ff` | 0.53 [0.47, 0.59] | 0.94 | 1.77 | 0.211 | 0.508 | 0.30/0.38/0.31 |
+| `ctrl_v3_ff_lastdream` | 0.50 [0.44, 0.55] | 0.89 | 1.79 | 0.223 | 0.506 | 0.35/0.30/0.36 |
+| `ctrl_v3_poshead` | 0.69 [0.63, 0.75] | 1.21 | 1.76 | 0.220 | 0.477 | 0.17/0.69/0.14 |
+| `ctrl_v3_poshead_lastdream` | 0.68 [0.62, 0.74] | 1.19 | 1.75 | 0.187 | 0.540 | 0.28/0.47/0.25 |
+| `ctrl_v3_emerge` | 0.76 [0.70, 0.83] | 1.28 | 1.67 | 0.174 | 0.553 | 0.34/0.31/0.35 |
+| `ctrl_v3_emerge_lastdream` | 0.57 [0.51, 0.63] | 1.00 | 1.75 | 0.214 | 0.502 | 0.43/0.13/0.44 |
+| `ctrl_v3_z_only` | 0.80 [0.75, 0.86] | 1.38 | 1.72 | 0.142 | 0.614 | 0.11/0.78/0.11 |
+| `ctrl_v3_z_only_lastdream` | 0.76 [0.70, 0.81] | 1.34 | 1.77 | 0.153 | 0.640 | 0.11/0.79/0.10 |
+
+## Taller band (0.22, 0.64)
+
+60 episodes. Neither V nor M nor C has ever seen this band. Read the VAE reconstruction table below before attributing a drop to the controller.
+
+| controller | interceptions/visit | floor visits/ep | toward fraction (move > 0.15) | displacement fraction | mean hidden frames |
+|---|---|---|---|---|---|
+| `oracle` | 0.99 [0.97, 1.00] | 1.83 | 0.370 | 0.456 | 16.3 |
+| `wait_and_see` | 0.86 [0.79, 0.93] | 1.85 | 0.000 | 0.000 | 15.8 |
+| `ctrl_v3` | 0.78 [0.68, 0.87] | 1.87 | 0.102 | 0.097 | 15.8 |
+| `ctrl_v3_ff` | 0.53 [0.44, 0.61] | 1.93 | 0.507 | 0.028 | 15.9 |
+| `ctrl_v3_poshead` | 0.67 [0.58, 0.76] | 1.85 | 0.187 | 0.063 | 15.8 |
+
+## Taller band (0.16, 0.7)
+
+60 episodes. Neither V nor M nor C has ever seen this band. Read the VAE reconstruction table below before attributing a drop to the controller.
+
+| controller | interceptions/visit | floor visits/ep | toward fraction (move > 0.15) | displacement fraction | mean hidden frames |
+|---|---|---|---|---|---|
+| `oracle` | 0.99 [0.97, 1.00] | 1.63 | 0.389 | 0.700 | 25.7 |
+| `wait_and_see` | 0.65 [0.54, 0.76] | 1.72 | 0.000 | 0.000 | 24.9 |
+| `ctrl_v3` | 0.53 [0.44, 0.62] | 1.80 | 0.121 | 0.173 | 25.0 |
+| `ctrl_v3_ff` | 0.51 [0.42, 0.60] | 1.88 | 0.501 | 0.029 | 25.2 |
+| `ctrl_v3_poshead` | 0.61 [0.52, 0.70] | 1.82 | 0.092 | 0.034 | 24.5 |
+
+## VAE reconstruction on each band
+
+The frozen v3 encoder+decoder on frames from datasets collected at the three band heights, so a taller-band drop can be attributed to V or to C.
+
+| dataset | band | recon MSE | mean hidden run (frames) |
+|---|---|---|---|
+| `data/v3/val` | [0.28, 0.58] | 0.00012 | 9.5 |
+| `data/v3/tall` | [0.22, 0.64] | 0.01599 | 16.0 |
+| `data/v3/taller` | [0.16, 0.7] | 0.03142 | 23.5 |
+
+## Dream-vs-real transfer
+
+Pearson r between the smoothed best-of-generation dream fitness and the periodic real interception count, per training run (`dream_vs_real_all.png`, and `dream_vs_real.png` in each run directory).
+
+| run | r (smoothed) | r (raw) | best real int./ep | final dream fitness | dream env steps | real env steps | wall clock (s) |
+|---|---|---|---|---|---|---|---|
+| `ctrl_v3` | -0.01 | 0.03 | 1.71 | 133.7 | 15,360,000 | 196,800 | 1048 |
+| `ctrl_v3_tau1` | 0.41 | 0.47 | 1.58 | 130.4 | 15,360,000 | 196,800 | 1061 |
+| `ctrl_v3_ff` | 0.24 | 0.22 | 1.17 | 143.2 | 15,360,000 | 196,800 | 878 |
+| `ctrl_v3_poshead` | 0.13 | 0.19 | 1.25 | 142.0 | 15,360,000 | 196,800 | 2408 |
+| `ctrl_v3_emerge` | 0.23 | 0.23 | 1.33 | 156.1 | 15,360,000 | 196,800 | 2387 |
+| `ctrl_v3_z_only` | 0.62 | 0.58 | 1.46 | 132.3 | 15,360,000 | 196,800 | 2357 |
+
+## GIFs
+
+* **real** — seed 5100: required move 0.53, 8 hidden frames, 4 of them moving toward the landing x, 2 interceptions in the episode. CHERRY-PICKED: chosen out of the evaluation set as the longest required move the policy moved through, so it is a demo of the behaviour, not a sample of it.
+* **dream** — the controller inside its own dream, decoded by V. Best of 16 dreams by predicted contact (a cherry-pick, as in v1/v2). Watch whether a ball re-emerges below the band at all.

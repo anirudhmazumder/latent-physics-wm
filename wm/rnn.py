@@ -86,6 +86,22 @@ class RNNConfig:
     # takes its default and no parameter is created, leaving the state dict
     # identical. See the note on privileged targets in the Heads section above.
     mass_head: bool = False
+    # v3 control. True replaces the LSTM with a two-hidden-layer MLP on
+    # [z_t, a_t]; ``h`` becomes that MLP's last hidden layer, so every probe and
+    # eval that reads ``h`` keeps working and the two models are compared on the
+    # same footing. Default False, so every pre-v3 checkpoint loads unchanged.
+    # See the note above MDNRNN for why this is the control that matters.
+    feedforward: bool = False
+    # v3 fix (c). Optional auxiliary head predicting the ball's TRUE (x, y)
+    # from h on every frame, hidden ones included. Exactly the same privileged
+    # -target arrangement as ``mass_head``: the label comes from the simulator
+    # at training time and nothing at dream time reads it. Unlike the mass
+    # head, though, this one is not a fair world-model result -- it TELLS the
+    # recurrent state what to hold, so a model trained with it is a CEILING on
+    # how much permanence the architecture can carry, not evidence that the
+    # self-supervised objective would find it. Default False so every
+    # checkpoint trained before it existed loads with an identical state dict.
+    pos_head: bool = False
 
 
 class MDNRNN(nn.Module):
@@ -97,10 +113,26 @@ class MDNRNN(nn.Module):
         c = self.cfg
         in_dim = c.z_dim + c.n_actions
 
-        # One layer, exactly as in the paper. Depth is not the bottleneck on
-        # this problem -- the thing that is hard is carrying velocity through
-        # time, which is a recurrence property, not a depth property.
-        self.lstm = nn.LSTM(in_dim, c.hidden, num_layers=1, batch_first=True)
+        if c.feedforward:
+            # The memory control (v3). Two hidden layers of 256, so it has
+            # MORE per-step nonlinearity than the LSTM and strictly less
+            # information: its output at time t is a function of (z_t, a_t)
+            # alone. It therefore CANNOT carry the ball's position through an
+            # occlusion, which is exactly the floor every memory test needs.
+            # ``lstm`` stays None and the attribute name is not reused, so the
+            # two state dicts are disjoint and neither can load the other by
+            # accident.
+            self.lstm = None
+            self.ff = nn.Sequential(
+                nn.Linear(in_dim, c.hidden), nn.Tanh(),
+                nn.Linear(c.hidden, c.hidden), nn.Tanh(),
+            )
+        else:
+            # One layer, exactly as in the paper. Depth is not the bottleneck on
+            # this problem -- the thing that is hard is carrying velocity through
+            # time, which is a recurrence property, not a depth property.
+            self.lstm = nn.LSTM(in_dim, c.hidden, num_layers=1, batch_first=True)
+            self.ff = None
 
         # One linear head emitting all mixture parameters at once:
         #   K logits + K*z means + K*z log-stds
@@ -114,6 +146,12 @@ class MDNRNN(nn.Module):
         # represented in h rather than being smeared through whatever mixture
         # of latent directions happens to minimise the one-step NLL.
         self.mass_head = nn.Linear(c.hidden, 1) if c.mass_head else None
+        # (ball_x, ball_y) from h. See RNNConfig.pos_head: privileged, and a
+        # ceiling rather than a result. Its output is exposed under its own
+        # key ``"ball_pos"`` and NOTHING downstream reads that key -- every
+        # eval reads position out of ``h`` with an external probe, which is
+        # still a fair measurement of what h holds.
+        self.pos_head = nn.Linear(c.hidden, 2) if c.pos_head else None
 
         # Start with small MDN outputs so the initial predicted delta is ~0,
         # i.e. the model starts life as the identity map. With predict_delta
@@ -127,6 +165,9 @@ class MDNRNN(nn.Module):
     def init_hidden(
         self, batch: int, device: str | torch.device = "cpu"
     ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """(h, c) of zeros. For ``feedforward=True`` this is a dummy the model
+        passes through untouched -- the signature is kept so callers do not
+        have to know which kind of model they hold."""
         h = torch.zeros(1, batch, self.cfg.hidden, device=device)
         return h, h.clone()
 
@@ -154,12 +195,39 @@ class MDNRNN(nn.Module):
             a_onehot = torch.zeros_like(a_onehot)
 
         x = torch.cat([z, a_onehot], dim=-1)
-        out, h = self.lstm(x, h)
+        if self.ff is not None:
+            # No recurrence: every timestep is processed independently and the
+            # carried state is passed straight back out untouched, so callers
+            # written for the LSTM (warm-up loops, ``step``, the dream
+            # environment) need no branch of their own.
+            out = self.ff(x)
+            # The CARRIED state (the second return value) has to be the thing a
+            # caller can hand to the controller as ``h_pre`` -- ``wm.dream_env``
+            # and ``wm.eval_controller`` both read ``h[0][0]``, i.e. "the state
+            # produced after consuming the previous input". For the LSTM that is
+            # the last timestep's output, so for the MLP it is the last
+            # timestep's output too. Returning the incoming dummy instead (what
+            # this did before stage three of v3) would hand a controller a
+            # constant zero vector and silently turn the memory FLOOR into a
+            # z-only policy, which is a different experiment.
+            #
+            # This changes nothing about the model: nothing is fed back in (the
+            # MLP ignores its ``h`` argument), so every per-step output, every
+            # probe of ``parts["h"]`` and every number in README_M3 is
+            # unaffected. Only the convenience handle changes.
+            h = (
+                out[:, -1].unsqueeze(0).contiguous(),
+                torch.zeros_like(out[:, -1]).unsqueeze(0),
+            )
+        else:
+            out, h = self.lstm(x, h)
         parts = self._split(self.mdn(out))
         parts["hit_logit"] = self.hit_head(out)          # (B, T, 1)
         parts["reward"] = self.reward_head(out)          # (B, T, 1)
         if self.mass_head is not None:
             parts["log_mass"] = self.mass_head(out)      # (B, T, 1)
+        if self.pos_head is not None:
+            parts["ball_pos"] = self.pos_head(out)       # (B, T, 2)
         parts["h"] = out                                 # (B, T, hidden)
         # Stash z so the delta bookkeeping lives in one place.
         parts["z_in"] = z
@@ -195,8 +263,33 @@ class MDNRNN(nn.Module):
 
     # ------------------------------------------------------------------ loss
 
-    def mdn_nll(
+    def mdn_nll_per_step(
         self, parts: Dict[str, torch.Tensor], z_next: torch.Tensor
+    ) -> torch.Tensor:
+        """Per-(batch, time) NLL of ``z_next``. (B, T).
+
+        Split out of ``mdn_nll`` for v3 fix (b): the emergence-weighted loss
+        needs to multiply each transition by its own weight BEFORE the mean, so
+        the reduction cannot be buried inside the likelihood. ``mdn_nll`` is
+        now exactly ``mdn_nll_per_step(...).mean()`` and is bit-identical to
+        what it was, which ``tests/test_fix_v3.py`` pins.
+        """
+        y = self._target_in_model_space(parts, z_next).unsqueeze(2)  # (B,T,1,z)
+        mean, logstd = parts["mean"], parts["logstd"]
+        var = torch.exp(2.0 * logstd)
+
+        # (B, T, K, z) elementwise Gaussian log-density.
+        log_p = -0.5 * (y - mean) ** 2 / var - logstd - LOG_SQRT_2PI
+        log_p = log_p.sum(-1)                                         # (B,T,K)
+
+        log_pi = F.log_softmax(parts["logits"], dim=-1)                # (B,T,K)
+        return -torch.logsumexp(log_pi + log_p, dim=-1)                # (B,T)
+
+    def mdn_nll(
+        self,
+        parts: Dict[str, torch.Tensor],
+        z_next: torch.Tensor,
+        weights: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """Negative log likelihood of ``z_next``. Scalar (mean over B and T).
 
@@ -214,18 +307,20 @@ class MDNRNN(nn.Module):
         Convention: sum over the z dimensions, mean over batch and time. Same
         reasoning as ``vae_loss``: a mean over dimensions would silently divide
         the dynamics term by z_dim relative to the auxiliary heads.
+
+        ``weights`` (B, T), if given, re-weights individual transitions. It is
+        normalised to mean 1 inside, so the loss stays on the same scale as the
+        unweighted one whatever the weights are -- only the RATIO between
+        transitions is meaningful, and keeping the scale fixed means one
+        learning rate works for every ``--emerge-weight``. Validation always
+        calls this with ``weights=None``, so val NLL stays comparable across
+        runs.
         """
-        y = self._target_in_model_space(parts, z_next).unsqueeze(2)  # (B,T,1,z)
-        mean, logstd = parts["mean"], parts["logstd"]
-        var = torch.exp(2.0 * logstd)
-
-        # (B, T, K, z) elementwise Gaussian log-density.
-        log_p = -0.5 * (y - mean) ** 2 / var - logstd - LOG_SQRT_2PI
-        log_p = log_p.sum(-1)                                         # (B,T,K)
-
-        log_pi = F.log_softmax(parts["logits"], dim=-1)                # (B,T,K)
-        ll = torch.logsumexp(log_pi + log_p, dim=-1)                   # (B,T)
-        return -ll.mean()
+        nll = self.mdn_nll_per_step(parts, z_next)                     # (B,T)
+        if weights is None:
+            return nll.mean()
+        w = weights.to(nll.dtype)
+        return (nll * w).mean() / w.mean().clamp_min(1e-8)
 
     # ---------------------------------------------------------- sampling etc.
 
@@ -292,6 +387,7 @@ def rnn_loss(
     pos_weight: float = 1.0,
     w_hit: float = 1.0,
     w_reward: float = 1.0,
+    nll_weights: Optional[torch.Tensor] = None,
 ) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
     """NLL + weighted BCE(hit) + MSE(reward). Returns (loss, parts_dict).
 
@@ -301,8 +397,13 @@ def rnn_loss(
     re-balances the two classes so the head is actually forced to find the
     positives; the cost is that the raw probabilities come out over-confident,
     which is why eval reports precision/recall/PR-AUC rather than accuracy.
+
+    ``nll_weights`` (B, T) re-weights the dynamics term per transition -- v3
+    fix (b) uses it to up-weight the frames where the ball re-emerges from
+    behind the occluder. Only the MDN term is weighted; the hit and reward
+    heads are left alone so that those numbers keep meaning what they did.
     """
-    nll = model.mdn_nll(parts, batch["z_next"])
+    nll = model.mdn_nll(parts, batch["z_next"], weights=nll_weights)
 
     hit_logit = parts["hit_logit"].squeeze(-1)
     bce = F.binary_cross_entropy_with_logits(

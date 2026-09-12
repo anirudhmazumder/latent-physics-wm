@@ -366,11 +366,31 @@ def part_b_state(
 
     # Probe floor: the probe's own error on TRUE latents.
     est_true = probe(val["mu"][:E][:, idx_true])
-    floor = np.abs(est_true - true_state).mean(0)              # (H, 6)
+    floor_ep = np.abs(est_true - true_state)                   # (E, H, S)
+    floor = floor_ep.mean(0)                                   # (H, 6)
 
     # v2: mass per episode, for the by-tercile breakdown below. None in v1.
     names = val.get("state_names", [])
     mass = val["state"][:E, 0, names.index("mass")] if "mass" in names else None
+
+    # v3: which (episode, step) pairs have a FULLY VISIBLE true ball. On an
+    # occluded world the unconditional horizon is close to meaningless -- a
+    # sixth of the frames contain no ball at all, so the position probe has
+    # nothing to read and returns roughly the dataset mean, which is already
+    # more than a ball radius away from the truth. The probe floor says so
+    # directly (v3: 0.030 in ball_x, against v1's 0.004). So everything below
+    # is reported twice, once unconditionally and once over visible frames
+    # only, and the visible-only column is the one comparable to v1 and v2.
+    vis = (val["state"][:E][:, idx_true, names.index("ball_visible")] > 0.99
+           if "ball_visible" in names else None)
+
+    def _masked_mean(per_ep: np.ndarray) -> Optional[np.ndarray]:
+        """Mean over episodes at each step, counting only visible frames."""
+        if vis is None:
+            return None
+        n = vis.sum(0)
+        out = np.where(n > 0, (per_ep * vis).sum(0) / np.maximum(n, 1), np.nan)
+        return out
 
     res: Dict[str, object] = {}
     curves = {}
@@ -387,6 +407,10 @@ def part_b_state(
         ball_err = ball_err_ep.mean(0)                         # (H,)
         bad = np.where(ball_err > BALL_RADIUS)[0]
         useful = int(bad[0]) if len(bad) else horizon
+        vis_err = _masked_mean(ball_err_ep)
+        if vis_err is not None:
+            badv = np.where(np.nan_to_num(vis_err, nan=0.0) > BALL_RADIUS)[0]
+            useful_vis = int(badv[0]) if len(badv) else horizon
         # A SECOND horizon, and at tau > 0 the one to read. The metric above
         # asks "is the dreamed ball still on top of the real one", which for a
         # sampled dream is the wrong question: a tau = 1 dream is a different
@@ -411,12 +435,18 @@ def part_b_state(
             "paddle_x_err_h16": float(err[min(15, horizon - 1), 4]),
             "ball_err_final": float(ball_err[-1]),
         }
+        if vis_err is not None:
+            res[f"tau{tau}"]["useful_dream_horizon_visible"] = useful_vis
+            res[f"tau{tau}"]["ball_err_visible_h16"] = float(
+                vis_err[min(15, horizon - 1)])
         if mass is not None:
             res[f"tau{tau}"]["by_mass_tercile"] = horizon_by_mass(
                 ball_err_ep, mass, horizon
             )
         print(f"    tau={tau}: useful dream horizon {useful} steps "
-              f"(|ball| err > {BALL_RADIUS}); speed horizon "
+              + (f"({useful_vis} on visible frames only) " if vis_err is not None
+                 else "")
+              + f"(|ball| err > {BALL_RADIUS}); speed horizon "
               f"{sp_h.mean():5.1f} steps (>{SPEED_TOL:.0%} off the law); "
               f"|dx|@16 {err[15,0]:.3f} |dpaddle|@16 {err[15,4]:.3f}")
     if mass is not None:
@@ -433,6 +463,12 @@ def part_b_state(
         "ball_y": float(floor[:, 1].mean()),
         "paddle_x": float(floor[:, 4].mean()),
     }
+    if vis is not None:
+        res["probe_floor_visible"] = {
+            "ball_x": float(np.nanmean(_masked_mean(floor_ep[..., 0]))),
+            "ball_y": float(np.nanmean(_masked_mean(floor_ep[..., 1]))),
+            "paddle_x": float(np.nanmean(_masked_mean(floor_ep[..., 4]))),
+        }
 
     plt = _plt()
     names = [("ball_x", 0), ("ball_y", 1), ("paddle_x", 4)]
@@ -917,9 +953,15 @@ def _summary(r: Dict, out: Path) -> None:
     print("\n" + "=" * 72)
     print("SUMMARY -- what the dynamics model did and did not learn")
     print("=" * 72)
+    vis_note = (
+        f" ({b['tau0.0']['useful_dream_horizon_visible']} counting only the\n"
+        f"   frames where the true ball is not behind the band -- on an occluded\n"
+        f"   world that is the number comparable with v1 and v2, because on a\n"
+        f"   hidden frame the position probe has nothing to read)"
+        if "useful_dream_horizon_visible" in b["tau0.0"] else "")
     print(
         f"\n1. Dreams stay accurate for about "
-        f"{b['tau0.0']['useful_dream_horizon']} steps (tau=0) before the dreamed\n"
+        f"{b['tau0.0']['useful_dream_horizon']} steps{vis_note} (tau=0) before the dreamed\n"
         f"   ball drifts more than one ball radius from the true one. Sampling at\n"
         f"   tau=1 scores {b['tau1.0']['useful_dream_horizon']} steps on the same "
         f"metric -- but read that carefully. A\n"

@@ -4,8 +4,12 @@ v1: BouncingBox -- a ball bouncing in a unit box with a paddle you can move.
 v2: the same box with ``BoxConfig(mass_from_color=True)`` -- the ball's colour
     encodes its mass, and mass sets its speed and how much english the paddle
     can impart. Default BoxConfig() is still exactly v1.
-Designed so that v3 (occlusion band) and v4 (gravity switch) stay additive
-changes to BoxConfig / BouncingBox rather than rewrites.
+v3: the same box with ``BoxConfig(occluder=True)`` -- an opaque band across the
+    middle of the frame hides the ball for part of every traverse. Physics
+    untouched; the state gains a ``ball_visible`` column and the event mask an
+    ``EVENT_HIDDEN`` bit. The two switches compose.
+Designed so that v4 (gravity switch) stays an additive change to BoxConfig /
+BouncingBox rather than a rewrite.
 """
 
 from .bouncing_box import (
@@ -15,8 +19,10 @@ from .bouncing_box import (
     STAY,
     STATE_NAMES,
     STATE_NAMES_V2,
+    STATE_NAMES_V3,
     BouncingBox,
     BoxConfig,
+    EVENT_HIDDEN,
     EVENT_PADDLE,
     EVENT_WALL_X,
     EVENT_WALL_Y,
@@ -24,6 +30,7 @@ from .bouncing_box import (
     mass_to_color,
     mass_to_u,
     u_to_mass,
+    visible_fraction,
 )
 from .policies import MixedPolicy, sticky_random_actions, tracking_action
 
@@ -34,8 +41,10 @@ __all__ = [
     "STAY",
     "STATE_NAMES",
     "STATE_NAMES_V2",
+    "STATE_NAMES_V3",
     "BouncingBox",
     "BoxConfig",
+    "EVENT_HIDDEN",
     "EVENT_PADDLE",
     "EVENT_WALL_X",
     "EVENT_WALL_Y",
@@ -46,4 +55,5 @@ __all__ = [
     "color_to_mass",
     "mass_to_u",
     "u_to_mass",
+    "visible_fraction",
 ]

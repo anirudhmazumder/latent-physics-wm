@@ -113,32 +113,48 @@ def make_box_cfg(
     mass_from_color: bool = False,
     mass_holdout: Optional[Sequence[float]] = None,
     mass_only: Optional[Sequence[float]] = None,
+    occluder: bool = False,
+    occluder_y: Optional[Sequence[float]] = None,
 ) -> BoxConfig:
     """The ONE place the evaluation environment is configured.
 
     Every rollout entry point (``run_real_episodes``, ``run_population_real``,
-    ``real_vs_dream_gif``) routes through here so a v2 flag cannot reach one of
-    them and not the others. With all the v2 arguments at their defaults this
-    returns exactly the v1 config the harness has always built.
+    ``real_vs_dream_gif``) routes through here so a v2 or v3 flag cannot reach
+    one of them and not the others. With all the v2/v3 arguments at their
+    defaults this returns exactly the v1 config the harness has always built.
+
+    ``occluder_y`` is the v3 band ``(bottom, top)``. Leaving it None keeps
+    ``BoxConfig``'s own default (0.28, 0.58) -- the band every v3 dataset and
+    every v3 model was trained on -- so the taller-band generalisation test is
+    the only thing that ever has to name it.
     """
+    kw = {}
+    if occluder_y is not None:
+        kw["occluder_y"] = (float(occluder_y[0]), float(occluder_y[1]))
     return BoxConfig(
         res=64,
         ball_radius=ball_radius,
         mass_from_color=bool(mass_from_color),
         mass_holdout=None if mass_holdout is None else tuple(mass_holdout),
         mass_only=None if mass_only is None else tuple(mass_only),
+        occluder=bool(occluder),
+        **kw,
     )
 
 
-def episode_masses(states: np.ndarray) -> Optional[np.ndarray]:
-    """``(E,)`` mass per episode, or None for a v1 (6-column) rollout.
+def episode_masses(
+    states: np.ndarray, mass_from_color: bool = True
+) -> Optional[np.ndarray]:
+    """``(E,)`` mass per episode, or None when the world has no mass.
 
     Mass is constant within an episode, so the first frame's column is the
-    episode's mass; we read column 6 rather than carrying a separate channel
-    because that keeps the harness's single source of truth the environment's
-    own ``state()``.
+    episode's mass. The column INDEX cannot be inferred from the array's width,
+    which is the v3 trap: v3's seventh column is ``ball_visible``, not mass, and
+    reading it as a mass would hand ``floor_visit_stats`` a "speed" of
+    ``0.022 / visibility`` -- infinite on a hidden frame. So the caller, which
+    owns the ``BoxConfig`` and therefore knows, says whether mass exists at all.
     """
-    if states.shape[-1] < 7:
+    if not mass_from_color or states.shape[-1] < 7:
         return None
     return np.asarray(states[:, 0, 6], np.float64)
 
@@ -173,6 +189,8 @@ def run_real_episodes(
     mass_from_color: bool = False,
     mass_holdout: Optional[Sequence[float]] = None,
     mass_only: Optional[Sequence[float]] = None,
+    occluder: bool = False,
+    occluder_y: Optional[Sequence[float]] = None,
 ) -> Dict[str, np.ndarray]:
     """Run ``episodes`` real episodes in lockstep. Seeds are ``seed_base + i``.
 
@@ -185,7 +203,8 @@ def run_real_episodes(
     sees the identical 100 initial conditions, so the comparison is paired and a
     difference of 0.1 hits/episode is not just a different draw of starts.
     """
-    cfg = make_box_cfg(ball_radius, mass_from_color, mass_holdout, mass_only)
+    cfg = make_box_cfg(ball_radius, mass_from_color, mass_holdout, mass_only,
+                       occluder, occluder_y)
     envs = [BouncingBox(cfg) for _ in range(episodes)]
     frames = np.stack([e.reset(seed=seed_base + i) for i, e in enumerate(envs)])
     states = np.stack([e.state() for e in envs])                  # (E, 6) or (E, 7)
@@ -237,7 +256,7 @@ def run_real_episodes(
     # v2 bookkeeping. Recorded here, at the only place that owns the
     # environment, rather than re-derived by each analysis: the mass is a
     # property of the episode the harness ran, not of the states array's shape.
-    mass = episode_masses(out["states"])
+    mass = episode_masses(out["states"], cfg.mass_from_color)
     if mass is not None:
         out["mass"] = mass
         out["speed"] = cfg.ball_speed / mass
@@ -261,6 +280,8 @@ def run_population_real(
     mass_from_color: bool = False,
     mass_holdout: Optional[Sequence[float]] = None,
     mass_only: Optional[Sequence[float]] = None,
+    occluder: bool = False,
+    occluder_y: Optional[Sequence[float]] = None,
     count: str = "frames",
 ) -> np.ndarray:
     """Evaluate ``P`` candidates on ``R`` real episodes each. Returns ``(P, R)`` hits.
@@ -285,7 +306,8 @@ def run_population_real(
     """
     P, R = len(params), len(seeds)
     B = P * R
-    cfg = make_box_cfg(ball_radius, mass_from_color, mass_holdout, mass_only)
+    cfg = make_box_cfg(ball_radius, mass_from_color, mass_holdout, mass_only,
+                       occluder, occluder_y)
     envs = [BouncingBox(cfg) for _ in range(B)]
     frames = np.stack([
         envs[p * R + r].reset(seed=int(seeds[r])) for p in range(P) for r in range(R)
@@ -563,6 +585,8 @@ def real_vs_dream_gif(
     mass_from_color: bool = False,
     mass_holdout: Optional[Sequence[float]] = None,
     mass_only: Optional[Sequence[float]] = None,
+    occluder: bool = False,
+    occluder_y: Optional[Sequence[float]] = None,
 ) -> Path:
     """Left: the controller in the real box. Right: the same controller dreaming.
 
@@ -575,7 +599,8 @@ def real_vs_dream_gif(
     """
     from .dream_env import DreamEnv, StartPool
 
-    cfg = make_box_cfg(ball_radius, mass_from_color, mass_holdout, mass_only)
+    cfg = make_box_cfg(ball_radius, mass_from_color, mass_holdout, mass_only,
+                       occluder, occluder_y)
     env = BouncingBox(cfg)
     f = env.reset(seed=seed)
     ctrl.reset(1, seed=seed)
@@ -902,6 +927,15 @@ def add_env_args(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
                    metavar=("LO", "HI"),
                    help="sample ONLY inside [LO, HI]. Use (0.85, 1.2) for the "
                         "held-out-colour generalisation test")
+    p.add_argument("--occluder", action="store_true",
+                   help="v3: draw an opaque band across the box. The ball flies "
+                        "through it unchanged and is simply not rendered, so "
+                        "position has to be carried in memory")
+    p.add_argument("--occluder-y", type=float, nargs=2, default=None,
+                   metavar=("BOTTOM", "TOP"),
+                   help="the band's edges in world coordinates. Default (0.28, "
+                        "0.58), the band every v3 model was trained on; pass a "
+                        "taller one for the generalisation test")
     return p
 
 
@@ -912,6 +946,8 @@ def env_kwargs(a: argparse.Namespace) -> Dict:
         "mass_from_color": bool(getattr(a, "mass_from_color", False)),
         "mass_holdout": getattr(a, "mass_holdout", None),
         "mass_only": getattr(a, "mass_only", None),
+        "occluder": bool(getattr(a, "occluder", False)),
+        "occluder_y": getattr(a, "occluder_y", None),
     }
 
 

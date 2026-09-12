@@ -164,6 +164,65 @@ def ball_mask_area(frames: np.ndarray, cfg: BoxConfig) -> np.ndarray:
     return mask.reshape(frames.shape[:-3] + (-1,)).sum(-1).astype(float)
 
 
+# ------------------------------------------------- v3: the hidden ball's velocity
+
+
+def hidden_velocity_conservation(
+    pos: np.ndarray, band: Sequence[float], radius: float, win: int = 3,
+    min_len: int = 2,
+) -> Dict[str, float]:
+    """Does a dream hold the ball's velocity across a stretch it cannot see?
+
+    v3's conserved quantity. The band hides the ball but changes no physics:
+    there is no horizontal surface inside it, so a ball that goes in heading
+    down MUST come out heading down, at the same speed, and with |vx|
+    unchanged whether or not it bounced off a side wall on the way. Those are
+    three statements the dream can violate independently.
+
+    Unlike every other metric in this file this one needs no ground truth --
+    it compares the dream against ITSELF, before and after the gap. That is
+    what makes it usable at tau = 1, where the dream is a different plausible
+    future and agreement with the recorded trajectory is the wrong question.
+
+    ``pos`` is (N, H, 2) decoded dream positions. A "hidden stretch" is a
+    maximal run of >= ``min_len`` steps whose decoded y is inside the band
+    interior, with ``win`` clean steps either side to estimate velocity from.
+    Returns aggregate statistics over every such stretch found in the batch.
+    """
+    lo, hi = band[0] + radius, band[1] - radius
+    inside = (pos[..., 1] >= lo) & (pos[..., 1] <= hi)
+    dvy_sign_ok, dvx_flip, speed_ratio, absvx_ratio = [], [], [], []
+    N, H = inside.shape
+    for n in range(N):
+        t = 0
+        while t < H:
+            if not inside[n, t]:
+                t += 1
+                continue
+            e = t
+            while e + 1 < H and inside[n, e + 1]:
+                e += 1
+            if (e - t + 1) >= min_len and t - win - 1 >= 0 and e + 1 + win < H:
+                v_in = (pos[n, t - 1] - pos[n, t - 1 - win]) / win
+                v_out = (pos[n, e + 1 + win] - pos[n, e + 1]) / win
+                dvy_sign_ok.append(float(np.sign(v_in[1]) == np.sign(v_out[1])))
+                dvx_flip.append(float(np.sign(v_in[0]) != np.sign(v_out[0])))
+                s_in = float(np.hypot(*v_in)) or 1e-9
+                speed_ratio.append(float(np.hypot(*v_out)) / s_in)
+                absvx_ratio.append(abs(float(v_out[0])) / max(abs(float(v_in[0])), 1e-9))
+            t = e + 1
+    n = len(dvy_sign_ok)
+    if n == 0:
+        return {"n_stretches": 0}
+    return {
+        "n_stretches": n,
+        "vy_sign_preserved": float(np.mean(dvy_sign_ok)),
+        "vx_sign_flipped": float(np.mean(dvx_flip)),
+        "speed_ratio_median": float(np.median(speed_ratio)),
+        "abs_vx_ratio_median": float(np.median(absvx_ratio)),
+    }
+
+
 # ------------------------------------------------------------------ metrics
 
 
@@ -177,6 +236,7 @@ def evaluate_tau(
     mass_probe: Optional[Poly2Probe], warmup: int, horizon: int,
     decode_every: int, device: str, seed: int, ref_area: np.ndarray,
     speed_win: int, speed_tol: float,
+    band: Optional[Sequence[float]] = None, radius: float = 0.08,
 ) -> Dict[str, object]:
     """All four metrics for one temperature. Returns arrays over dream steps."""
     z_d = dream_long(setup, ep, eps, warmup, horizon, tau, device, seed)
@@ -206,6 +266,10 @@ def evaluate_tau(
     # random-walks independently per episode destroys it. Read the two together.
     out["speed_corr"] = _per_step_corr(sp, true_speed)
 
+    # (v) v3 only: the hidden ball's velocity, across the band.
+    if band is not None:
+        out["hidden_velocity"] = hidden_velocity_conservation(pos, band, radius)
+
     # (i) and (ii): only defined where a mass exists.
     if mass_probe is not None and ep.has_mass:
         est = mass_probe(z_d)                                        # (N, H)
@@ -231,6 +295,7 @@ def probe_floor(
     setup: Setup, ep: Episodes, eps: np.ndarray, cfg: BoxConfig,
     mass_probe: Optional[Poly2Probe], warmup: int, horizon: int,
     decode_every: int, device: str, speed_win: int, speed_tol: float,
+    band: Optional[Sequence[float]] = None, radius: float = 0.08,
 ) -> Dict[str, object]:
     """The same estimators applied to TRUE latents. The instrument's own score.
 
@@ -253,6 +318,8 @@ def probe_floor(
         "speed_horizon_mean": float(
             speed_horizon(sp, true_speed, tol=speed_tol).mean()),
     }
+    if band is not None:
+        out["hidden_velocity"] = hidden_velocity_conservation(pos, band, radius)
     if mass_probe is not None and ep.has_mass:
         est = mass_probe(mu)
         truth = np.log(ep.mass[eps])
@@ -500,7 +567,8 @@ def main() -> None:
     torch.manual_seed(a.seed)
     np.random.seed(a.seed)
 
-    cfg = BoxConfig(**json.loads((Path(a.val[0]) / "meta.json").read_text())["config"])
+    vmeta = json.loads((Path(a.val[0]) / "meta.json").read_text())
+    cfg = BoxConfig(**vmeta["config"])
     model, mcfg = load_rnn(a.ckpt, device)
     vae, vcfg, _ = load_ckpt(a.vae, device)
     pos_probe = fit_position_probe(a.probe_data, a.latent_suffix,
@@ -521,8 +589,18 @@ def main() -> None:
               "the speed is a hard constant here, so those ARE the conservation "
               "tests for v1")
 
+    # v3: the band, if this world has one. Its presence switches on metric
+    # (v) -- conservation of the HIDDEN ball's velocity direction, which is the
+    # v3 analogue of v2's constant mass and is the thing a controller that has
+    # to commit while the ball is invisible actually depends on.
+    band = tuple(vmeta["occluder_y"]) if vmeta.get("occluder") else None
+    if band is not None:
+        print(f"occluder band {band}; metric (v) -- the hidden ball's velocity "
+              f"-- is on")
+
     floor = probe_floor(setup, ep, eps, cfg, mass_probe, a.warmup, a.horizon,
-                        a.decode_every, device, a.speed_win, a.speed_tol)
+                        a.decode_every, device, a.speed_win, a.speed_tol,
+                        band=band, radius=cfg.ball_radius)
     ref_area = floor.pop("ref_area")
 
     res: Dict[float, Dict] = {}
@@ -530,7 +608,8 @@ def main() -> None:
         print(f"\n  dreaming at tau={tau} ...", flush=True)
         res[tau] = evaluate_tau(setup, ep, eps, tau, cfg, mass_probe, a.warmup,
                                 a.horizon, a.decode_every, device, a.seed,
-                                ref_area, a.speed_win, a.speed_tol)
+                                ref_area, a.speed_win, a.speed_tol,
+                                band=band, radius=cfg.ball_radius)
 
     plot_conservation(res, floor, a.taus, out / "conservation.png",
                       f"conservation over a {a.horizon}-step dream -- {name}")
@@ -542,6 +621,7 @@ def main() -> None:
         "speed_tol": a.speed_tol, "speed_win": a.speed_win,
         "report_steps": list(REPORT_STEPS),
         "has_mass": bool(ep.has_mass),
+        "band": list(band) if band else None,
         "action_policy_past_episode_end": "hold the last recorded action",
         "probe_floor": {k: (v.tolist() if isinstance(v, np.ndarray) else v)
                         for k, v in floor.items()},
@@ -561,6 +641,8 @@ def main() -> None:
                 **{f"speed_corr@{s}": _at(d["speed_corr"], s)
                    for s in REPORT_STEPS},
                 "speed_horizon_mean": d["speed_horizon_mean"],
+                **({f"hidden_{k}": v for k, v in d["hidden_velocity"].items()}
+                   if "hidden_velocity" in d else {}),
                 "wellformed_frac_last": float(d["wellformed_frac"][-1]),
                 "wellformed_frac_mean": float(d["wellformed_frac"].mean()),
             }
@@ -647,6 +729,27 @@ def _summary(report: Dict, res: Dict, floor: Dict, a, out: Path) -> None:
         print("\n    (the across-episode speed correlation is undefined here: in v1 "
               "every\n    episode has the SAME true speed, so there is no variance "
               "to correlate with.)")
+
+    if report.get("band"):
+        print("\n(v) v3: the HIDDEN ball's velocity across a dreamed occlusion.")
+        print("    Nothing inside the band can turn a ball around, so vy must keep "
+              "its sign and\n    |v| and |vx| must be unchanged. This compares the "
+              "dream with ITSELF, so it is\n    the one metric here that is "
+              "meaningful at tau = 1.")
+        print("    " + f"{'tau':>6s}{'stretches':>11s}{'vy sign kept':>14s}"
+              f"{'|v| out/in':>12s}{'|vx| out/in':>13s}{'vx flipped':>12s}")
+        rows = [(f"{t:6.2f}", res[t].get("hidden_velocity", {})) for t in a.taus]
+        rows.append((f"{'floor':>6s}", floor.get("hidden_velocity", {})))
+        for lab, hv in rows:
+            if not hv.get("n_stretches"):
+                print(f"    {lab}       (no complete hidden stretch found)")
+                continue
+            print(f"    {lab}{hv['n_stretches']:11d}{hv['vy_sign_preserved']:14.3f}"
+                  f"{hv['speed_ratio_median']:12.3f}"
+                  f"{hv['abs_vx_ratio_median']:13.3f}"
+                  f"{hv['vx_sign_flipped']:12.3f}")
+        print("    ('floor' is the same estimator on TRUE latents: the instrument's "
+              "own score.)")
 
     print("\n(iv) fraction of dreamed frames with a well-formed ball "
           "(area within 50-150% of the VAE reference)")
