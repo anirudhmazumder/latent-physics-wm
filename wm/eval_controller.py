@@ -115,6 +115,7 @@ def make_box_cfg(
     mass_only: Optional[Sequence[float]] = None,
     occluder: bool = False,
     occluder_y: Optional[Sequence[float]] = None,
+    paddle_w: Optional[float] = None,
 ) -> BoxConfig:
     """The ONE place the evaluation environment is configured.
 
@@ -127,10 +128,17 @@ def make_box_cfg(
     ``BoxConfig``'s own default (0.28, 0.58) -- the band every v3 dataset and
     every v3 model was trained on -- so the taller-band generalisation test is
     the only thing that ever has to name it.
+
+    ``paddle_w`` is the same kind of argument for v3.1, and it is not cosmetic:
+    the paddle's width is what sets the *chance* catch rate, so an evaluation
+    run with the wrong width is scoring against the wrong floor. None keeps
+    ``BoxConfig``'s 0.26 (v1-v3); v3.1 passes 0.16.
     """
     kw = {}
     if occluder_y is not None:
         kw["occluder_y"] = (float(occluder_y[0]), float(occluder_y[1]))
+    if paddle_w is not None:
+        kw["paddle_w"] = float(paddle_w)
     return BoxConfig(
         res=64,
         ball_radius=ball_radius,
@@ -191,6 +199,7 @@ def run_real_episodes(
     mass_only: Optional[Sequence[float]] = None,
     occluder: bool = False,
     occluder_y: Optional[Sequence[float]] = None,
+    paddle_w: Optional[float] = None,
 ) -> Dict[str, np.ndarray]:
     """Run ``episodes`` real episodes in lockstep. Seeds are ``seed_base + i``.
 
@@ -204,7 +213,7 @@ def run_real_episodes(
     difference of 0.1 hits/episode is not just a different draw of starts.
     """
     cfg = make_box_cfg(ball_radius, mass_from_color, mass_holdout, mass_only,
-                       occluder, occluder_y)
+                       occluder, occluder_y, paddle_w)
     envs = [BouncingBox(cfg) for _ in range(episodes)]
     frames = np.stack([e.reset(seed=seed_base + i) for i, e in enumerate(envs)])
     states = np.stack([e.state() for e in envs])                  # (E, 6) or (E, 7)
@@ -282,6 +291,7 @@ def run_population_real(
     mass_only: Optional[Sequence[float]] = None,
     occluder: bool = False,
     occluder_y: Optional[Sequence[float]] = None,
+    paddle_w: Optional[float] = None,
     count: str = "frames",
 ) -> np.ndarray:
     """Evaluate ``P`` candidates on ``R`` real episodes each. Returns ``(P, R)`` hits.
@@ -307,7 +317,7 @@ def run_population_real(
     P, R = len(params), len(seeds)
     B = P * R
     cfg = make_box_cfg(ball_radius, mass_from_color, mass_holdout, mass_only,
-                       occluder, occluder_y)
+                       occluder, occluder_y, paddle_w)
     envs = [BouncingBox(cfg) for _ in range(B)]
     frames = np.stack([
         envs[p * R + r].reset(seed=int(seeds[r])) for p in range(P) for r in range(R)
@@ -587,6 +597,7 @@ def real_vs_dream_gif(
     mass_only: Optional[Sequence[float]] = None,
     occluder: bool = False,
     occluder_y: Optional[Sequence[float]] = None,
+    paddle_w: Optional[float] = None,
 ) -> Path:
     """Left: the controller in the real box. Right: the same controller dreaming.
 
@@ -600,7 +611,7 @@ def real_vs_dream_gif(
     from .dream_env import DreamEnv, StartPool
 
     cfg = make_box_cfg(ball_radius, mass_from_color, mass_holdout, mass_only,
-                       occluder, occluder_y)
+                       occluder, occluder_y, paddle_w)
     env = BouncingBox(cfg)
     f = env.reset(seed=seed)
     ctrl.reset(1, seed=seed)
@@ -936,6 +947,11 @@ def add_env_args(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
                    help="the band's edges in world coordinates. Default (0.28, "
                         "0.58), the band every v3 model was trained on; pass a "
                         "taller one for the generalisation test")
+    p.add_argument("--paddle-w", type=float, default=None,
+                   help="paddle width in world units. Default 0.26 (v1-v3); "
+                        "v3.1 uses 0.16, which lowers the stand-still catch "
+                        "rate and so the memoryless bound the agent must beat. "
+                        "Must match the dataset the controller was fitted on.")
     return p
 
 
@@ -948,14 +964,19 @@ def env_kwargs(a: argparse.Namespace) -> Dict:
         "mass_only": getattr(a, "mass_only", None),
         "occluder": bool(getattr(a, "occluder", False)),
         "occluder_y": getattr(a, "occluder_y", None),
+        "paddle_w": getattr(a, "paddle_w", None),
     }
 
 
-def build_baselines() -> List[BaseController]:
+def build_baselines(paddle_w: float = 0.26) -> List[BaseController]:
+    """The three reference controllers. ``paddle_w`` must match the world being
+    evaluated: the oracle's dead zone is a fraction of the paddle's width, so a
+    0.26 oracle in a 0.16 world would stop correcting while the ball is still
+    outside the paddle."""
     return [
         StayController(),
         RandomController(mean_hold=8.0, seed=1234),
-        OracleController(paddle_w=0.26),
+        OracleController(paddle_w=paddle_w),
     ]
 
 
@@ -1003,7 +1024,8 @@ def main() -> None:
     vae, _, _ = load_ckpt(a.vae, a.device)
     rnn, _ = load_rnn(a.rnn, a.device)
 
-    ctrls: List[BaseController] = build_baselines()
+    ctrls: List[BaseController] = build_baselines(
+        ekw["paddle_w"] if ekw["paddle_w"] is not None else BoxConfig().paddle_w)
     names = a.ctrl_names or [Path(c).parent.name for c in a.ctrl]
     which = a.ctrl_which or ["params"] * len(a.ctrl)
     trained: List[LinearController] = []

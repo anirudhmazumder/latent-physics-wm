@@ -38,6 +38,13 @@ v3 (occlusion band). Mass is left off so the two effects are not compounded:
         --ball-radius 0.08 --res 64 --occluder
     python -m worldsim.collect --out data/v3/tall --episodes 30 --steps 200 \
         --ball-radius 0.08 --res 64 --occluder --occluder-y 0.22 0.64 --policy mix --seed 31
+
+v3.1 (same occluder switch, re-geometried so that a memoryless policy fails).
+The band reaches down to where the ball can touch the paddle and the paddle is
+narrower, which together drop the wait-and-see oracle from 1.00 to 0.48:
+
+    python -m worldsim.collect --out data/v31/train --episodes 150 --steps 200 \
+        --ball-radius 0.08 --res 64 --occluder --occluder-y 0.13 0.63 --paddle-w 0.16
 """
 
 from __future__ import annotations
@@ -70,6 +77,7 @@ def collect(
     mass_only: Optional[Tuple[float, float]] = None,
     occluder: bool = False,
     occluder_y: Tuple[float, float] = (0.28, 0.58),
+    paddle_w: float = 0.26,
 ) -> Path:
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -82,6 +90,11 @@ def collect(
         mass_only=mass_only,
         occluder=occluder,
         occluder_y=tuple(occluder_y),
+        # v3.1: the paddle's width sets the *chance* catch rate, so it is the
+        # other half of "does this environment require memory" alongside the
+        # band geometry (runs/v31_design/sweep.md). Recorded in meta because
+        # every controller number is conditioned on it.
+        paddle_w=paddle_w,
     )
     env = BouncingBox(cfg)
     state_names = env.state_names          # 6 in v1, +mass in v2, +ball_visible in v3
@@ -179,6 +192,7 @@ def collect(
         "mass_only": list(mass_only) if mass_only else None,
         "occluder": occluder,
         "occluder_y": list(cfg.occluder_y) if occluder else None,
+        "paddle_w": float(cfg.paddle_w),
         # The occlusion statistics are cheap to recompute but expensive to
         # remember to recompute, and every v3 result is conditioned on them, so
         # they travel with the dataset.
@@ -379,6 +393,11 @@ def main() -> None:
                    help="v3: bottom and top edge of the band in world "
                         "coordinates (y up). A taller band means longer "
                         "occlusions -- that is the memory-horizon knob.")
+    p.add_argument("--paddle-w", type=float, default=0.26,
+                   help="paddle width in world units. 0.26 (default) is the "
+                        "v1-v3 paddle; v3.1 uses 0.16, which drops the "
+                        "stand-still catch rate from ~0.50 to ~0.38 and so "
+                        "lowers the memoryless ceiling the agent has to beat.")
     p.add_argument("--ball-radius", type=float, default=0.055,
                    help="0.08 makes the ball ~2x more of the loss; "
                         "recommended for your first VAE")
@@ -398,6 +417,7 @@ def main() -> None:
         mass_only=tuple(a.mass_only) if a.mass_only else None,
         occluder=a.occluder,
         occluder_y=tuple(a.occluder_y),
+        paddle_w=a.paddle_w,
     )
 
 

@@ -1,0 +1,80 @@
+model runs/rnn_v31_emerge/rnn.pt  cfg=RNNConfig(z_dim=16, n_actions=3, hidden=256, n_gauss=5, predict_delta=True, ablate_actions=False, mass_head=False, feedforward=False, pos_head=False)
+vae   runs/vae_v31/vae.pt  z_dim=16
+device=cpu
+val: 35 episodes x 200 steps
+state probe fitted on 7020 frames from ['data/v31/probe', 'data/v31/val_mix']
+
+(a) dream rollouts in pixel space
+    tau=0.0: pixel MSE h1 0.00022 -> h64 0.00183   (VAE floor 0.00009)
+    tau=0.5: pixel MSE h1 0.00253 -> h64 0.00186   (VAE floor 0.00009)
+    tau=1.0: pixel MSE h1 0.00310 -> h64 0.00260   (VAE floor 0.00009)
+
+(b) dream rollouts in world coordinates
+    tau=0.0: useful dream horizon 0 steps (16 on visible frames only) (|ball| err > 0.08); speed horizon   6.6 steps (>25% off the law); |dx|@16 0.137 |dpaddle|@16 0.062
+    tau=0.5: useful dream horizon 0 steps (0 on visible frames only) (|ball| err > 0.08); speed horizon   0.0 steps (>25% off the law); |dx|@16 0.220 |dpaddle|@16 0.181
+    tau=1.0: useful dream horizon 0 steps (0 on visible frames only) (|ball| err > 0.08); speed horizon   0.0 steps (>25% off the law); |dx|@16 0.241 |dpaddle|@16 0.263
+
+(c) where does velocity live?
+    n=6000 timesteps, episode-level split
+    feature probe      ball_x    ball_y   ball_vx   ball_vy  paddle_x paddle_vx ball_visible
+    z       linear      0.374     0.508    -0.006    -0.061     0.373    -0.004     0.596
+    z       poly2       0.560     0.884    -0.054    -0.258     0.912    -0.093     0.994
+    z       knn         0.499     0.888    -0.143    -0.261     0.757    -0.108     0.983
+    h       linear      0.660     0.885     0.383     0.408     0.999     0.945     0.979
+    h       poly2       0.596     0.867     0.293     0.316     0.998     0.938     0.980
+    h       knn         0.587     0.826     0.302     0.254     0.803     0.636     0.942
+    z+h     linear      0.659     0.883     0.372     0.408     0.999     0.947     0.980
+    z+h     poly2       0.565     0.875     0.219     0.323     0.998     0.916     0.992
+    z+h     knn         0.595     0.839     0.298     0.256     0.787     0.612     0.956
+
+(d) action counterfactuals 
+    mean |paddle_x(left) - paddle_x(right)| at H=30: 0.8022 world units
+    mean paddle drift over 30 steps: left -0.4319  right +0.3703
+    (the true paddle moves 0.030/step, so 30 steps of one action is up to 0.9 before the walls clamp it)
+
+(e) paddle-contact prediction
+    best-F1 operating point: thr 0.986  P 0.538  R 0.660  F1 0.593
+    base rate 0.757%   precision 0.242  recall 0.981  F1 0.388  PR-AUC 0.530  (a random ranker scores PR-AUC = base rate)
+
+(f) wall bounces
+    84/200 bounces reversed within +/-2 steps (42.0%);  same test at a random time: 35.0% (chance)
+
+========================================================================
+SUMMARY -- what the dynamics model did and did not learn
+========================================================================
+
+1. Dreams stay accurate for about 0 steps (16 counting only the
+   frames where the true ball is not behind the band -- on an occluded
+   world that is the number comparable with v1 and v2, because on a
+   hidden frame the position probe has nothing to read) (tau=0) before the dreamed
+   ball drifts more than one ball radius from the true one. Sampling at
+   tau=1 scores 0 steps on the same metric -- but read that carefully. A
+   sampled dream is a DIFFERENT plausible future, not a failed copy of
+   this one, so per-episode agreement with the truth is the wrong
+   yardstick for tau > 0. Watch the tau=1 GIF: the ball still moves and
+   bounces coherently, it just is not doing what the real ball did. The
+   metric is reported for all three because the comparison shows how much
+   of the predictive distribution's width is real uncertainty.
+   Pixel error never reaches the VAE floor (0.00009), which is the part of the error
+   that belongs to the frozen encoder rather than to the dynamics.
+
+2. Velocity is not in the latent and is in the recurrent state -- the
+   central claim of this stage. kNN R^2 for (ball_vx, ball_vy):
+       from z_t alone : -0.143, -0.261
+       from h_t alone : 0.302, 0.254
+   linear R^2, same pairs: z -0.006, -0.061   h 0.383, 0.408
+   A single frame has no direction of travel in it; the LSTM has to
+   infer velocity by integrating consecutive latents, and it does.
+
+3. Actions matter to the model: dreaming 30 steps of always-left vs
+   always-right separates the dreamed paddle by 0.802 world units.
+
+4. Paddle contact (base rate 0.76%): precision 0.242, recall 0.981,
+   F1 0.388, PR-AUC 0.530. P(contact) three steps BEFORE a contact is
+   0.507 against a base rate of 0.008: the model anticipates.
+
+5. Walls: the dreamed ball reverses within +/-2 steps of the true
+   bounce in 42.0% of 200 cases, against a chance level of
+   35.0% for the same test applied at a random time.
+
+artifacts in runs/rnn_v31_emerge/eval

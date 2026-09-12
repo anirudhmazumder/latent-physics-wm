@@ -39,7 +39,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-from typing import Dict, Sequence
+from typing import Dict, Optional, Sequence
 
 import numpy as np
 import torch
@@ -65,7 +65,8 @@ BINS = {
 # ------------------------------------------------------- the ball-mass measure
 
 
-def ball_mass(imgs: np.ndarray, cfg: BoxConfig, resid_scale: float = 60.0) -> np.ndarray:
+def ball_mass(imgs: np.ndarray, cfg: BoxConfig, resid_scale: float = 60.0,
+              color: Optional[Sequence[float]] = None) -> np.ndarray:
     """"How many balls' worth of ball-coloured pixels is in each image."
 
     ``imgs`` is (N, H, W, 3) float in [0, 1]. Returns (N, H, W) "ballness" per
@@ -86,10 +87,17 @@ def ball_mass(imgs: np.ndarray, cfg: BoxConfig, resid_scale: float = 60.0) -> np
     at alpha ~= 0.57, but leaves a residual of ~220 RGB units, so the Gaussian
     rejection term kills it. A blurry ball, by contrast, lies almost exactly on
     the line and keeps its alpha.
+
+    ``color`` overrides which object is being looked for; None means the ball,
+    which is every caller before v3.1's stage three. The same projection works
+    for the paddle (``cfg.paddle_color``) because the argument above is
+    symmetric in the two colours: the ball projects onto the bg->paddle
+    direction at alpha ~= 0.47 and leaves a ~200-unit residual, so it is
+    rejected by exactly the same Gaussian.
     """
     x = np.asarray(imgs, np.float64) * 255.0
     n, h, w, _ = x.shape
-    ball = np.asarray(cfg.ball_color, np.float64)
+    ball = np.asarray(cfg.ball_color if color is None else color, np.float64)
     lo, hi = cfg.occluder_y
     ys = 1.0 - (np.arange(h) + 0.5) / h
     in_band = (ys >= lo) & (ys <= hi)
@@ -252,6 +260,83 @@ def recon_by_visibility(model, ds, mu, state, names, device="cpu", k=8, pad=2, s
     return grid, labels
 
 
+# ----------------------------------------------------- the band as a nuisance
+
+
+def probe_band_top(
+    model, roots: Sequence[str], device: str = "cpu", limit: int = 12000,
+    seed: int = 0,
+) -> Dict:
+    """Can ``mu`` tell you where the top of the occluder is?
+
+    New in v3.1, and it exists because v3.1's encoder is trained on THREE band
+    heights instead of one. The band's top edge is therefore a genuine latent
+    factor of the data -- a nuisance one: it is not the ball, the model is never
+    asked about it, and nothing downstream uses it, but it is 65 rows of pixels
+    that move between episodes, so the VAE has to spend code on it or eat the
+    reconstruction cost. Two numbers:
+
+    * **R^2**, treating the top edge as continuous. This is the "is it in there
+      at all" number.
+    * **3-way accuracy**, snapping the prediction to the nearest of the three
+      values actually collected. This is the number that matters for the claim
+      the design makes -- that the encoder can tell the bands apart -- because
+      R^2 on three discrete levels is dominated by which level, not by how
+      precisely each is placed.
+
+    The split is by EPISODE and episodes are numbered across roots, so a probe
+    cannot pass by memorising an episode it also trained on. Frames are taken
+    in root-major order (``shuffle=False``), which is what lets the label be
+    reconstructed from the flat index.
+    """
+    from .data import FrameDataset, make_loader
+
+    ds = FrameDataset(roots, return_state=True)
+    tops = np.array([m["occluder_y"][1] for m in ds.metas], float)
+    if len(np.unique(tops)) < 2:
+        return {"note": "all roots share one band; nothing to probe"}
+
+    loader = make_loader(roots, 256, shuffle=False, return_state=True)
+    enc = encode_dataset(model, loader, device=device, limit=limit)
+    mu = enc["mu"]
+    n = len(mu)
+    loc = np.array([ds._locate(i)[:2] for i in range(n)])   # (root, episode)
+    y = tops[loc[:, 0]]
+    # Episode ids unique across roots, so the group split is honest.
+    groups = loc[:, 0] * 10_000 + loc[:, 1]
+
+    suite = probe_suite(mu, y[:, None], ["band_top"], group_ids=groups,
+                        seed=seed, which=WHICH)
+    tr, te = make_split(n, seed=seed, group_ids=groups)
+    # Nearest-level accuracy needs the predictions themselves, and
+    # ``probe_suite`` returns only scores -- so the two readouts are refit here
+    # with a plain ridge on the SAME split, which is what makes the accuracy
+    # and the R^2 two views of one fit rather than two experiments.
+    acc = {}
+    from sklearn.linear_model import Ridge
+    from sklearn.preprocessing import PolynomialFeatures, StandardScaler
+    levels = np.unique(tops)
+    for k, feat in (("linear", None), ("poly2", 2)):
+        X = mu
+        if feat:
+            X = PolynomialFeatures(feat, include_bias=False).fit_transform(mu)
+        sc = StandardScaler().fit(X[tr])
+        r = Ridge(alpha=1.0).fit(sc.transform(X[tr]), y[tr])
+        pred = r.predict(sc.transform(X[te]))
+        snap = levels[np.abs(pred[:, None] - levels[None, :]).argmin(1)]
+        acc[k] = float((snap == y[te]).mean())
+    return {
+        "roots": list(map(str, roots)),
+        "levels": levels.tolist(),
+        "n_frames": int(n),
+        "n_test": int(len(te)),
+        "majority_class_acc": float(
+            max((y[te] == L).mean() for L in levels)),
+        "r2": {k: suite[k]["band_top"] for k in WHICH},
+        "nearest_level_acc": acc,
+    }
+
+
 # --------------------------------------------------------------------- main
 
 
@@ -263,6 +348,12 @@ def main() -> None:
     p.add_argument("--out", default=None)
     p.add_argument("--device", default="cpu")
     p.add_argument("--limit", type=int, default=20000)
+    p.add_argument("--band-roots", nargs="*", default=None,
+                   help="v3.1: two or more roots with DIFFERENT occluder "
+                        "heights. Probes mu for the band's top edge -- the "
+                        "nuisance factor an encoder trained on several bands "
+                        "has to carry. Skipped when not given.")
+    p.add_argument("--band-limit", type=int, default=12000)
     p.add_argument("--seed", type=int, default=0)
     a = p.parse_args()
 
@@ -348,6 +439,24 @@ def main() -> None:
     print("  from ONE dim (poly2): " +
           "  ".join(f"z[{d}]={v:.3f}" for d, v in rank[:5]))
 
+    # ------------------------------------------------ the band's own height
+    band_probe = None
+    if a.band_roots:
+        band_probe = probe_band_top(model, a.band_roots, device=a.device,
+                                    limit=a.band_limit, seed=a.seed)
+        print("\nband top edge from mu (the nuisance factor v3.1 added)")
+        if "note" in band_probe:
+            print("  " + band_probe["note"])
+        else:
+            print(f"  levels {band_probe['levels']}  "
+                  f"{band_probe['n_frames']} frames, "
+                  f"{band_probe['n_test']} held out")
+            print("  R^2: " + "  ".join(
+                f"{k}={band_probe['r2'][k]:.3f}" for k in WHICH))
+            print("  nearest-of-three accuracy: " + "  ".join(
+                f"{k}={v:.3f}" for k, v in band_probe["nearest_level_acc"].items())
+                + f"   (majority class {band_probe['majority_class_acc']:.3f})")
+
     # -------------------------------------------------- hallucination rate
     halluc = {}
     for label, test in BINS.items():
@@ -420,6 +529,7 @@ def main() -> None:
             "ball_visible_probe": {k: full[k]["ball_visible"] for k in WHICH},
             "ball_visible_per_dim_poly2": per_dim,
             "hallucination": halluc,
+            "band_top_probe": band_probe,
         },
         indent=2,
     ))

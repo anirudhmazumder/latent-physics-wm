@@ -88,23 +88,37 @@ def sample_grid(frames, states, meta, n: int = 32, seed: int = 0) -> np.ndarray:
 # ------------------------------------------------------------ the episode gif
 
 
-def find_bounce_behind_band(events) -> Optional[Tuple[int, int, int]]:
+def find_bounce_behind_band(
+    events, max_len: int = 0
+) -> Optional[Tuple[int, int, int]]:
     """An (episode, start, length) hidden run containing a wall-x bounce.
 
     Returns the LONGEST such run, because the longer the ball is out of sight
     the more striking the figure -- and the harder the corresponding prediction
     problem is for M later.
+
+    ``max_len`` caps that: 0 (the v3 default) means no cap, but in v3.1 the
+    tallest band admits runs of 100+ frames in which the ball is skimming
+    almost horizontally inside the band, and those make a boring, atypical
+    picture. Capping at roughly the mean run length picks a crossing that looks
+    like the ones the model is actually graded on.
     """
     ev = np.asarray(events)
     runs = hidden_runs((ev & EVENT_HIDDEN).astype(bool))
     wall = (ev & EVENT_WALL_X).astype(bool)
     hits = [r for r in runs if wall[r[0], r[1] : r[1] + r[2]].any()]
+    if max_len > 0:
+        hits = [r for r in hits if r[2] <= max_len] or hits
     return max(hits, key=lambda r: r[2]) if hits else None
 
 
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--data", default="data/v3/train", help="split for the grid")
+    p.add_argument("--data", nargs="+", default=["data/v3/train"],
+                   help="split(s) for the grid. Several roots give one band of "
+                        "rows each, stacked -- which is how v3.1 shows that the "
+                        "three occluder heights all look like the same world "
+                        "with the band moved.")
     p.add_argument("--gif-data", default="data/v3/val",
                    help="split to search for a wall bounce behind the band")
     p.add_argument("--hist-data", nargs="*",
@@ -112,6 +126,10 @@ def main() -> None:
                    help="one split per band height for hidden_run_lengths.png")
     p.add_argument("--out", default="runs/v3_env")
     p.add_argument("--n", type=int, default=32)
+    p.add_argument("--gif-max-len", type=int, default=0,
+                   help="ignore hidden runs longer than this when choosing the "
+                        "gif (0 = no cap). Use ~the mean run length to avoid "
+                        "picking a freak near-horizontal skim inside the band.")
     p.add_argument("--gif-pad", type=int, default=25,
                    help="frames of context to show either side of the hidden run")
     p.add_argument("--seed", type=int, default=0)
@@ -122,18 +140,41 @@ def main() -> None:
     from PIL import Image
 
     # ------------------------------------------------------------ grid
-    meta, frames, states, events = _load(a.data)
-    grid, gv = sample_grid(frames, states, meta, n=a.n, seed=a.seed)
+    # One grid per root, stacked vertically with a bright divider. With a
+    # single root this is byte-identical to what v3 produced.
+    panels, lines = [], []
+    for root in a.data:
+        meta, frames, states, events = _load(root)
+        grid, gv = sample_grid(frames, states, meta, n=a.n, seed=a.seed)
+        panels.append(grid)
+        band = meta["occluder_y"]
+        lines.append(
+            f"  {Path(root).name:16s} band {band[0]:.2f}-{band[1]:.2f}  "
+            f"ball_visible {gv.min():.2f}..{gv.max():.2f}  "
+            f"({int((gv > 0.999).sum())} visible / "
+            f"{int(((gv > 1e-3) & (gv <= 0.999)).sum())} partial / "
+            f"{int((gv <= 1e-3).sum())} hidden)")
+    if len(panels) == 1:
+        grid = panels[0]
+    else:
+        w = max(g.shape[1] for g in panels)
+        rows = []
+        for k, g in enumerate(panels):
+            if g.shape[1] < w:
+                g = np.pad(g, ((0, 0), (0, w - g.shape[1]), (0, 0)),
+                           constant_values=40)
+            if k:
+                rows.append(np.full((6, w, 3), 200, dtype=g.dtype))
+            rows.append(g)
+        grid = np.concatenate(rows, axis=0)
     Image.fromarray(grid).save(out / "sample_grid.png")
-    print(f"wrote {out/'sample_grid.png'}  "
-          f"ball_visible {gv.min():.2f}..{gv.max():.2f}  "
-          f"({int((gv > 0.999).sum())} visible / "
-          f"{int(((gv > 1e-3) & (gv <= 0.999)).sum())} partial / "
-          f"{int((gv <= 1e-3).sum())} hidden)")
+    print(f"wrote {out/'sample_grid.png'}")
+    for ln in lines:
+        print(ln)
 
     # ------------------------------------------------------------- gif
     gmeta, gframes, gstates, gevents = _load(a.gif_data)
-    hit = find_bounce_behind_band(gevents)
+    hit = find_bounce_behind_band(gevents, a.gif_max_len)
     if hit is None:
         print(f"  no hidden run in {a.gif_data} contains a wall-x bounce; "
               "falling back to the longest hidden run")

@@ -1,0 +1,233 @@
+z_dim=16  free_bits=0.5  frames=3000
+
+active units: 5/16
+  per-dim KL (sorted): 1.73 0.84 0.77 0.76 0.75 0.64 0.64 0.63 0.61 0.50 0.50 0.50 0.49 0.44 0.40 0.02
+
+held-out R^2 (episode-level split):
+  factor       linear    poly2    poly3      knn      mlp
+  ball_x        0.181    0.307   -0.196    0.442    0.316
+  ball_y        0.470    0.852    0.671    0.833    0.842
+  ball_vx      -0.167   -0.522   -6.033   -0.561   -0.781
+  ball_vy      -0.018   -0.106   -4.217   -0.223   -0.297
+  paddle_x      0.049    0.881    0.871    0.444    0.873
+  paddle_vx    -0.031   -0.137   -4.656   -0.252   -0.065
+  ball_visible    0.640    0.988    0.896    0.957    0.971
+
+MCC pearson=0.255  spearman=0.234
+  ball_x     -> z[ 1] |r|=0.268   (rank: z[10] |rho|=0.223)
+  ball_y     -> z[14] |r|=0.421   (rank: z[14] |rho|=0.423)
+  ball_vx    -> z[ 2] |r|=0.127   (rank: z[ 2] |rho|=0.106)
+  ball_vy    -> z[ 0] |r|=0.073   (rank: z[ 0] |rho|=0.103)
+  paddle_x   -> z[ 6] |r|=0.356   (rank: z[ 6] |rho|=0.279)
+  paddle_vx  -> z[ 5] |r|=0.085   (rank: z[11] |rho|=0.064)
+  ball_visible -> z[11] |r|=0.452   (rank: z[ 3] |rho|=0.440)
+
+ball-position bin coverage: 73.8% of 16x16 bins
+
+wrote runs/vae_v31/analysis
+z_dim=16  free_bits=0.5  frames=3000  band y=0.13..0.63
+  visible     720 frames (24.0%)   58 episodes
+  partial    1013 frames (33.8%)  108 episodes
+  hidden     1267 frames (42.2%)   96 episodes
+
+active units: 5/16
+  per-dim KL (sorted): 1.73 0.84 0.77 0.76 0.75 0.64 0.64 0.63 0.61 0.50 0.50 0.50 0.49 0.44 0.40 0.02
+
+ball position from mu, conditioned on visibility (held-out R^2 / rmse in world units):
+  bin       frames  eps        linear.x         poly2.x           knn.x        linear.y         poly2.y           knn.y
+  visible      720   58    0.899/0.053    0.989/0.017    0.981/0.023    0.937/0.015    0.856/0.023    0.892/0.020
+  partial     1013  108    0.598/0.131    0.723/0.108    0.578/0.134    0.691/0.122    0.852/0.085    0.789/0.101
+  hidden      1267   96   -0.070/0.267   -0.100/0.271   -0.005/0.259   -0.010/0.098   -0.154/0.105   -0.107/0.102
+
+ball_visible from mu: linear=0.640  poly2=0.988  knn=0.957
+  from ONE dim (poly2): z[14]=0.296  z[8]=0.149  z[12]=0.074  z[2]=0.010  z[0]=-0.020
+
+band top edge from mu (the nuisance factor v3.1 added)
+  levels [0.45, 0.63, 0.78]  12000 frames, 2188 held out
+  R^2: linear=0.949  poly2=0.997  knn=0.937
+  nearest-of-three accuracy: linear=0.999  poly2=1.000   (majority class 0.367)
+
+ball-coloured pixel mass OUTSIDE the band, in units of one ball
+  (the 'real' columns calibrate the measure: they are what the actual frames score)
+  bin           real    recon  real pk  recon pk   pk max
+  visible      1.003    1.033    1.000     1.000    1.000
+  partial      0.394    0.393    1.000     0.997    1.000
+  hidden       0.002    0.031    0.056     0.062    0.089
+
+  hallucination rate = 0.0309 balls of spurious ball mass on fully hidden frames, against 1.0335 on fully visible ones.
+  brightest ball-like pixel on a hidden frame: 0.089 (median 0.062). Well under 1, so the residual is diffuse haze, not a ball drawn in the wrong place.
+
+wrote runs/vae_v31/analysis/recon_by_visibility.png  (row pairs real/recon: visible vis 1.00-1.00, partial vis 0.44-0.87, hidden vis 0.00-0.00)
+wrote runs/vae_v31/analysis/report_v3.json
+z_dim=16  free_bits=0.5  frames=6030  band y=0.13..0.45
+  visible    2763 frames (45.8%)   30 episodes
+  partial    1922 frames (31.9%)   30 episodes
+  hidden     1345 frames (22.3%)   30 episodes
+
+active units: 7/16
+  per-dim KL (sorted): 2.16 1.76 1.49 1.07 0.96 0.93 0.76 0.69 0.68 0.67 0.65 0.63 0.62 0.61 0.55 0.51
+
+ball position from mu, conditioned on visibility (held-out R^2 / rmse in world units):
+  bin       frames  eps        linear.x         poly2.x           knn.x        linear.y         poly2.y           knn.y
+  visible     2763   30    0.686/0.142    0.996/0.016    0.996/0.017    0.793/0.052    0.981/0.016    0.981/0.016
+  partial     1922   30    0.695/0.136    0.839/0.098    0.848/0.096    0.802/0.066    0.936/0.038    0.917/0.043
+  hidden      1345   30    0.191/0.220    0.162/0.224    0.110/0.231   -0.031/0.051   -0.089/0.053   -0.070/0.052
+
+ball_visible from mu: linear=0.118  poly2=0.991  knn=0.977
+  from ONE dim (poly2): z[5]=0.123  z[11]=0.092  z[13]=0.074  z[7]=0.062  z[14]=0.038
+
+ball-coloured pixel mass OUTSIDE the band, in units of one ball
+  (the 'real' columns calibrate the measure: they are what the actual frames score)
+  bin           real    recon  real pk  recon pk   pk max
+  visible      1.005    1.051    1.000     1.000    1.000
+  partial      0.384    0.409    1.000     0.993    1.000
+  hidden       0.002    0.044    0.056     0.062    0.091
+
+  hallucination rate = 0.0439 balls of spurious ball mass on fully hidden frames, against 1.0506 on fully visible ones.
+  brightest ball-like pixel on a hidden frame: 0.091 (median 0.062). Well under 1, so the residual is diffuse haze, not a ball drawn in the wrong place.
+
+wrote runs/vae_v31/analysis_short/recon_by_visibility.png  (row pairs real/recon: visible vis 1.00-1.00, partial vis 0.06-0.98, hidden vis 0.00-0.00)
+wrote runs/vae_v31/analysis_short/report_v3.json
+z_dim=16  free_bits=0.5  frames=6030  band y=0.13..0.78
+  visible     377 frames ( 6.3%)   27 episodes
+  partial    1793 frames (29.7%)   30 episodes
+  hidden     3860 frames (64.0%)   30 episodes
+
+active units: 4/16
+  per-dim KL (sorted): 1.81 1.76 1.74 0.88 0.73 0.63 0.53 0.39 0.34 0.33 0.31 0.29 0.27 0.27 0.26 0.18
+
+ball position from mu, conditioned on visibility (held-out R^2 / rmse in world units):
+  bin       frames  eps        linear.x         poly2.x           knn.x        linear.y         poly2.y           knn.y
+  visible      377   27    0.976/0.043    0.995/0.020    0.995/0.019    0.807/0.008   -1.119/0.028    0.604/0.012
+  partial     1793   30    0.700/0.132    0.789/0.111    0.766/0.117    0.781/0.146    0.901/0.098    0.870/0.112
+  hidden      3860   30   -0.022/0.239   -0.145/0.253   -0.678/0.306   -0.002/0.142   -0.040/0.145   -0.091/0.148
+
+ball_visible from mu: linear=0.725  poly2=0.993  knn=0.966
+  from ONE dim (poly2): z[13]=0.093  z[14]=0.088  z[9]=-0.008  z[2]=-0.010  z[0]=-0.010
+
+ball-coloured pixel mass OUTSIDE the band, in units of one ball
+  (the 'real' columns calibrate the measure: they are what the actual frames score)
+  bin           real    recon  real pk  recon pk   pk max
+  visible      1.004    1.033    1.000     0.999    1.000
+  partial      0.407    0.401    1.000     0.989    1.000
+  hidden       0.002    0.034    0.060     0.062    0.091
+
+  hallucination rate = 0.0339 balls of spurious ball mass on fully hidden frames, against 1.0332 on fully visible ones.
+  brightest ball-like pixel on a hidden frame: 0.091 (median 0.062). Well under 1, so the residual is diffuse haze, not a ball drawn in the wrong place.
+
+wrote runs/vae_v31/analysis_long/recon_by_visibility.png  (row pairs real/recon: visible vis 1.00-1.00, partial vis 0.04-0.94, hidden vis 0.00-0.00)
+wrote runs/vae_v31/analysis_long/report_v3.json
+=== caching train
+  15/150 episodes
+  30/150 episodes
+  45/150 episodes
+  60/150 episodes
+  75/150 episodes
+  90/150 episodes
+  105/150 episodes
+  120/150 episodes
+  135/150 episodes
+  150/150 episodes
+cached (150, 201, 16) latents -> data/v31/train  (3.9 MB)
+=== caching train_mix
+  30/300 episodes
+  60/300 episodes
+  90/300 episodes
+  120/300 episodes
+  150/300 episodes
+  180/300 episodes
+  210/300 episodes
+  240/300 episodes
+  270/300 episodes
+  300/300 episodes
+cached (300, 201, 16) latents -> data/v31/train_mix  (7.7 MB)
+=== caching train_short
+  10/100 episodes
+  20/100 episodes
+  30/100 episodes
+  40/100 episodes
+  50/100 episodes
+  60/100 episodes
+  70/100 episodes
+  80/100 episodes
+  90/100 episodes
+  100/100 episodes
+cached (100, 201, 16) latents -> data/v31/train_short  (2.6 MB)
+=== caching train_long
+  10/100 episodes
+  20/100 episodes
+  30/100 episodes
+  40/100 episodes
+  50/100 episodes
+  60/100 episodes
+  70/100 episodes
+  80/100 episodes
+  90/100 episodes
+  100/100 episodes
+cached (100, 201, 16) latents -> data/v31/train_long  (2.6 MB)
+=== caching val
+  1/15 episodes
+  2/15 episodes
+  3/15 episodes
+  4/15 episodes
+  5/15 episodes
+  6/15 episodes
+  7/15 episodes
+  8/15 episodes
+  9/15 episodes
+  10/15 episodes
+  11/15 episodes
+  12/15 episodes
+  13/15 episodes
+  14/15 episodes
+  15/15 episodes
+cached (15, 201, 16) latents -> data/v31/val  (0.4 MB)
+=== caching val_mix
+  2/20 episodes
+  4/20 episodes
+  6/20 episodes
+  8/20 episodes
+  10/20 episodes
+  12/20 episodes
+  14/20 episodes
+  16/20 episodes
+  18/20 episodes
+  20/20 episodes
+cached (20, 201, 16) latents -> data/v31/val_mix  (0.5 MB)
+=== caching probe
+  12/120 episodes
+  24/120 episodes
+  36/120 episodes
+  48/120 episodes
+  60/120 episodes
+  72/120 episodes
+  84/120 episodes
+  96/120 episodes
+  108/120 episodes
+  120/120 episodes
+cached (120, 25, 16) latents -> data/v31/probe  (0.4 MB)
+=== caching short
+  3/30 episodes
+  6/30 episodes
+  9/30 episodes
+  12/30 episodes
+  15/30 episodes
+  18/30 episodes
+  21/30 episodes
+  24/30 episodes
+  27/30 episodes
+  30/30 episodes
+cached (30, 201, 16) latents -> data/v31/short  (0.8 MB)
+=== caching long
+  3/30 episodes
+  6/30 episodes
+  9/30 episodes
+  12/30 episodes
+  15/30 episodes
+  18/30 episodes
+  21/30 episodes
+  24/30 episodes
+  27/30 episodes
+  30/30 episodes
+cached (30, 201, 16) latents -> data/v31/long  (0.8 MB)
+=== stage one done

@@ -1,17 +1,25 @@
-"""v3 stage three: does the controller act on MEMORY while the ball is hidden?
+"""stage three: does the controller act on MEMORY while the ball is hidden?
 
+    # v3, on v3's world (the defaults)
     python -m wm.eval_controller_v3 --out runs/ctrl_eval_v3
+    # v3.1, on the world that makes the question bite
+    bash runs/_eval_ctrl_v31.sh
 
 v2 asked whether skill depended on a property of the ball (its mass) and sliced
 every metric by mass tercile. v3 asks a behavioural question that a single
 averaged score cannot see at all, because the average is dominated by the easy
 case.
 
-The geometry is the whole argument. The band's bottom edge sits at y = 0.28, so
-a descending ball reappears about **10 frames** before it can reach the paddle,
-and the paddle crosses the box in about **30**. A policy that waits until it can
-see the ball can therefore still cover a *short* move and cannot possibly cover
-a long one -- it is not a matter of skill, it is a matter of frames. So:
+The geometry is the whole argument, and v3 got it wrong. With the band's bottom
+edge at y = 0.28 and a paddle 0.26 wide, a descending ball reappears ~10 frames
+before it can be touched and a required move is already covered once the
+paddle's centre is within 0.13 of the landing x -- so the memoryless reference
+below scored **0.99** of the oracle's 1.00 and there was nothing for memory to
+buy. v3.1 drops the band's bottom edge to contact height (0.13) and narrows the
+paddle to 0.16, which takes the memoryless reference to **0.48**. This file is
+the same evaluator for both: every fact about the world it scores in is a flag
+(``--occluder-y``, ``--paddle-w``, ``--bands``), defaulting to v3's, and
+``runs/_eval_ctrl_v31.sh`` names v3.1's. So:
 
     for each floor visit, measure the REQUIRED MOVE -- the distance between
     where the paddle was standing at the moment the ball vanished on its way
@@ -107,12 +115,15 @@ LEFT, STAY, RIGHT = 0, 1, 2
 REQUIRED_MOVE_EDGES = (0.15, 0.35)
 MOVE_BINS = ("short", "medium", "long")
 # A finer slicing of the same axis, used only for the "reach curve" -- where
-# exactly does the memoryless bound break? The three headline bins turn out to
-# be too coarse to see it, because the paddle is 0.26 WIDE: a required move is
-# covered once the paddle's centre is within half a paddle-width (0.13) of the
-# landing x, and the ~10 visible frames before contact buy another ~0.30 of
-# travel. So a wait-and-see policy can still catch a "long" 0.40 move, and the
-# interesting question is what happens past ~0.43.
+# exactly does the memoryless bound break? On v3's band the three headline bins
+# turned out to be too coarse to see it, because the paddle was 0.26 WIDE: a
+# required move is covered once the paddle's centre is within half a
+# paddle-width of the landing x, and v3's ~10 visible frames before contact
+# bought another ~0.30 of travel, so a wait-and-see policy could still catch a
+# "long" 0.40 move. v3.1 halves both terms -- paddle 0.16 and a band whose
+# bottom edge is at contact height -- which is exactly why its memoryless bound
+# is 0.48 rather than 0.99. The curve is kept unchanged so the two versions'
+# figures are the same figure.
 FINE_EDGES = (0.1, 0.2, 0.3, 0.4, 0.5, 0.6)
 FINE_BINS = ("<0.1", "0.1-0.2", "0.2-0.3", "0.3-0.4", "0.4-0.5", "0.5-0.6", ">0.6")
 HIDDEN_EPS = 1e-3          # matches worldsim's EVENT_HIDDEN threshold
@@ -488,7 +499,8 @@ def plot_reach_curve(rows: Sequence[Dict], out: Path) -> Path:
 
     The three headline bins answer "is the controller flat"; this answers the
     prior question "where does a memoryless policy actually break, given a
-    paddle 0.26 wide and ten visible frames of run-up". If ``wait_and_see``
+    paddle of the configured width and the visible frames of run-up the band
+    leaves". If ``wait_and_see``
     stays at the ceiling out to 0.4, then every bin below 0.4 is uninformative
     about object permanence no matter what the trained rows do in it.
     """
@@ -517,8 +529,66 @@ def plot_reach_curve(rows: Sequence[Dict], out: Path) -> Path:
     ax.set_xlabel("required move (world units) — first row's visit counts shown")
     ax.set_ylabel("interceptions per floor visit")
     ax.set_title("the reach curve: where does a memoryless policy break?")
-    ax.set_ylim(-0.02, 1.15)
-    ax.legend(fontsize=7, ncol=3)
+    # Not clipped at 1.0: a slice with two visits can score above 1 (a floor
+    # visit can contain more than one separate contact run), and clipping it
+    # would hide the fact that those slices are noise rather than skill. The
+    # counts under the ticks are how the reader tells the two apart.
+    top = max(1.15, max(v for r in rows
+                        for v in [r["reach_curve"][b]["interceptions_per_visit"]
+                                  for b in FINE_BINS]
+                        if v is not None and not np.isnan(v)) * 1.08)
+    ax.set_ylim(-0.02, top)
+    ax.legend(fontsize=7, ncol=3, loc="upper right", framealpha=0.92)
+    fig.tight_layout()
+    fig.savefig(out, dpi=130)
+    plt.close(fig)
+    return out
+
+
+def plot_skill_vs_bound(rows: Sequence[Dict], out: Path,
+                        refs: Sequence[str] = ("oracle", "wait_and_see")) -> Path:
+    """The headline figure of v3.1: one bar per controller against the bound.
+
+    v3 did not need this plot, because its memoryless bound sat at 0.99 and the
+    only readable statement was "everything is below the references". v3.1's
+    bound is 0.48 against an oracle's 0.99, so there is a *band of interest*
+    between the two lines and the single most important fact about any row is
+    which side of the lower line it falls on. Bars are sorted so that reading
+    left to right is reading the ranking, and the two reference lines are
+    labelled with their values because those two numbers are what the whole
+    stage is graded against.
+    """
+    plt = _plt()
+    ref = {r["name"]: r["interceptions_per_visit"] for r in rows
+           if r["name"] in refs}
+    bars = sorted([r for r in rows if r["name"] not in refs],
+                  key=lambda r: r["interceptions_per_visit"])
+    vals = [r["interceptions_per_visit"] for r in bars]
+    ci = [r["interceptions_per_visit_ci95"] for r in bars]
+    err = np.array([[max(v - c[0], 0), max(c[1] - v, 0)]
+                    for v, c in zip(vals, ci)]).T
+    bound = ref.get("wait_and_see", float("nan"))
+    fig, ax = plt.subplots(figsize=(3.4 + 0.62 * len(bars), 5.2))
+    colors = ["#bbbbbb" if r["name"] in ("stay", "random")
+              else "#2a9d4a" if r["interceptions_per_visit"] > bound
+              else "#d55e3a" for r in bars]
+    ax.bar(np.arange(len(bars)), vals, yerr=err, capsize=3, color=colors)
+    for name, style, label in (
+        ("oracle", dict(c="#2a9d4a", ls="-", lw=2.2), "oracle (vision + memory)"),
+        ("wait_and_see", dict(c="#d55e3a", ls="--", lw=2.2),
+         "wait-and-see oracle (vision, NO memory)"),
+    ):
+        if name in ref:
+            ax.axhline(ref[name], **style,
+                       label=f"{label} = {ref[name]:.2f}")
+    ax.set_xticks(np.arange(len(bars)))
+    ax.set_xticklabels([r["name"] for r in bars], rotation=35, ha="right",
+                       fontsize=7)
+    ax.set_ylabel("interceptions per floor visit")
+    ax.set_ylim(0, 1.12)
+    ax.set_title("skill against the memoryless bound\n"
+                 "(green = above the bound, i.e. using memory)", fontsize=10)
+    ax.legend(fontsize=8, loc="upper left")
     fig.tight_layout()
     fig.savefig(out, dpi=130)
     plt.close(fig)
@@ -629,7 +699,7 @@ def plot_transfer(runs: Sequence[str], out: Path) -> Dict[str, Dict]:
 
 def vae_recon_mse(vae, roots: Sequence[str], n_frames: int = 512,
                   device: str = "cpu", seed: int = 0) -> Dict[str, Dict]:
-    """Reconstruction MSE of the frozen v3 encoder on each dataset root.
+    """Reconstruction MSE of the frozen encoder on each dataset root.
 
     The taller-band evaluation moves the band to heights the VAE has never seen,
     and a drop in skill there could be *either* the controller failing to
@@ -738,7 +808,15 @@ def occlusion_table_md(rows: Sequence[Dict]) -> List[str]:
 
 
 def build_references(paddle_w: float = 0.26) -> List[BaseController]:
-    """stay, random, oracle and the memoryless upper bound."""
+    """stay, random, oracle and the memoryless upper bound.
+
+    ``paddle_w`` is not cosmetic and must match the world being scored: both
+    oracles stop correcting once the ball is inside a dead zone that is a
+    fraction of the paddle's width, so a 0.26 oracle in v3.1's 0.16 world would
+    park while the ball was still outside the paddle and the "ceiling" would
+    come out below 0.99. Everything downstream is read as a fraction of these
+    two numbers, so getting them wrong mis-scales the whole stage.
+    """
     return [
         StayController(),
         RandomController(mean_hold=8.0, seed=1234),
@@ -774,6 +852,10 @@ def draw_plots(rows: Sequence[Dict], out: Path) -> None:
     plot_by_required_move(shown, out / "interceptions_by_required_move.png")
     plot_occlusion_behaviour(shown, out / "paddle_motion_during_occlusion.png")
     plot_reach_curve(shown, out / "reach_curve.png")
+    # The bound plot takes EVERY row, `_lastdream` included: it is one bar per
+    # parameter set and the question "did this parameter set beat 0.48" is
+    # asked of both sets, not only of the selected one.
+    plot_skill_vs_bound(rows, out / "skill_vs_memoryless_bound.png")
 
 
 def replot(out: Path) -> None:
@@ -806,13 +888,30 @@ def main() -> None:
     p.add_argument("--episodes", type=int, default=150)
     p.add_argument("--steps", type=int, default=200)
     p.add_argument("--seed-base", type=int, default=DEFAULT_SEED_BASE)
+    # The world. Both default to v3's, so `python -m wm.eval_controller_v3`
+    # with no flags still reproduces v3's published table; v3.1 names both.
+    p.add_argument("--ball-radius", type=float, default=0.08)
+    p.add_argument("--occluder-y", type=float, nargs=2, default=None,
+                   metavar=("BOTTOM", "TOP"),
+                   help="the in-distribution band. None keeps BoxConfig's "
+                        "(0.28, 0.58), which is v3's; v3.1 passes 0.13 0.63")
+    p.add_argument("--paddle-w", type=float, default=None,
+                   help="paddle width. None keeps BoxConfig's 0.26 (v1-v3); "
+                        "v3.1 passes 0.16. It sets the stand-still catch rate "
+                        "and both oracles' dead zones, so it must match the "
+                        "world the controllers were trained in")
+    p.add_argument("--dream-temperature", type=float, default=1.0,
+                   help="M's sampling temperature for the dream-play GIF only")
     p.add_argument("--band-names", nargs="*",
                    default=["ctrl_v3", "ctrl_v3_ff", "ctrl_v3_poshead",
                             "oracle", "wait_and_see"],
-                   help="rows re-run on the taller bands")
+                   help="rows re-run on the other bands")
     p.add_argument("--band-episodes", type=int, default=60)
     p.add_argument("--bands", nargs="*", default=["0.22,0.64", "0.16,0.70"],
-                   help="BOTTOM,TOP pairs; seeds 6000, 6100, ...")
+                   help="BOTTOM,TOP pairs for the generalisation test; seeds "
+                        "6000, 6100, ... v3.1 passes 0.13,0.45 and 0.13,0.78, "
+                        "the two extra bands its VAE was ALSO trained on, "
+                        "which is what removes v3's encoder confound")
     p.add_argument("--band-seed-base", type=int, default=6000)
     p.add_argument("--recon-roots", nargs="*",
                    default=["data/v3/val", "data/v3/tall", "data/v3/taller"])
@@ -840,7 +939,9 @@ def main() -> None:
 
     # The references read the true state, so which (V, M) they are handed
     # changes nothing -- it only has to exist.
-    specs: List[Spec] = [Spec(c.name, c, vae, rnn) for c in build_references()]
+    specs: List[Spec] = [Spec(c.name, c, vae, rnn)
+                         for c in build_references(
+                             a.paddle_w if a.paddle_w is not None else 0.26)]
     stack_of: Dict[str, Tuple[str, str]] = {}
     print("per-run (V, M) pairing -- the controller reads h, so M is part of "
           "the policy:")
@@ -862,19 +963,27 @@ def main() -> None:
             specs.append(Spec(name, c, stacks.vae(v_path), stacks.rnn(r_path)))
             stack_of[name] = (r_path, v_path)
 
-    env = {"ball_radius": 0.08, "occluder": True}
+    # ONE description of the world, handed to every rollout in this file --
+    # in-distribution, other-band and both GIFs. v3's version of this line was
+    # a literal dict and the GIF renderer built its own copy of it, which is
+    # exactly the kind of duplication that lets a --paddle-w reach the table
+    # and not the figure.
+    env = {"ball_radius": a.ball_radius, "occluder": True,
+           "occluder_y": a.occluder_y, "paddle_w": a.paddle_w}
+    band_str = tuple(a.occluder_y) if a.occluder_y else (0.28, 0.58)
     print(f"\nin-distribution: {a.episodes} episodes x {a.steps} steps, seeds "
-          f"{a.seed_base}.., band (0.28, 0.58)")
+          f"{a.seed_base}.., band {band_str}, paddle_w "
+          f"{a.paddle_w if a.paddle_w is not None else 0.26}")
     rolls = run_all(specs, a.episodes, a.steps, a.seed_base, env, a.device)
     rows = [summarise_rollout(sp.name, rolls[sp.name]) for sp in specs]
 
-    # ---- taller bands
+    # ---- the other bands
     band_rows: Dict[str, List[Dict]] = {}
     for i, spec in enumerate(a.bands):
         band = [float(x) for x in spec.replace(",", " ").split()]
         seed = a.band_seed_base + 100 * i
         sel = [sp for sp in specs if sp.name in set(a.band_names)]
-        print(f"\ntaller band {tuple(band)}: {a.band_episodes} episodes, "
+        print(f"\nother band {tuple(band)}: {a.band_episodes} episodes, "
               f"seeds {seed}..")
         br = run_all(sel, a.band_episodes, a.steps, seed,
                      {**env, "occluder_y": band}, a.device)
@@ -889,21 +998,28 @@ def main() -> None:
 
     gifs: Dict[str, str] = {}
     if not a.no_gifs and a.gif_run in rolls:
-        gifs = render_gifs(rolls, specs, vae, rnn, out, a)
+        gifs = render_gifs(rolls, specs, vae, rnn, out, a, env)
 
     write_report(rows, band_rows, recon, transfer, gifs, stack_of, a, out,
                  round(time.time() - t0, 1))
     print(f"\nwrote {out}  ({time.time() - t0:.0f}s)")
 
 
-def render_gifs(rolls, specs, vae, rnn, out: Path, a) -> Dict[str, str]:
-    """A real episode with a long required move, and the same policy dreaming."""
+def render_gifs(rolls, specs, vae, rnn, out: Path, a,
+                env: Dict) -> Dict[str, str]:
+    """A real episode with a long required move, and the same policy dreaming.
+
+    ``env`` is the same dict every table above was computed with, so the GIF
+    cannot be rendered in a different world from the numbers it illustrates
+    -- which is what would have happened in v3 had --paddle-w existed then.
+    """
     from .dream_env import load_start_pool
 
     ctrl = next(sp for sp in specs if sp.name == a.gif_run).ctrl
     tbl = occlusion_table(rolls[a.gif_run])
     pick = pick_demo_episode(tbl)
     info: Dict[str, str] = {}
+    picked_on_behaviour = pick is not None
     if pick is None:
         # Fall back to the longest required move regardless of what the paddle
         # did: an honest GIF of the failure is better than no GIF.
@@ -915,7 +1031,7 @@ def render_gifs(rolls, specs, vae, rnn, out: Path, a) -> Dict[str, str]:
         seed = a.seed_base + pick["episode"]
         roll = run_real_episodes(
             ctrl, vae, rnn, episodes=1, steps=a.steps, seed_base=seed,
-            device=a.device, record_frames=1, ball_radius=0.08, occluder=True,
+            device=a.device, record_frames=1, **env,
         )
         save_gif(roll["frames"][0], out / f"real_play_{a.gif_run}.gif",
                  fps=20, scale=4)
@@ -924,19 +1040,30 @@ def render_gifs(rolls, specs, vae, rnn, out: Path, a) -> Dict[str, str]:
             f"{pick['hidden_frames']} hidden frames, "
             f"{pick['toward_frames']} of them moving toward the landing x, "
             f"{int(contact_runs(roll['hits'])[0])} interceptions in the episode. "
-            "CHERRY-PICKED: chosen out of the evaluation set as the longest "
-            "required move the policy moved through, so it is a demo of the "
-            "behaviour, not a sample of it."
+            + ("CHERRY-PICKED: chosen out of the evaluation set as the longest "
+               "required move the policy moved THROUGH -- it moved toward the "
+               "landing point on at least half the hidden frames -- so it is a "
+               "demo that the behaviour exists at all, not a sample of the "
+               "average episode."
+               if picked_on_behaviour else
+               "NOT cherry-picked for behaviour: no episode in the evaluation "
+               "set met the demo criteria (a long required move the paddle "
+               "moved through), so this is simply the longest required move in "
+               "the set, whatever the paddle did. An honest GIF of the failure "
+               "is better than no GIF.")
         )
         print("  real GIF:", info["real"])
     pool = load_start_pool(a.dream_roots, warmup=8)
     dream_play_gif(ctrl, rnn, vae, pool, out / f"dream_play_{a.gif_run}.gif",
-                   steps=a.steps, temperature=1.0, seed=a.seed_base,
-                   device=a.device)
-    info["dream"] = ("the controller inside its own dream, decoded by V. "
-                     "Best of 16 dreams by predicted contact (a cherry-pick, "
-                     "as in v1/v2). Watch whether a ball re-emerges below the "
-                     "band at all.")
+                   steps=a.steps, temperature=a.dream_temperature,
+                   seed=a.seed_base, device=a.device)
+    info["dream"] = (
+        "the controller inside its own dream, decoded by V at temperature "
+        f"{a.dream_temperature}. Best of 16 dreams by predicted contact (a "
+        "cherry-pick, as in v1/v2). Watch whether a ball re-emerges below the "
+        "band at all -- `wm.eval_dream_alive` measures that fraction, and this "
+        "GIF is what the measurement looks like."
+    )
     return info
 
 
@@ -957,21 +1084,31 @@ def write_report(rows, band_rows, recon, transfer, gifs, stack_of, a,
     }
     (out / "summary.json").write_text(json.dumps(payload, indent=2))
 
+    band = tuple(a.occluder_y) if a.occluder_y else (0.28, 0.58)
+    pw = a.paddle_w if a.paddle_w is not None else 0.26
+    ref = {r["name"]: r["interceptions_per_visit"] for r in rows}
     L = [
-        "# v3 stage three (C) — real-environment evaluation by occlusion",
+        "# stage three (C) — real-environment evaluation by occlusion",
         "",
         f"{a.episodes} episodes x {a.steps} steps, seeds "
         f"{a.seed_base}..{a.seed_base + a.episodes - 1}, identical starts for "
-        "every row. Band (0.28, 0.58): the ball is fully hidden on ~18 % of "
-        "frames and partly hidden on ~39 %.",
+        f"every row. Band {band}, paddle width {pw}.",
         "",
         "`oracle` has perfect vision and perfect memory; **`wait_and_see` has "
         "perfect vision and NO memory** (it tracks the true ball only while "
         "`ball_visible > 0.5` and STAYs otherwise). Every trained row should be "
-        "read as a position between those two. `ctrl_v3_poshead` is a "
-        "**PRIVILEGED CEILING** — its dynamics model was trained with a "
-        "supervised head on the simulator's true ball position — and is not a "
-        "world-model result.",
+        "read as a position between those two, and the single most important "
+        "fact about any row is which side of `wait_and_see` it falls on: "
+        "**above it is memory, below it is not**. Any row whose name contains "
+        "`poshead` is a **PRIVILEGED CEILING** — its dynamics model was trained "
+        "with a supervised head on the simulator's true ball position — and is "
+        "not a world-model result.",
+        "",
+        f"**The two numbers everything is graded against, measured here on "
+        f"these {a.episodes} episodes: oracle "
+        f"{_fmt(ref.get('oracle'))}, memoryless (wait-and-see) bound "
+        f"**{_fmt(ref.get('wait_and_see'))}**, stand still "
+        f"{_fmt(ref.get('stay'))}.**",
         "",
         "Each controller is driven by the (V, M) it was trained with; the "
         "policy reads `h`, so M is part of the policy:",
@@ -979,6 +1116,30 @@ def write_report(rows, band_rows, recon, transfer, gifs, stack_of, a,
         "| controller | M (dynamics) | V (encoder) |",
         "|---|---|---|",
     ] + [f"| `{k}` | `{v[0]}` | `{v[1]}` |" for k, v in sorted(stack_of.items())]
+
+    # The headline table. It answers one question -- did this row use memory --
+    # and it is first because on v3.1 it is the whole point of the stage.
+    bound = ref.get("wait_and_see", float("nan"))
+    L += ["", "## The headline: every row against the memoryless bound", "",
+          f"`wait_and_see` = **{_fmt(bound)}** is the best a policy with "
+          "perfect vision and no memory can do in this world. A row above it "
+          "is using memory; a row below it is not, whatever else it is doing "
+          "well.", "",
+          "| controller | interceptions/visit | vs the bound | above it? |",
+          "|---|---|---|---|"]
+    for r in sorted(rows, key=lambda r: -r["interceptions_per_visit"]):
+        d = r["interceptions_per_visit"] - bound
+        L.append(
+            f"| `{r['name']}` | {_fmt(r['interceptions_per_visit'])} "
+            f"[{_fmt(r['interceptions_per_visit_ci95'][0])}, "
+            f"{_fmt(r['interceptions_per_visit_ci95'][1])}] | {d:+.2f} | "
+            + ("**yes**" if r["interceptions_per_visit"] > bound else "no")
+            + " |"
+        )
+    L += ["",
+          "The CI is a 4000-sample bootstrap over EPISODES, the unit of "
+          "independence; \"above the bound\" is read off the point estimate, so "
+          "a row whose interval straddles the bound is not a claim.", ""]
 
     L += ["", "## Interceptions per floor visit, by required move", "",
           "The **required move** is the distance between the paddle's x at the "
@@ -1009,12 +1170,14 @@ def write_report(rows, band_rows, recon, transfer, gifs, stack_of, a,
 
     L += ["", "## The reach curve (interceptions per visit at 0.1 resolution)",
           "",
-          "The paddle is **0.26 wide** and a descending ball is visible for "
-          "~10 frames before it can be touched, which buys ~0.30 of travel. So "
-          "a required move is covered whenever it is under roughly "
-          "`0.13 + 0.30 = 0.43` even with no memory at all. This table says "
-          "where `wait_and_see` actually falls off, and therefore which bins "
-          "above carry any information about object permanence.", "",
+          f"A required move is covered once the paddle's centre is within "
+          f"half a paddle-width ({pw / 2:.2f}) of the landing x, plus whatever "
+          "the visible frames between the band's bottom edge and contact "
+          "height buy. On v3's geometry that came to ~0.43 and `wait_and_see` "
+          "was at the ceiling out to 0.6; v3.1 halves both terms, which is the "
+          "whole point of the re-design. This table says where `wait_and_see` "
+          "actually falls off, and therefore which bins above carry any "
+          "information about object permanence.", "",
           "| controller | " + " | ".join(FINE_BINS) + " |",
           "|---" * (len(FINE_BINS) + 1) + "|"]
     for r in rows:
@@ -1058,11 +1221,14 @@ def write_report(rows, band_rows, recon, transfer, gifs, stack_of, a,
             f"{d['left']:.2f}/{d['stay']:.2f}/{d['right']:.2f} |"
         )
 
-    for band, brows in band_rows.items():
-        L += ["", f"## Taller band {band}", "",
-              f"{a.band_episodes} episodes. Neither V nor M nor C has ever seen "
-              "this band. Read the VAE reconstruction table below before "
-              "attributing a drop to the controller.", "",
+    for band_key, brows in band_rows.items():
+        L += ["", f"## Other band {band_key}", "",
+              f"{a.band_episodes} episodes. Read the VAE reconstruction table "
+              "below before attributing any drop to the controller — in v3 "
+              "these bands were out of the encoder's distribution and cost it "
+              "133-262x reconstruction error, and in v3.1 the encoder was "
+              "trained on all three, so the same comparison is finally about "
+              "the controller.", "",
               "| controller | interceptions/visit | floor visits/ep | "
               "toward fraction (move > 0.15) | displacement fraction | "
               "mean hidden frames |", "|---|---|---|---|---|---|"]
@@ -1079,9 +1245,9 @@ def write_report(rows, band_rows, recon, transfer, gifs, stack_of, a,
             )
 
     L += ["", "## VAE reconstruction on each band", "",
-          "The frozen v3 encoder+decoder on frames from datasets collected at "
-          "the three band heights, so a taller-band drop can be attributed to V "
-          "or to C.", "",
+          "The frozen encoder+decoder on frames from datasets collected at "
+          "each band height, so an other-band drop can be attributed to V or "
+          "to C.", "",
           "| dataset | band | recon MSE | mean hidden run (frames) |",
           "|---|---|---|---|"]
     for root, d in recon.items():

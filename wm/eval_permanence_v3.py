@@ -21,9 +21,10 @@ occlusion did not come from its input. It came from ``h`` or from nowhere.
     (c) hidden wall bounce the subset of (b) where the ball hit a side wall
                            while hidden. Straight-line extrapolation is wrong
                            by twice the overshoot there; is the model?
-    (d) memory horizon     (b) on the `tall` and `taller` bands, binned by how
-                           long the ball was hidden. Where does the model meet
-                           the no-memory floor?
+    (d) memory horizon     (b) on the extra bands (`--bands`; v3 used `tall`
+                           and `taller`, v3.1 a shorter and a longer band),
+                           binned by how long the ball was hidden. Where does
+                           the model meet the no-memory floor?
     (e) counterfactual     re-simulate the same episode with vx -> -vx before
                            entry, re-render, re-encode, dream. Does the exit
                            move the way the physics says it must?
@@ -238,7 +239,7 @@ def hidden_states(model: MDNRNN, mu: np.ndarray, actions: np.ndarray,
 
 def part_a_position_from_h(
     models: Sequence[Model], splits: Dict[str, Split], out: Path,
-    device: str, seed: int,
+    device: str, seed: int, max_age: int = MAX_AGE,
 ) -> Dict:
     """Position (and velocity, and hidden age) from h, by visibility and by age."""
     main = splits["default"]
@@ -340,7 +341,7 @@ def part_a_position_from_h(
         # and y behaving differently, so the joint number hides the finding.
         curve[f] = {"k": [], "r2_x": [], "r2_y": [], "rmse": [],
                     "rmse_x": [], "rmse_y": [], "n": []}
-        for k in range(1, MAX_AGE + 1):
+        for k in range(1, max_age + 1):
             m = K[te] == k
             if m.sum() < 25:
                 continue
@@ -355,7 +356,7 @@ def part_a_position_from_h(
     nm = {"k": [], "rmse": [], "rmse_x": [], "rmse_y": [],
           "r2_x": [], "r2_y": [], "n": [], "splits": []}
     split_names = list(splits)
-    for k in range(1, MAX_AGE + 1):
+    for k in range(1, max_age + 1):
         m = K[te] == k
         if m.sum() < 25:
             continue
@@ -484,7 +485,7 @@ def truth_of(sp: Split, runs: Sequence[HiddenRun]) -> Dict[str, np.ndarray]:
 
 def emergence(
     models: Sequence[Model], sp: Split, probe: StateProbe, device: str,
-    seed: int, min_len: int = 3, warmup: int = WARMUP,
+    seed: int, min_len: int = 3, warmup: int = WARMUP, extra: int = EXTRA,
 ) -> Dict:
     """Dream through every hidden run of `sp` and score the re-emergence."""
     runs = [r for r in hidden_runs_from_events(sp.events, min_len=min_len)
@@ -500,7 +501,8 @@ def emergence(
                                             sp.radius)[k] for r in runs])
                    for k in ("exit_x", "exit_time", "side")},
     }
-    pos = {m.name: dream_runs(m, sp, runs, probe, device, seed) for m in models}
+    pos = {m.name: dream_runs(m, sp, runs, probe, device, seed, warmup, extra)
+           for m in models}
     pred = {name: score_runs(sp, runs, pp) for name, pp in pos.items()}
 
     return {"split": sp.name, "n_runs": len(runs), "dropped_short_prefix": dropped,
@@ -732,7 +734,8 @@ def _plot_exit_time_hist(res: Dict, path: Path) -> None:
 DURATION_BINS = ((3, 8), (9, 15), (16, 25), (26, 10**6))
 
 
-def part_d_horizon(per_split: Dict[str, Dict], out: Path) -> Dict:
+def part_d_horizon(per_split: Dict[str, Dict], out: Path,
+                   bands: Optional[Dict[str, Tuple[float, float]]] = None) -> Dict:
     """Exit error vs true hidden duration, pooled over bands, binned."""
     rows: Dict[str, Dict] = {}
     pooled: Dict[str, Dict] = {}
@@ -769,11 +772,12 @@ def part_d_horizon(per_split: Dict[str, Dict], out: Path) -> Dict:
                 # quietly grade it on the subset it happened to manage.
                 "n_runs": int(n_runs), "n_scored": int(den),
             }
-    _plot_horizon(pooled, keys, out / "memory_horizon.png")
+    _plot_horizon(pooled, keys, out / "memory_horizon.png", bands)
     return {"by_split": rows, "pooled": pooled, "bins": keys}
 
 
-def _plot_horizon(pooled: Dict, keys: Sequence[str], path: Path) -> None:
+def _plot_horizon(pooled: Dict, keys: Sequence[str], path: Path,
+                  bands: Optional[Dict[str, Tuple[float, float]]] = None) -> None:
     plt = _plt()
     fig, axes = plt.subplots(1, 2, figsize=(11, 4))
     x = np.arange(len(keys))
@@ -801,7 +805,12 @@ def _plot_horizon(pooled: Dict, keys: Sequence[str], path: Path) -> None:
         ax.set_ylabel(lab)
         ax.grid(alpha=0.3)
         ax.legend(fontsize=8)
-    fig.suptitle("memory horizon: pooled over the 0.30 / 0.42 / 0.54 bands "
+    # The band HEIGHTS are read from the splits rather than written here: v3
+    # pooled 0.30 / 0.42 / 0.54, v3.1 pools 0.50 / 0.32 / 0.65, and a figure
+    # that states the wrong ones is worse than one that states none.
+    which = ("the " + " / ".join(f"{hi - lo:.2f}" for lo, hi in bands.values())
+             + " bands") if bands else "all bands"
+    fig.suptitle(f"memory horizon: pooled over {which} "
                  f"(points with fewer than {MIN_N} scored runs are dropped)")
     fig.tight_layout()
     fig.savefig(path, dpi=130)
@@ -937,8 +946,21 @@ def main() -> None:
                    help="name=path/to/rnn.pt")
     p.add_argument("--vae", default="runs/vae_v3/vae.pt")
     p.add_argument("--val", nargs="+", default=["data/v3/val", "data/v3/val_mix"])
-    p.add_argument("--tall", nargs="+", default=["data/v3/tall"])
-    p.add_argument("--taller", nargs="+", default=["data/v3/taller"])
+    # The extra bands are NAMED on the command line rather than fixed, because
+    # "tall" and "taller" are facts about v3's geometry, not about the
+    # experiment: v3.1's default band is already taller than v3's `taller`, and
+    # its two comparison bands are a SHORTER and a LONGER occlusion. The band
+    # set is otherwise used only by name (part (d) pools over whatever is
+    # there), so this is the only place that had to know.
+    p.add_argument("--bands", nargs="*", default=None,
+                   metavar="NAME=ROOT[,ROOT]",
+                   help="extra band splits for the memory-horizon test, e.g. "
+                        "--bands short=data/v31/short long=data/v31/long. "
+                        "Default: tall/taller from --tall/--taller (v3).")
+    p.add_argument("--tall", nargs="+", default=["data/v3/tall"],
+                   help="v3 shorthand; ignored when --bands is given")
+    p.add_argument("--taller", nargs="+", default=["data/v3/taller"],
+                   help="v3 shorthand; ignored when --bands is given")
     p.add_argument("--probe-data", nargs="+",
                    default=["data/v3/probe", "data/v3/val_mix"])
     p.add_argument("--out", default="runs/rnn_v3/permanence")
@@ -947,6 +969,15 @@ def main() -> None:
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--skip", nargs="*", default=[],
                    help="parts to skip, e.g. --skip e")
+    # Both of these are functions of how long the ball is hidden, so both have
+    # to move when the band does. v3's band hid the ball for ~9 frames and 25
+    # was past the tail; v3.1's hides it for ~21, so a curve that stopped at 25
+    # would end before the interesting part.
+    p.add_argument("--extra", type=int, default=EXTRA,
+                   help="dreamed frames past the true exit, in part (b). Sets "
+                        "how late a re-emergence can still be detected.")
+    p.add_argument("--max-age", type=int, default=MAX_AGE,
+                   help="last k on the (a) decay curve, in frames hidden")
     a = p.parse_args()
 
     device = pick_device(a.device)
@@ -966,9 +997,13 @@ def main() -> None:
     vae, vcfg, _ = load_ckpt(a.vae, device)
     probe = fit_position_probe(a.probe_data, "", a.probe_samples, a.seed)
 
-    splits = {"default": load_split("default", a.val),
-              "tall": load_split("tall", a.tall),
-              "taller": load_split("taller", a.taller)}
+    band_spec = (
+        [(n, r.split(",")) for n, r in (b.split("=", 1) for b in a.bands)]
+        if a.bands else [("tall", a.tall), ("taller", a.taller)]
+    )
+    splits = {"default": load_split("default", a.val)}
+    for bname, broots in band_spec:
+        splits[bname] = load_split(bname, broots)
     for s in splits.values():
         print(f"split {s.name:8s} E={s.mu.shape[0]} T={s.T} band={s.band} "
               f"hidden_runs={len(hidden_runs_from_events(s.events, 3))}")
@@ -996,7 +1031,8 @@ def main() -> None:
 
     report: Dict[str, object] = {
         "models": {m.name: m.ckpt for m in models},
-        "vae": a.vae, "warmup": WARMUP, "extra": EXTRA,
+        "vae": a.vae, "warmup": WARMUP, "extra": a.extra,
+        "max_age": a.max_age, "bands": {n: r for n, r in band_spec},
         "exit_consec": EXIT_CONSEC,
         "probe_on_hidden_frames": probe_check,
     }
@@ -1004,14 +1040,14 @@ def main() -> None:
     if "a" not in a.skip:
         print("\n(a)+(f) probing h ...", flush=True)
         report["a_position_from_h"] = part_a_position_from_h(
-            models, splits, out, device, a.seed)
+            models, splits, out, device, a.seed, max_age=a.max_age)
 
     per_split: Dict[str, Dict] = {}
     if "b" not in a.skip:
-        for sname in ("default", "tall", "taller"):
+        for sname in splits:
             print(f"\n(b) emergence on {sname} ...", flush=True)
             per_split[sname] = emergence(models, splits[sname], probe,
-                                         device, a.seed)
+                                         device, a.seed, extra=a.extra)
         res = per_split["default"]
         report["b_emergence"] = {
             "n_runs": res["n_runs"],
@@ -1029,7 +1065,8 @@ def main() -> None:
         _plot_dream_examples(res, splits["default"], out / "dream_examples.png")
         _plot_exit_time_hist(res, out / "exit_time_error_hist.png")
 
-        report["d_memory_horizon"] = part_d_horizon(per_split, out)
+        report["d_memory_horizon"] = part_d_horizon(
+            per_split, out, {n: splits[n].band for n in per_split})
         report["d_tables_by_split"] = {
             s: part_bc_tables(r) for s, r in per_split.items()}
 
@@ -1038,7 +1075,8 @@ def main() -> None:
         cfg = BoxConfig(**json.loads(
             (Path(a.val[0]) / "meta.json").read_text())["config"])
         report["e_counterfactual"] = part_e_counterfactual(
-            models, splits["default"], vae, probe, cfg, device, a.seed)
+            models, splits["default"], vae, probe, cfg, device, a.seed,
+            extra=a.extra)
 
     (out / "report.json").write_text(json.dumps(report, indent=2, default=float))
     _summary(report, [m.name for m in models], out)
@@ -1110,7 +1148,11 @@ def _summary(rep: Dict, names: Sequence[str], out: Path) -> None:
               "(rmse, world units; one frozen kNN probe)")
         nm = a_["decay"]["no_memory"]
         ks = nm["k"]
-        show = [k for k in ks if k in (1, 3, 5, 8, 12, 16, 20, 25)]
+        # Eight columns spread over whatever k range actually exists, rather
+        # than v3's fixed list -- on v3.1 the curve runs to 40.
+        show = sorted(set(
+            int(round(v)) for v in np.linspace(ks[0], ks[-1], 8)
+        ) & set(ks)) if ks else []
         print("      k" + " " * 18 + "".join(f"{k:>8d}" for k in show))
         for f, d in a_["decay"]["per_feature"].items():
             m = {k: r for k, r in zip(d["k"], d["rmse"])}

@@ -31,6 +31,15 @@ then catches 99% of balls, so the default band never required object
 permanence for play — the honest result, and the reason the next step is a
 harder band. Docs in `docs/v3/`.
 
+**v3.1:** the band re-designed by an oracle sweep so a memoryless policy
+catches only half the balls. The dynamics model now carries the hidden ball's
+horizontal position (R² 0.52, equal to a privileged ceiling) but loses the exit
+clock, and its dream never lets the ball out — yet a controller trained inside
+it beats the memoryless bound by 0.22, moves the paddle while the ball is
+hidden, and collapses to the bound when its memory input is removed. What
+transferred was a dense reward on a memory-carrying state, not a simulation.
+Docs in `docs/v3/06–09`.
+
 **Start with the docs:** [`docs/README.md`](docs/README.md) — written so that
 someone new to world models can follow what was built, why, what was measured,
 and what it means.
@@ -47,5 +56,5 @@ tests/      unit tests: python -m tests.test_rnn && python -m tests.test_control
 Python environment: conda `NN` (`/opt/miniconda3/envs/NN/bin/python`), PyTorch
 2.12, numpy, scikit-learn, matplotlib, Pillow, scipy, `cma`.
 
-Roadmap: v3.1 (a band that requires memory, VAE on all band heights) → v4 gravity switch (see
+Roadmap: revive the v3.1 dream (exit clock) → v4 gravity switch (transformer vs LSTM) (see
 `worldsim/worldsim.md` and `docs/05_results_and_lessons.md`).

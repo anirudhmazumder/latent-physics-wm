@@ -153,7 +153,7 @@ def markdown_table(rows: List[dict]) -> str:
 
 
 def make_figure(perm: dict, rows: List[dict], names: List[str], path: Path,
-                baselines: List[dict]) -> None:
+                baselines: List[dict], title: Optional[str] = None) -> None:
     import matplotlib
 
     matplotlib.use("Agg")
@@ -188,8 +188,12 @@ def make_figure(perm: dict, rows: List[dict], names: List[str], path: Path,
     ax_decay.axhline(0.0, color="0.7", lw=0.8)
     ax_decay.set_xlabel("frames the ball has been hidden, k")
     ax_decay.set_ylabel(r"linear probe $R^2$ for ball_x from $h$")
+    # The band set is read back out of the report rather than named here: v3
+    # pooled default/tall/taller, v3.1 pools default/short/long.
+    band_names = ["default"] + list(_get(perm, "bands", default={}) or
+                                    {"tall": 0, "taller": 0})
     ax_decay.set_title("(1) how much of the hidden ball's x is in h\n"
-                       "pooled over default / tall / taller bands")
+                       "pooled over " + " / ".join(band_names) + " bands")
     ax_decay.set_ylim(-1.0, 1.0)
     ax_decay.grid(alpha=0.3)
     ax_decay.legend(fontsize=7.5, loc="lower left", ncol=2)
@@ -245,8 +249,8 @@ def make_figure(perm: dict, rows: List[dict], names: List[str], path: Path,
         "poshead uses a PRIVILEGED position target: it is a ceiling, not a result.",
         fontsize=9, pad=14)
 
-    fig.suptitle("v3 object permanence: the horizontal component, and the "
-                 "attempts to fix it", fontsize=13)
+    fig.suptitle(title or ("v3 object permanence: the horizontal component, "
+                           "and the attempts to fix it"), fontsize=13)
     fig.savefig(path, dpi=130, bbox_inches="tight")
     plt.close(fig)
 
@@ -256,6 +260,7 @@ def main() -> None:
     p.add_argument("--permanence", default="runs/rnn_v3_fix/permanence/report.json")
     p.add_argument("--runs", nargs="+", required=True, help="name=runs/dir")
     p.add_argument("--out", default="runs/rnn_v3_fix_comparison.png")
+    p.add_argument("--title", default=None, help="figure suptitle")
     a = p.parse_args()
 
     perm = _load(a.permanence)
@@ -269,7 +274,7 @@ def main() -> None:
 
     rows = table_rows(perm, runs, names)
     baselines = [baseline_row(perm, "no_memory"), baseline_row(perm, "linear")]
-    make_figure(perm, rows, names, Path(a.out), baselines)
+    make_figure(perm, rows, names, Path(a.out), baselines, title=a.title)
 
     md = markdown_table(rows + baselines)
     print(md)

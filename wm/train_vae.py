@@ -55,8 +55,12 @@ def ball_mask(states: torch.Tensor, res: int, radius: float, slack: float = 1.6)
 
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--data", required=True)
-    p.add_argument("--val", default=None)
+    # Several roots are allowed and are concatenated (see wm/data.py). v3.1
+    # trains one encoder on all three occlusion-band heights so that the
+    # taller/shorter-band results downstream are not confounded by an
+    # out-of-distribution encoder, which is what spoiled v3's.
+    p.add_argument("--data", required=True, nargs="+")
+    p.add_argument("--val", default=None, nargs="+")
     p.add_argument("--out", default="runs/vae")
     p.add_argument("--epochs", type=int, default=30)
     p.add_argument("--batch-size", type=int, default=128)
@@ -91,6 +95,9 @@ def main() -> None:
     res = ds.frames.shape[2]
     ball_r = ds.meta["config"]["ball_radius"]
     print(f"device={device}  train_frames={len(train_loader.dataset)}  res={res}")
+    if len(ds.roots) > 1:
+        print("  train roots: " + "  ".join(
+            f"{r.name}({e}x{t})" for r, e, t in zip(ds.roots, ds.Es, ds.Tp1s)))
 
     model = ConvVAE(VAEConfig(z_dim=a.z_dim, base_ch=a.base_ch, res=res)).to(device)
     n_par = sum(p_.numel() for p_ in model.parameters())

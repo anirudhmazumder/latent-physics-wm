@@ -1,0 +1,87 @@
+/opt/miniconda3/envs/NN/lib/python3.10/site-packages/numpy/lib/nanfunctions.py:1879: RuntimeWarning: Degrees of freedom <= 0 for slice.
+  var = nanvar(a, axis=axis, dtype=dtype, out=out, ddof=ddof,
+start pool: 300 episodes x 200 steps, warmup 8
+real frames (data/v31/train_mix): ball present 35.7% (meta says visible 24.9%), below the band 2.4%
+real continuation of those 64 starts: present 35.5%, below the band 2.5%, arrivals/run 0.80, re-emergence 70.0% of 40 that began hidden
+
+baseline (runs/rnn_v31/rnn.pt): reward head R2 0.719
+  tau 0.0  present 6.1% below 0.1%  arrivals 0.03  r(reward, gap) 0.97  (7s)
+  tau 0.5  present 11.6% below 10.4%  arrivals 3.62  r(reward, gap) 0.96  (8s)
+  tau 1.0  present 14.9% below 12.8%  arrivals 4.78  r(reward, gap) 0.92  (7s)
+  -> chosen tau 0.0
+
+poshead (runs/rnn_v31_poshead/rnn.pt): reward head R2 0.688
+  tau 0.0  present 7.0% below 0.1%  arrivals 0.03  r(reward, gap) 0.98  (8s)
+  tau 0.5  present 34.3% below 0.0%  arrivals 0.02  r(reward, gap) 0.97  (7s)
+  tau 1.0  present 40.5% below 0.0%  arrivals 0.03  r(reward, gap) 0.95  (9s)
+  -> chosen tau 0.0
+
+ff (runs/rnn_v31_ff/rnn.pt): reward head R2 0.498
+  tau 0.0  present 29.6% below 0.1%  arrivals 0.02  r(reward, gap) 0.88  (7s)
+  tau 0.5  present 66.2% below 0.0%  arrivals 0.02  r(reward, gap) 0.94  (8s)
+  tau 1.0  present 74.5% below 0.0%  arrivals 0.05  r(reward, gap) 0.83  (8s)
+  -> chosen tau 1.0
+
+allbands (runs/rnn_v31_allbands/rnn.pt): reward head R2 0.636
+  tau 0.0  present 6.0% below 0.1%  arrivals 0.02  r(reward, gap) 0.98  (8s)
+  tau 0.5  present 53.9% below 0.0%  arrivals 0.02  r(reward, gap) 0.98  (7s)
+  tau 1.0  present 51.1% below 0.1%  arrivals 0.08  r(reward, gap) 0.96  (7s)
+  -> chosen tau 1.0
+# v3.1 stage three, step zero — is the dream alive?
+
+**THE DREAM IS NOT A USABLE TRAINING ENVIRONMENT FOR THIS TASK.** At its chosen temperature no model puts a ball below the band at a rate comparable to the world's (0.80 arrivals per 150 frames, decoded-height sd 0.164) — `baseline` almost never a ball below the band; `poshead` almost never a ball below the band; `ff` almost never a ball below the band; `allbands` almost never a ball below the band. No other (model, temperature) cell is in that range either. A ball decoded above the band is scenery — the paddle cannot reach it and no action changes it; a ball parked at the band's lower edge is a fixed point, not a trajectory. So every controller trained below is fitted to what its M's REWARD HEAD says about latents that contain no reachable ball, not to a simulated interception task, and every controller number must be read that way.
+
+64 dreams x 150 steps per cell, warm-started on 8 real frames from `['data/v31/train_mix']`, driven by a fixed sticky-random action stream. Every model and every temperature sees the identical starts and the identical actions, so the cells are paired.
+
+## The real data, measured with the same detector
+
+| reference | frames | ball present | ball below the band | arrivals below the band per 150 frames | ball-height sd | re-emergence (of runs starting hidden) |
+|---|---|---|---|---|---|---|
+| `data/v31/train_mix`, 4096 random frames | 4096 | 35.7% | 2.4% | — | — | — |
+| **the real continuation of the dreams' own 64 starts** | 64x150 | 35.5% | 2.5% | **0.80** | 0.164 | 70.0% (40) |
+
+The detector's `ball present` is a half-a-ball-outside-the-band threshold, so it should land between the dataset's `frac_frames_visible` (24.9%, the ball entirely clear of the band) and `visible + partial` (57 %) — i.e. at roughly the fraction of frames with `ball_visible > 0.5`. It does. `ball below the band` is the reference the dream is graded against: the fraction of frames on which the ball is in the strip where the paddle can act at all, which in this world is only a few per cent.
+
+## Every cell
+
+| model | tau | ball present | ball below band | arrivals / run (real 0.80) | ball-height sd (real 0.164) | mean decoded ball y | re-emergence (of dreams starting hidden) | r(reward head, -abs decoded gap) | n pairs |
+|---|---|---|---|---|---|---|---|---|---|
+| `baseline` **<-- chosen** | 0.0 | 6.1% | 0.1% | 0.03 | 0.053 | 0.762 | 0.0% (39) | 0.97 | 585 |
+| `baseline` | 0.5 | 11.6% | 10.4% | 3.62 | 0.059 | 0.121 | 100.0% (39) | 0.96 | 1114 |
+| `baseline` | 1.0 | 14.9% | 12.8% | 4.78 | 0.116 | 0.140 | 100.0% (39) | 0.92 | 1427 |
+| `poshead` **<-- chosen** | 0.0 | 7.0% | 0.1% | 0.03 | 0.053 | 0.758 | 0.0% (39) | 0.98 | 672 |
+| `poshead` | 0.5 | 34.3% | 0.0% | 0.02 | 0.060 | 0.737 | 0.0% (39) | 0.97 | 3290 |
+| `poshead` | 1.0 | 40.5% | 0.0% | 0.03 | 0.066 | 0.742 | 2.6% (39) | 0.95 | 3886 |
+| `ff` | 0.0 | 29.6% | 0.1% | 0.02 | 0.027 | 0.781 | 0.0% (39) | 0.88 | 2843 |
+| `ff` | 0.5 | 66.2% | 0.0% | 0.02 | 0.034 | 0.738 | 0.0% (39) | 0.94 | 6352 |
+| `ff` **<-- chosen** | 1.0 | 74.5% | 0.0% | 0.05 | 0.057 | 0.766 | 2.6% (39) | 0.83 | 7148 |
+| `allbands` | 0.0 | 6.0% | 0.1% | 0.02 | 0.053 | 0.763 | 0.0% (39) | 0.98 | 573 |
+| `allbands` | 0.5 | 53.9% | 0.0% | 0.02 | 0.065 | 0.774 | 0.0% (39) | 0.98 | 5173 |
+| `allbands` **<-- chosen** | 1.0 | 51.1% | 0.1% | 0.08 | 0.069 | 0.769 | 5.1% (39) | 0.96 | 4901 |
+
+## The reward head, teacher-forced on real latents
+
+M's dense reward head against the true `1 - |ball_x - paddle_x|` on real latents and real actions. This is the ceiling on what the head can contribute inside a dream.
+
+| model | R2 | Pearson r | rmse | pred mean | true mean | n |
+|---|---|---|---|---|---|---|
+| `baseline` | 0.719 | 0.851 | 0.1168 | 0.743 | 0.741 | 6,965 |
+| `poshead` | 0.688 | 0.838 | 0.1230 | 0.735 | 0.741 | 6,965 |
+| `ff` | 0.498 | 0.706 | 0.1561 | 0.746 | 0.741 | 6,965 |
+| `allbands` | 0.636 | 0.814 | 0.1328 | 0.769 | 0.741 | 6,965 |
+
+## Chosen training temperature per model
+
+The tau whose count of arrivals below the band is closest to the real continuation's 0.80 per 150 frames, ties going to the lower tau (stage two: a sampled v3.1 dream does not conserve the hidden ball's direction of travel).
+
+| model | chosen tau | its arrivals / run | real |
+|---|---|---|---|
+| `baseline` | 0.0 | 0.03 | 0.80 |
+| `poshead` | 0.0 | 0.03 | 0.80 |
+| `ff` | 1.0 | 0.05 | 0.80 |
+| `allbands` | 1.0 | 0.08 | 0.80 |
+
+Wall clock 99 s.
+
+
+wrote runs/rnn_v31_dream_alive  (101s)

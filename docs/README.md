@@ -35,6 +35,10 @@ they build on one another.
 | v3-03 | [Trying to fix permanence](v3/03_v3_fixing_permanence.md) | A privileged ceiling shows it is an objective problem; fair fixes get halfway |
 | v3-04 | [C: acting on memory](v3/04_v3_controller.md) | A memoryless oracle catches 99%: the default band does not require permanence |
 | v3-05 | [Results and lessons](v3/05_v3_results_and_lessons.md) | v3 in one page, and what to change before v4 |
+| v3.1-06 | [Design: making memory matter](v3/06_v31_design.md) | An oracle sweep first: band (0.13, 0.63), paddle 0.16 — memoryless bound 0.48 |
+| v3.1-07 | [Environment, V, M](v3/07_v31_env_vae_dynamics.md) | Encoder confound removed; horizontal memory arrives, the exit clock is lost, the dream stops letting the ball out |
+| v3.1-08 | [C: does memory buy play?](v3/08_v31_controller.md) | +0.22 over the memoryless bound, flat across required moves; the h-ablation control sits exactly on the bound |
+| v3.1-09 | [Results and lessons](v3/09_v31_results_and_lessons.md) | v3.1 in one page, the project after three tiers, and v4 |
 
 **See it live.** `python -m wm.live` opens a window with the real game (arrow
 keys) next to what the VAE sees, what the RNN predicted this frame would look
@@ -45,5 +49,5 @@ control to the dream-trained controller. `python -m wm.live --record out.gif
 
 Technical run logs with exact commands and every number, written by the
 implementing agents and reviewed: [`../wm/README_M.md`](../wm/README_M.md),
-[`../wm/README_C.md`](../wm/README_C.md); for v2: [`../wm/README_V2.md`](../wm/README_V2.md), [`../wm/README_M2.md`](../wm/README_M2.md), [`../wm/README_C2.md`](../wm/README_C2.md), [`../wm/README_FIX.md`](../wm/README_FIX.md), [`../wm/README_C2_FIX.md`](../wm/README_C2_FIX.md); for v3: [`../wm/README_V3.md`](../wm/README_V3.md), [`../wm/README_M3.md`](../wm/README_M3.md), [`../wm/README_FIX3.md`](../wm/README_FIX3.md), [`../wm/README_C3.md`](../wm/README_C3.md). The environment's own notes:
+[`../wm/README_C.md`](../wm/README_C.md); for v2: [`../wm/README_V2.md`](../wm/README_V2.md), [`../wm/README_M2.md`](../wm/README_M2.md), [`../wm/README_C2.md`](../wm/README_C2.md), [`../wm/README_FIX.md`](../wm/README_FIX.md), [`../wm/README_C2_FIX.md`](../wm/README_C2_FIX.md); for v3: [`../wm/README_V3.md`](../wm/README_V3.md), [`../wm/README_M3.md`](../wm/README_M3.md), [`../wm/README_FIX3.md`](../wm/README_FIX3.md), [`../wm/README_C3.md`](../wm/README_C3.md); for v3.1: [`../wm/README_V31.md`](../wm/README_V31.md), [`../wm/README_C31.md`](../wm/README_C31.md). The environment's own notes:
 [`../worldsim/worldsim.md`](../worldsim/worldsim.md).
