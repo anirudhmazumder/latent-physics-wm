@@ -25,7 +25,7 @@ event (v4). Every tier is a designed experiment with a stated null, a privileged
 ceiling and an ablation — and the negative results are kept.</p>
 
 <p class="links">
-<a href="docs/README.html"><b>Read the write-up →</b></a>
+<a href="docs/"><b>Read the write-up →</b></a>
 <a href="https://github.com/anirudhmazumder/latent-physics-wm">Source on GitHub</a>
 <a href="docs/glossary.html">Glossary</a>
 </p>
@@ -63,7 +63,7 @@ trained on **zero real frames** plays the real game at 85–90% of a privileged 
 <figcaption><b>Playing inside the dream.</b> The controller in the RNN's imagination, decoded by the VAE. The border turns green when the model's contact head fires.</figcaption></figure>
 </div>
 
-[Docs 00–05 →](docs/README.html)
+[Docs 00–05 →](docs/)
 
 <h2 class="tier">v2 — an appearance → dynamics causal edge</h2>
 
@@ -91,7 +91,7 @@ never saw.
 <figcaption><b>Does the agent use colour?</b> Repaint the ball in a real history, hold everything else fixed, re-decide. Every v2 controller's decision shifts in the direction the physics predicts; the null control is exactly zero.</figcaption></figure>
 </div>
 
-[Docs v2 →](docs/README.html#v2--mass-from-colour-an-appearance--dynamics-causal-edge)
+[Docs v2 →](docs/#v2--mass-from-colour-an-appearance--dynamics-causal-edge)
 
 <h2 class="tier">v3 / v3.1 — memory, and an honest negative</h2>
 
@@ -119,7 +119,7 @@ memory input removed lands exactly on the bound.
 <figcaption><b>Two seeds.</b> The headline survives a second training seed; every finer ordering does not. The gap <em>within</em> each pair is what a single-seed table cannot see.</figcaption></figure>
 </div>
 
-[Docs v3 →](docs/README.html#v3--the-occlusion-band-object-permanence)
+[Docs v3 →](docs/#v3--the-occlusion-band-object-permanence)
 
 <h2 class="tier">v4 — inference beats memory</h2>
 
@@ -139,7 +139,7 @@ flip is the best predictor of all.
 <figcaption><b>The result.</b> Sign recall from the model's state versus frames since the flip <em>rises</em> from chance — inference from motion, not memory of the event — for LSTM and transformer alike.</figcaption></figure>
 </div>
 
-[Docs v4 →](docs/README.html#v4--the-gravity-switch-a-bit-set-by-an-event-held-indefinitely)
+[Docs v4 →](docs/#v4--the-gravity-switch-a-bit-set-by-an-event-held-indefinitely)
 
 <h2 class="tier">About</h2>
 

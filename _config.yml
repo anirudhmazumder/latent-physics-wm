@@ -20,9 +20,11 @@ relative_links:
   collections: false
 titles_from_headings:
   strip_title: true
-# README.md is the repository front page; index.md is the site front page.
+# Each README.md becomes its directory's index.html (docs/ and wm/); the root
+# README.md yields to index.md, which is the site front page.
 readme_index:
-  enabled: false
+  enabled: true
+  remove_originals: true
 exclude:
   - data/
   - tests/
