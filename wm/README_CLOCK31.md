@@ -7,9 +7,9 @@ not retrained and no dataset was modified. Read [`README_V31.md`](README_V31.md)
 §4.5 and [`README_C31.md`](README_C31.md) §0 first — they establish the defect
 this follow-up tries to fix.
 
-Commands: [`runs/_train_rnn_clock31.sh`](../runs/_train_rnn_clock31.sh) (three
+Commands: [`runs/_train_rnn_clock31.sh`](https://github.com/anirudhmazumder/latent-physics-wm/blob/main/runs/_train_rnn_clock31.sh) (three
 models, ~2.2 h each, three concurrent) and
-[`runs/_eval_clock31.sh`](../runs/_eval_clock31.sh) (~20 min).
+[`runs/_eval_clock31.sh`](https://github.com/anirudhmazumder/latent-physics-wm/blob/main/runs/_eval_clock31.sh) (~20 min).
 
 ---
 
@@ -301,10 +301,10 @@ latents with no reachable ball in them.
 
 | what | where |
 |---|---|
-| training script, three models | [`runs/_train_rnn_clock31.sh`](../runs/_train_rnn_clock31.sh), logs `runs/rnn_v31_clock*_train.log` |
+| training script, three models | [`runs/_train_rnn_clock31.sh`](https://github.com/anirudhmazumder/latent-physics-wm/blob/main/runs/_train_rnn_clock31.sh), logs `runs/rnn_v31_clock*_train.log` |
 | the clock targets, the frozen probe, the two-seed helper | [`wm/clock.py`](clock.py) |
 | the `--clock-head` / `--clock-privileged` / `--vy-head` flags | [`wm/train_rnn.py`](train_rnn.py), [`wm/rnn.py`](rnn.py) |
-| evaluation script | [`runs/_eval_clock31.sh`](../runs/_eval_clock31.sh) |
+| evaluation script | [`runs/_eval_clock31.sh`](https://github.com/anirudhmazumder/latent-physics-wm/blob/main/runs/_eval_clock31.sh) |
 | dream-alive (§2) | `runs/rnn_v31_clock_dream_alive/{summary.md,summary.json,dream_alive.png}` |
 | permanence (a)+(f) (§4) | `runs/rnn_v31_clock_permanence/report.json`, `runs/rnn_v31_clock_permanence.log` |
 | counter readout (§3) | [`wm/eval_clock_readout.py`](eval_clock_readout.py), `runs/rnn_v31_clock_readout/clock_readout.{md,json}` |

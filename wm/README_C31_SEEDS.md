@@ -9,10 +9,10 @@ runs are new directories with an `_s1` suffix.
 Read [`README_C31.md`](README_C31.md) §4 first. This document exists to ask
 whether that section's ordering is a property of the settings or of the draw.
 
-Commands: [`runs/_train_ctrl_v31_s1.sh`](../runs/_train_ctrl_v31_s1.sh) and
-[`runs/_train_ctrl_v31_real_s1.sh`](../runs/_train_ctrl_v31_real_s1.sh)
+Commands: [`runs/_train_ctrl_v31_s1.sh`](https://github.com/anirudhmazumder/latent-physics-wm/blob/main/runs/_train_ctrl_v31_s1.sh) and
+[`runs/_train_ctrl_v31_real_s1.sh`](https://github.com/anirudhmazumder/latent-physics-wm/blob/main/runs/_train_ctrl_v31_real_s1.sh)
 (~12 min each for the dream rows, 2.4 h for the real-fitness row),
-[`runs/_eval_ctrl_v31_seeds.sh`](../runs/_eval_ctrl_v31_seeds.sh) (~21 min).
+[`runs/_eval_ctrl_v31_seeds.sh`](https://github.com/anirudhmazumder/latent-physics-wm/blob/main/runs/_eval_ctrl_v31_seeds.sh) (~21 min).
 
 ---
 
@@ -275,10 +275,10 @@ did not learn it by watching a simulated ball fall.
 
 | what | where |
 |---|---|
-| seed-1 training, five dream rows | [`runs/_train_ctrl_v31_s1.sh`](../runs/_train_ctrl_v31_s1.sh), logs `runs/ctrl_v31_*_s1_train.log` |
-| seed-1 training, the real-fitness row | [`runs/_train_ctrl_v31_real_s1.sh`](../runs/_train_ctrl_v31_real_s1.sh) |
+| seed-1 training, five dream rows | [`runs/_train_ctrl_v31_s1.sh`](https://github.com/anirudhmazumder/latent-physics-wm/blob/main/runs/_train_ctrl_v31_s1.sh), logs `runs/ctrl_v31_*_s1_train.log` |
+| seed-1 training, the real-fitness row | [`runs/_train_ctrl_v31_real_s1.sh`](https://github.com/anirudhmazumder/latent-physics-wm/blob/main/runs/_train_ctrl_v31_real_s1.sh) |
 | checkpoints | `runs/ctrl_v31{,_tau1,_ff,_poshead,_z_only_tau1,_real}_s1/controller.pt` |
-| the one evaluation | [`runs/_eval_ctrl_v31_seeds.sh`](../runs/_eval_ctrl_v31_seeds.sh), [`log`](../runs/ctrl_eval_v31_seeds.log) |
+| the one evaluation | [`runs/_eval_ctrl_v31_seeds.sh`](https://github.com/anirudhmazumder/latent-physics-wm/blob/main/runs/_eval_ctrl_v31_seeds.sh), [`log`](../runs/ctrl_eval_v31_seeds.log) |
 | all 15 rows + references | `runs/ctrl_eval_v31_seeds/summary.{md,json}` |
 | the two-seed table and orderings | [`wm/two_seeds.py`](two_seeds.py) → `runs/ctrl_eval_v31_seeds/two_seeds.{md,json}` |
 | the figure | `runs/ctrl_eval_v31_seeds/skill_vs_bound_two_seeds.png` |
