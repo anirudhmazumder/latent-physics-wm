@@ -3,11 +3,10 @@
 <head>{% include head.html %}</head>
 <body>
 {% include nav.html %}
-<main class="doc">
-  <div class="crumbs"><a href="{{ '/' | relative_url }}">Home</a><span>/</span><a href="{{ '/docs/' | relative_url }}">Docs</a>{% if page.dir != '/docs/' and page.dir != '/' %}<span>/</span><span>{{ page.dir | remove: '/docs/' | remove: '/' }}</span>{% endif %}</div>
+<main class="doc col">
   {% if page.title %}<h1>{{ page.title }}</h1>{% endif %}
   {{ content }}
 </main>
-<footer class="foot wrap"><span>latent-physics-wm · MIT</span><a href="https://github.com/anirudhmazumder/latent-physics-wm">Source on GitHub</a></footer>
+<footer class="end col"><a href="{{ '/' | relative_url }}">← Back to the article</a> · <a href="{{ '/docs/' | relative_url }}">Documentation index</a> · <a href="https://github.com/anirudhmazumder/latent-physics-wm">Source on GitHub</a> · MIT</footer>
 </body>
 </html>

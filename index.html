@@ -1,204 +1,224 @@
 ---
 layout: null
-title: latent-physics-wm
-description: A world model learns a paddle-and-ball game from pixels, four times, each time with one more thing hidden from it.
+title: Latent physics world models
+description: Can a world model learn physics and cause and effect from pixels, one hidden variable at a time? Four tiers of a paddle-and-ball game, following Ha & Schmidhuber's recipe.
 ---
 <!doctype html>
 <html lang="en">
 <head>{% include head.html %}</head>
 <body>
-{% include nav.html %}
 
-<header class="hero"><div class="wrap">
-  <div class="hero-grid">
-    <div>
-      <h1 class="display">Learning to <em>dream</em> a small world, then acting <span class="alt">inside it.</span></h1>
-      <div class="rule-left">
-        <p class="lead">A neural network watches a paddle-and-ball game through 64×64 pixels, learns a model of it good enough to imagine the game forward, and learns to play using nothing but that imagination. Four times over, each time with one more thing hidden from it.</p>
-        <div class="cta">
-          <a class="btn primary" href="{{ '/docs/' | relative_url }}">Read the write-up →</a>
-          <a class="btn" href="#tiers">The four tiers</a>
-          <a class="btn" href="https://github.com/anirudhmazumder/latent-physics-wm">Source</a>
-        </div>
-      </div>
-    </div>
-    <div class="panel" id="live-panel">
-      <canvas id="world" width="960" height="660" aria-label="A live simulation of the paddle-and-ball world with the model's drifting dream drawn over it"></canvas>
-      <span class="tag">live · the world, and a dream of it</span>
-      <div class="legend"><span><i style="background:#e05a46"></i>real ball</span><span><i style="background:#f0836f;opacity:.55"></i>dreamed ball</span><span><i style="background:#3a8fe0"></i>paddle</span><span id="resync">dream re-synced every 90 frames</span></div>
-    </div>
+<div class="banner" id="banner">
+  <canvas id="world" aria-label="Interactive demo: the paddle-and-ball world with a simulated agent and its drifting dream"></canvas>
+  <div class="hint sans">Interactive demo. Use the ← → arrow keys, or tap the left or right half of the screen, to override the agent's decisions.</div>
+  <div class="hud sans"><span><i style="background:#e05a46"></i>real ball</span><span><i style="background:#f0836f;opacity:.6"></i>the dream of it</span><span><i style="background:#3a8fe0"></i>paddle</span><span id="hud-status">dream re-synced</span></div>
+  <div class="scroll sans">scroll down</div>
+</div>
+
+<article>
+<div class="col">
+  <h1>Latent physics world models</h1>
+  <p class="subtitle">Can a world model learn physics and cause and effect from pixels, one hidden variable at a time?</p>
+  <div class="byline sans">
+    <div><b>Anirudh Mazumder</b>Personal project</div>
+    <div><b>2026</b>Four tiers, v1–v4</div>
+    <div><b>Recipe</b>Ha &amp; Schmidhuber, <a href="https://worldmodels.github.io/">World Models</a> (2018)</div>
   </div>
+  <div class="links sans"><a href="https://github.com/anirudhmazumder/latent-physics-wm">Source code</a><a href="{{ '/docs/' | relative_url }}">Full documentation</a><a href="{{ '/docs/glossary.html' | relative_url }}">Glossary</a></div>
 
-  <div class="stats">
-    <div class="stat"><b data-count="4">0</b><span>versions of one game, each hiding one more variable</span></div>
-    <div class="stat"><b data-count="0">0</b><span>real frames used to train the controllers</span></div>
-    <div class="stat"><b data-count="0.92" data-dec="2">0</b><span>R² for velocity read from the model's memory — 0.02 from a single frame</span></div>
-    <div class="stat"><b data-count="206">0</b><span>tests; every figure regenerable from one script</span></div>
-  </div>
-</div></header>
+  <h2>Abstract</h2>
+  <p>We build a complete world model — a variational autoencoder, a recurrent dynamics model, and a controller trained entirely inside the dynamics model's imagination — for the smallest environment that has physics worth learning: a ball bouncing in a box with a paddle the agent can move. We then change the world four times, each time hiding one more variable from the agent, and ask at each stage where in the model that variable ends up and whether the agent uses it. Velocity, absent from any single frame, appears in the recurrent state. A mass that is visible only as colour is read off a single frame and changes how the model dreams. A ball hidden behind a band is carried in memory, imperfectly, and an agent trained on zero real frames learns to move toward where it will reappear. A gravity direction flipped by an invisible event is never remembered by either an LSTM or a transformer; both infer it from the trajectory instead. The recurring lesson is that a one-step prediction loss learns exactly what the next frame pays for, and every ceiling we hit was set by the objective rather than the architecture.</p>
 
-<section class="pipeline"><div class="wrap">
-  <div class="head">
-    <h2>Three networks, trained one after another, and a dream between them.</h2>
-    <span class="mono">Ha &amp; Schmidhuber's V · M · C recipe</span>
-  </div>
-  <svg id="pipe" viewBox="0 0 1100 250" role="img" aria-label="Pixels flow into V, which produces a code z; z and the action flow into M, which produces a hidden state h and a predicted next code; z and h flow into C, which produces an action; the predicted code loops back into M as the dream.">
-    <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#c9c5bb"/></marker></defs>
-    <!-- edges -->
-    <path id="e1" class="edge" d="M150 125 L250 125" marker-end="url(#arr)"/>
-    <path id="e2" class="edge" d="M410 125 L510 125" marker-end="url(#arr)"/>
-    <path id="e3" class="edge" d="M670 125 L770 125" marker-end="url(#arr)"/>
-    <path id="e4" class="edge" d="M850 165 C850 215 590 215 590 165" marker-end="url(#arr)"/>
-    <path id="e5" class="edge dream" d="M590 85 C590 20 590 20 590 85" opacity="0"/>
-    <path id="e6" class="edge dream" d="M630 88 C660 30 720 30 720 30 C780 30 830 60 830 85" marker-end="url(#arr)"/>
-    <!-- nodes -->
-    <g class="node" transform="translate(30 85)"><rect width="120" height="80"/><text x="60" y="36" text-anchor="middle">pixels</text><text class="sub" x="60" y="58" text-anchor="middle">64 × 64 × 3</text></g>
-    <g class="node dark" transform="translate(250 85)"><rect width="160" height="80"/><text x="80" y="36" text-anchor="middle">V · vision</text><text class="sub" x="80" y="58" text-anchor="middle">VAE → z ∈ ℝ¹⁶</text></g>
-    <g class="node dark" transform="translate(510 85)"><rect width="160" height="80"/><text x="80" y="36" text-anchor="middle">M · memory</text><text class="sub" x="80" y="58" text-anchor="middle">MDN-RNN → h, p(z′)</text></g>
-    <g class="node dark" transform="translate(770 85)"><rect width="160" height="80"/><text x="80" y="36" text-anchor="middle">C · controller</text><text class="sub" x="80" y="58" text-anchor="middle">819 parameters · CMA-ES</text></g>
-    <g class="node" transform="translate(980 85)"><rect width="100" height="80"/><text x="50" y="36" text-anchor="middle">action</text><text class="sub" x="50" y="58" text-anchor="middle">← · stay · →</text></g>
-    <text class="sub" x="720" y="240" text-anchor="middle" style="font-family:var(--mono);font-size:10px;letter-spacing:.16em;fill:#7a7a84">action feeds back into the model</text>
-    <text class="sub" x="720" y="22" text-anchor="middle" style="font-family:var(--mono);font-size:10px;letter-spacing:.16em;fill:#7a7a84">the dream: M's own prediction becomes its next input</text>
-    <path class="edge dream" d="M590 85 C590 45 640 45 700 45 C760 45 830 45 830 85" marker-end="url(#arr)"/>
-    <g id="flows"></g>
-  </svg>
-</div></section>
+  <h2>Introduction</h2>
+  <p>Ha and Schmidhuber's <em>World Models</em> showed that an agent can learn to act inside a learned model of its environment and transfer that behaviour back to the real thing. Their recipe has three parts, trained one after another. A vision model <b>V</b> compresses each frame into a short code <i>z</i>. A memory model <b>M</b>, a recurrent network with a mixture-density output, predicts the next code from the current code, the action, and its own hidden state <i>h</i>. A controller <b>C</b>, deliberately tiny, maps [<i>z</i>, <i>h</i>] to an action and is trained with an evolutionary optimiser, either in the real environment or inside M's dream.</p>
 
-<main id="tiers">
+  <figure>
+    <svg class="diagram" viewBox="0 0 660 190" role="img" aria-label="Diagram of the V, M, C pipeline">
+      <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#999"/></marker></defs>
+      <g fill="none" stroke="#bbb" stroke-width="1.4">
+        <path d="M104 80 L146 80" marker-end="url(#ar)"/><path d="M262 80 L304 80" marker-end="url(#ar)"/><path d="M420 80 L462 80" marker-end="url(#ar)"/>
+        <path d="M520 112 C520 160 362 160 362 112" marker-end="url(#ar)"/>
+        <path d="M362 48 C362 12 470 12 520 12 C560 12 590 30 590 48" stroke-dasharray="4 5" marker-end="url(#ar)"/>
+      </g>
+      <g font-size="13" fill="#222">
+        <rect x="8" y="48" width="96" height="64" rx="6" fill="#fff" stroke="#ccc"/><text x="56" y="76" text-anchor="middle">frame</text><text x="56" y="94" text-anchor="middle" font-size="11" fill="#777">64×64×3</text>
+        <rect x="146" y="48" width="116" height="64" rx="6" fill="#222"/><text x="204" y="76" text-anchor="middle" fill="#fff">V · VAE</text><text x="204" y="94" text-anchor="middle" font-size="11" fill="#bbb">z ∈ ℝ¹⁶</text>
+        <rect x="304" y="48" width="116" height="64" rx="6" fill="#222"/><text x="362" y="76" text-anchor="middle" fill="#fff">M · MDN-RNN</text><text x="362" y="94" text-anchor="middle" font-size="11" fill="#bbb">h, p(z′)</text>
+        <rect x="462" y="48" width="116" height="64" rx="6" fill="#222"/><text x="520" y="76" text-anchor="middle" fill="#fff">C · linear</text><text x="520" y="94" text-anchor="middle" font-size="11" fill="#bbb">819 parameters</text>
+        <rect x="590" y="48" width="62" height="64" rx="6" fill="#fff" stroke="#ccc"/><text x="621" y="84" text-anchor="middle">action</text>
+        <text x="441" y="176" text-anchor="middle" font-size="11" fill="#777">the action is also an input to M</text>
+        <text x="475" y="8" text-anchor="middle" font-size="11" fill="#777" dy="-1">the dream: M's prediction becomes its own next input</text>
+      </g>
+    </svg>
+    <figcaption>The agent. V sees a frame and produces a code; M predicts the next code from the code, the action and its memory; C chooses an action from the code and the memory. Closing the loop through M's own prediction, instead of a real frame, is a <b>dream</b>.</figcaption>
+  </figure>
 
-<section class="tier reveal"><div class="wrap">
-  <div class="kicker"><span class="n">01 · V1</span><span class="mono">the recipe works</span></div>
-  <h2>Velocity is not in a frame. The model puts it in its memory anyway.</h2>
-  <div class="body">
-    <div>
-      <p>A VAE compresses each frame to sixteen numbers; a recurrent network learns to predict the next code from the current one and the action; a tiny controller is trained by evolution entirely inside the recurrent network's dream. A single frame is pixel-identical whether the ball moves up or down, so <strong>velocity cannot be in the code</strong> — and probes confirm it is not. It appears in the LSTM's state instead, because storing it is what predicting the next frame requires.</p>
-      <ul class="claims">
-        <li><b>0.02 → <span style="color:var(--coral)">0.92</span></b><span>R² for ball velocity read from the frame code <code>z</code>, then from the memory <code>h</code></span></li>
-        <li><b>35</b><span>frames the deterministic dream tracks reality before the ball drifts a radius</span></li>
-        <li><b class="blue">85–90%</b><span>of a privileged oracle's interceptions, from a controller trained on zero real frames; one trained on a million real frames did no better</span></li>
-      </ul>
-      <p class="more"><a href="{{ '/docs/00_big_picture.html' | relative_url }}">Start with the big picture</a> · <a href="{{ '/docs/05_results_and_lessons.html' | relative_url }}">v1 results</a></p>
-    </div>
-    <div class="grid">
-      <figure class="card"><div class="img"><img src="runs/rnn_v1/eval/dream_vs_true_tau0.0.gif" alt="true rollout, VAE reconstruction and dream side by side" loading="lazy"></div><figcaption><span class="label">dream vs reality</span><b>Real · reconstructed · dreamed.</b> After eight warm-up frames the right column never sees a real frame again.</figcaption></figure>
-      <figure class="card"><div class="img"><img src="runs/rnn_v1/eval/action_counterfactual.gif" alt="three dreams under always-left, stay, always-right" loading="lazy"></div><figcaption><span class="label">counterfactual actions</span><b>Same start, three futures.</b> The dreamed paddle stops exactly at the simulator's clamp limits.</figcaption></figure>
-      <figure class="card"><div class="img"><img src="runs/rnn_v1/eval/where_is_velocity.png" alt="probe R-squared from z versus h" loading="lazy"></div><figcaption><span class="label">where velocity lives</span><b>Read from the code vs read from the memory.</b> Nobody told the network about velocity.</figcaption></figure>
-      <figure class="card"><div class="img"><img src="runs/ctrl_eval/real_vs_dream_side_by_side.gif" alt="the same controller in the real game and in its dream" loading="lazy"></div><figcaption><span class="label">real vs dream, same controller</span><b>They diverge within thirty frames.</b> The controller learned a reflex, not a trajectory.</figcaption></figure>
-    </div>
-  </div>
-</div></section>
+  <p>The original work asked whether a policy could be learned in the dream. We wanted to ask something adjacent: what does such a model actually <em>know</em> about the physics of its world, and how can one tell? The reason to build the smallest possible environment is that it has a ground truth. Our simulator hands out the true ball position, velocity, paddle position and, later, mass, visibility and gravity direction alongside every frame. The models never see these numbers. We use them only to grade: fit a small regressor from a learned representation to a true variable, and the held-out fit tells us whether that variable is present, and in what form.</p>
+  <p>The plan was tiered. Each version of the game keeps everything from the last and adds one variable that cannot be read from the current frame in the way the previous ones could. Each tier is a designed experiment: a hypothesis about where the variable should end up, a privileged ceiling that shows what the architecture <em>could</em> hold, a memoryless or blind baseline that shows what the task actually requires, and an ablation that has to land on that baseline before a positive result counts. Two tiers came out negative, and those are kept, because the shape of the failure turned out to be the most instructive thing in the project.</p>
 
-<section class="tier reveal"><div class="wrap">
-  <div class="kicker"><span class="n">02 · V2</span><span class="mono">an appearance → dynamics causal edge</span></div>
-  <h2>The ball's colour sets its mass. Does the model learn that colour causes speed?</h2>
-  <div class="body">
-    <div>
-      <p>Mass is sampled at reset and shown only as colour, yellow to purple; speed is 0.022 / m. From a single cold-start frame the dynamics model dreams lighter balls faster (a colour-blind twin, trained on the same frames through the v1 encoder, does not), and <strong>repainting the ball inside a dream changes its dreamed speed with the right sign</strong> — an intervention, not a correlation. The first controller stalled at 79% of the oracle because the dreamed ball's colour <em>diffused</em> under sampling; a conservation penalty fixed the drift and the retrained controller plays at oracle level.</p>
-      <ul class="claims">
-        <li><b class="coral">0.56</b><span>cold-start correlation between dreamed and true speed; <b style="font-size:1rem">0.12</b> for the colour-blind control</span></li>
-        <li><b>−0.60</b><span>slope of dreamed speed against repainted mass (law −1.00); +0.01 for the control</span></li>
-        <li><b class="blue">0.94–1.00</b><span>interceptions per visit vs an oracle's 0.99, every mass tercile, unseen colours, zero real frames</span></li>
-      </ul>
-      <p class="more"><a href="{{ '/docs/v2/02_v2_dynamics_and_causal_tests.html' | relative_url }}">The causal tests</a> · <a href="{{ '/docs/v2/05_v2_fixing_colour_drift.html' | relative_url }}">Fixing colour drift</a> · <a href="{{ '/docs/v2/06_v2_controller_fixed.html' | relative_url }}">The controller</a></p>
-    </div>
-    <div class="grid">
-      <figure class="card"><div class="img"><img src="runs/v2_env/light_vs_heavy.gif" alt="a light yellow and a heavy purple ball side by side" loading="lazy"></div><figcaption><span class="label">the world</span><b>Light vs heavy.</b> Colour is the only cue to how fast the ball will move.</figcaption></figure>
-      <figure class="card"><div class="img tall"><img src="runs/rnn_v2/causal/recolor_counterfactual.png" alt="one episode repainted five ways and re-dreamed" loading="lazy"></div><figcaption><span class="label">repaint and re-dream</span><b>One start, five masses.</b> Read down a column at step 23: the repainted-light ball has travelled further.</figcaption></figure>
-      <figure class="card"><div class="img"><img src="runs/rnn_v2/causal/cold_start_speed.png" alt="dreamed vs true speed after one frame" loading="lazy"></div><figcaption><span class="label">speed from one frame</span><b>Colour-seeing (left) vs colour-blind (right).</b> A slope, and none.</figcaption></figure>
-      <figure class="card"><div class="img"><img src="runs/ctrl_intervention/intervention_effect.png" alt="effect of repainting on the controller's decisions" loading="lazy"></div><figcaption><span class="label">does the agent use colour?</span><b>Repaint, hold all else fixed, re-decide.</b> Every v2 controller shifts the right way; the null control is exactly zero.</figcaption></figure>
-    </div>
-  </div>
-</div></section>
+  <h2>The world</h2>
+  <p>A red ball moves at constant speed inside a unit box and bounces elastically off the walls. A blue paddle sits on the floor and can be driven left or right — three actions. When the ball hits the paddle it reflects, and the paddle's sideways velocity adds a little "english" to the ball. Everything is rendered to a 64×64 image with analytic antialiasing, so sub-pixel position stays in the picture. Data is collected with a sticky random policy that holds each action for a few frames, because independent random actions leave the paddle jittering in the middle of the box and the model never sees sustained motion.</p>
+  <p>The demo at the top of this page is this environment, re-implemented in a few dozen lines of JavaScript. The agent driving it is a simple tracker, not the trained controller — the trained controllers' play is shown in the videos below, decoded from the actual models. The faint second ball is a caricature of the world model's dream: a copy of the physics whose velocity is perturbed a little every step and re-synced to the real ball every 90 frames. Watching it drift and snap back is a fair picture of what an open-loop rollout of the dynamics model does.</p>
 
-<section class="tier reveal"><div class="wrap">
-  <div class="kicker"><span class="n">03 · V3 / V3.1</span><span class="mono">memory, and an honest negative</span></div>
-  <h2>An opaque band hides the ball. Does anyone remember where it is?</h2>
-  <div class="body">
-    <div>
-      <p>In v3 the model carried the hidden ball's vertical state but not its horizontal position — and then a two-line <strong>memoryless oracle</strong> turned out to catch 99% of balls, so the tier never needed the capability it was measuring. That negative is kept, and it drove v3.1: an oracle sweep re-designed the band until a memoryless policy catches only half. The model then does carry the hidden ball's position, and a controller trained inside its dream <strong>beats the memoryless bound and moves the paddle while the ball is hidden</strong>. The same controller with its memory input removed lands exactly on the bound — which is what makes the number mean something.</p>
-      <ul class="claims">
-        <li><b>0.17 → <span style="color:var(--coral)">0.52</span></b><span>R² for the hidden ball's x from the memory, v3 to v3.1 — equal to a privileged ceiling of 0.48</span></li>
-        <li><b class="blue">0.73</b><span>interceptions per visit against a memoryless bound of 0.51; the <code>h</code>-ablation scores 0.51</span></li>
-        <li><b>28%</b><span>of the required paddle move covered while the ball was invisible (v3: 3%)</span></li>
-      </ul>
-      <p class="more"><a href="{{ '/docs/v3/04_v3_controller.html' | relative_url }}">Why v3's band didn't need memory</a> · <a href="{{ '/docs/v3/08_v31_controller.html' | relative_url }}">v3.1: acting on memory</a> · <a href="{{ '/docs/v3/10_v31_clock_and_seeds.html' | relative_url }}">Two seeds</a></p>
-    </div>
-    <div class="grid">
-      <figure class="card"><div class="img"><img src="runs/v3_env/occlusion_episode.gif" alt="the ball passing behind the band and bouncing off a wall while hidden" loading="lazy"></div><figcaption><span class="label">the world</span><b>A bounce nobody saw.</b> Where the ball comes out depends on a collision behind the band.</figcaption></figure>
-      <figure class="card"><div class="img"><img src="runs/rnn_v3/permanence/position_from_h_by_hidden_time.png" alt="position read from h as the occlusion goes on" loading="lazy"></div><figcaption><span class="label">memory decays</span><b>Position read from the memory as the ball stays hidden</b>, against a no-memory baseline and a memoryless model.</figcaption></figure>
-      <figure class="card"><div class="img"><img src="runs/ctrl_eval_v31/skill_vs_memoryless_bound.png" alt="controllers against the memoryless bound" loading="lazy"></div><figcaption><span class="label">above the bound is memory</span><b>Every controller against the wait-and-see oracle.</b> Green uses memory; the ablation sits on the line.</figcaption></figure>
-      <figure class="card"><div class="img"><img src="runs/ctrl_eval_v31_seeds/skill_vs_bound_two_seeds.png" alt="two training seeds per controller" loading="lazy"></div><figcaption><span class="label">two seeds</span><b>The headline survives; the finer orderings do not.</b> The gap within each pair is what one seed cannot see.</figcaption></figure>
-    </div>
-  </div>
-</div></section>
+  <figure class="dark"><img src="runs/live_demo_autopilot.gif" alt="Four panels showing the real game, the VAE's reconstruction, the one-step prediction and a free-running dream" loading="lazy">
+  <figcaption>The trained v1 model, live (<code>python -m wm.live</code>). Left to right at the same instant: the real game played by the dream-trained controller; what V sees, its reconstruction of that frame; what M predicted this frame would look like one step ago; and a free-running dream fed only the actions, re-synced to reality every 60 frames. The bar under the third panel is M's predicted probability that the ball touches the paddle on the next step.</figcaption></figure>
 
-<section class="tier reveal"><div class="wrap">
-  <div class="kicker"><span class="n">04 · V4</span><span class="mono">inference beats memory</span></div>
-  <h2>A gravity direction, flipped by an invisible event. Nobody remembers the flip.</h2>
-  <div class="body">
-    <div>
-      <p>The sign of a weak gravity flips on every paddle contact and is invisible in any single frame. Two oracle sweeps — run before any training, with a closed form — showed the sign never matters for play, so v4 became a dynamics tier. An LSTM and a causal transformer <strong>both learn to infer the sign from the trajectory's curvature, and neither remembers the flip</strong>: recall is at chance in the ten frames after a contact and rises as the path bends, and the interventional flip counterfactual is at chance for every model. The transformer that cannot see back as far as the flip is the best predictor of all. The objective, not the architecture, set the ceiling.</p>
-      <ul class="claims">
-        <li><b>≤ 0.035</b><span>landing-point error from a wrong sign — a quarter of a paddle, and it vanishes near the deadline</span></li>
-        <li><b class="coral">0.25–0.50</b><span>opposite-curvature fraction in the flip counterfactual, chance 0.50, every model</span></li>
-        <li><b class="blue">1.78 vs 2.50</b><span>validation NLL, transformer vs LSTM: better at everything except the thing the tier was about</span></li>
-      </ul>
-      <p class="more"><a href="{{ '/docs/v4/01_v4_env_data_and_sweeps.html' | relative_url }}">The sweeps</a> · <a href="{{ '/docs/v4/02_v4_dynamics_lstm_vs_transformer.html' | relative_url }}">LSTM vs transformer</a> · <a href="{{ '/docs/v4/03_v4_results_and_retrospective.html' | relative_url }}">Retrospective</a></p>
-    </div>
-    <div class="grid">
-      <figure class="card"><div class="img"><img src="runs/v4_env/gravity_episode.gif" alt="an episode whose arc changes curvature at a paddle contact" loading="lazy"></div><figcaption><span class="label">the world</span><b>Watch the arc.</b> Its curvature flips at the contact; nothing else changes.</figcaption></figure>
-      <figure class="card"><div class="img"><img src="runs/v4_env/trajectories_by_sign.png" alt="ball height over time under each gravity sign" loading="lazy"></div><figcaption><span class="label">two signs</span><b>Indistinguishable frame to frame, obvious over a traverse.</b></figcaption></figure>
-      <figure class="card" style="grid-column: 1 / -1"><div class="img" style="aspect-ratio: 3 / 1"><img src="runs/v4_switch_comparison.png" alt="sign recall versus frames since the flip for LSTM and transformer" loading="lazy"></div><figcaption><span class="label">the result</span><b>Sign recall <em>rises</em> from chance after a flip</b> — inference from motion, not memory of the event — for LSTM and transformer alike.</figcaption></figure>
-    </div>
-  </div>
-</div></section>
+  <h2>v1 — the recipe, and where velocity goes</h2>
+  <h3>Vision</h3>
+  <p>V is a convolutional VAE with a 16-dimensional latent, deliberately larger than the three numbers the world actually needs. Two things about training it turned out to matter more than the architecture. First, the ball covers about two percent of the frame, so a model that draws the background and the paddle perfectly and omits the ball entirely gets a tiny loss; global pixel error is close to useless as a progress signal here, and we track error inside a box around the true ball instead. Second, for the same reason, plain VAE training collapses to the mean image: at initialisation the decoder cannot draw a ball, so encoding its position buys nothing, while the KL penalty pulling the code to the prior is immediate. Giving each latent dimension a small budget of free bits fixes this reliably.</p>
 
-</main>
+  <figure><img src="runs/vae_b1/analysis/tuning_maps.png" alt="Nine heatmaps, one per active latent dimension, of the dimension's mean value against the ball's true position" loading="lazy">
+  <figcaption>What the VAE learned, one panel per active latent dimension: the dimension's mean value as a function of where the ball really is. A coordinate-like code would be a smooth ramp. These are blobs and stripes — a place-field code, in which position is spread across many dimensions. Probes confirm it: ball position is recovered from the code at R² 0.99 by a nearest-neighbour regressor and at only 0.04 by a linear one.</figcaption></figure>
 
-<section class="closing"><div class="wrap">
-  <span class="mono" style="color:rgba(232,230,225,.5)">what four tiers established</span>
-  <h2 style="margin-top:14px">A one-step prediction loss learns exactly what the next frame pays for — and nothing it doesn't.</h2>
-  <p style="margin-top:18px">Velocity, paid every frame: learned. Colour → speed, paid every frame: learned. A hidden position whose payoff arrives ten frames later: learned once the gaps were long enough. A bit whose per-frame effect is 1e-4: never. In every tier where a ceiling was hit, a privileged head proved the network <em>could</em> hold the state — it was never asked to.</p>
-  <div class="cta">
-    <a class="btn primary" href="{{ '/docs/' | relative_url }}">Read the documentation</a>
-    <a class="btn" href="{{ '/docs/v4/03_v4_results_and_retrospective.html' | relative_url }}">The retrospective</a>
-    <a class="btn" href="https://github.com/anirudhmazumder/latent-physics-wm">Clone the repo</a>
-  </div>
-</div></section>
+  <p>The probes also give the first clean negative result of the project, and it is the correct one. Ball velocity is recovered from a single frame's code at R² near zero. A still image of a ball has a position and no direction of travel, so no encoder could do better. Whatever knows about velocity has to integrate over time.</p>
 
-<footer class="foot wrap"><span>A personal project with a research bent · MIT · built on one M1 laptop · Claude was used for implementation and documentation</span><span>Recipe: Ha &amp; Schmidhuber, <em>World Models</em> (2018)</span></footer>
+  <h3>Memory</h3>
+  <p>M is a single-layer LSTM with 256 units and a five-component mixture-density head, trained by teacher forcing on windows of cached latent codes to predict the change from one code to the next. Its mixture output exists for a specific reason: two frames before the ball reaches the floor, whether it bounces off the paddle or the floor depends on detail the encoder may not have resolved, and a model forced to predict a single next state averages the two futures into a ball in a place it can never be. In practice, on this world, the mixture did not measurably beat a plain Gaussian; we report it because the textbook argument was right in principle and did not matter here.</p>
+
+  <figure><img src="runs/rnn_v1/eval/where_is_velocity.png" alt="Bar chart of held-out R-squared for six state variables, read from the frame code z and from the LSTM state h" loading="lazy">
+  <figcaption>Where velocity lives. Held-out R² for each true variable, read from the frame code <i>z</i> (blue) and from the LSTM state <i>h</i> (orange). Position is in both. Velocity is absent from <i>z</i> and present in <i>h</i> at 0.92 — nobody told the network about velocity; storing it is what predicting the next frame requires. Note also that <i>h</i> holds position <em>linearly</em> (0.995) where <i>z</i> held it only as a curved code: the LSTM re-coded the VAE's latent into something coordinate-like, presumably because linear dynamics are easiest on a linear representation.</figcaption></figure>
+
+  <p>A dynamics model is graded by what happens when it is cut off from the truth. After eight real frames of warm-up we feed M its own predictions, decode them, and compare with what really happened. Read back into world coordinates, the deterministic dream keeps the ball within one radius of the real one for about 35 frames — roughly one wall-to-wall traverse — and the error grows linearly, as a small velocity error integrated over time should, rather than exploding.</p>
+
+  <figure class="dark"><img src="runs/rnn_v1/eval/dream_vs_true_tau0.0.gif" alt="Three columns: the real episode, the VAE reconstruction of it, and the dream" loading="lazy">
+  <figcaption>Dream against reality. Left, the real episode; middle, V's reconstruction of the true codes, which is the best the decoder could possibly show; right, the dream, which after warm-up sees the true actions and nothing else. The dreamed ball comes down, bounces off the floor and goes back up in step with the real one.</figcaption></figure>
+
+  <p>The most direct test of whether the model has learned that actions <em>cause</em> anything is a counterfactual: dream the same start three times, holding the action at left, stay and right. The dreamed paddle slides accordingly and stops at 0.13 and 0.87 — exactly the simulator's clamp limits, half a paddle width from each wall. The model learned not only that actions move the paddle but where the paddle stops. A control model whose action input is zeroed produces three identical dreams.</p>
+
+  <figure class="dark"><img src="runs/rnn_v1/eval/action_counterfactual.gif" alt="Three dreams from the same start under always-left, always-stay and always-right" loading="lazy">
+  <figcaption>Counterfactual actions. One warm-up, three futures. This is the closest thing in the project to watching a model reason about "what if".</figcaption></figure>
+
+  <h3>Learning inside the dream</h3>
+  <p>C is a single linear layer from the 272 numbers of [<i>z</i>, <i>h</i>] to three action scores — 819 parameters, small enough to train with CMA-ES, which needs no gradients and so does not care that the dream is sampled. The reward inside the dream comes from a small head on M that predicts how far the paddle is from the ball; the contact indicator was too sparse and, being trained with heavy class re-weighting, too exploitable. Because M carries velocity, a controller that reads <i>h</i> can anticipate; one that reads only <i>z</i> knows where the ball is but not where it is going.</p>
+
+  <table>
+    <tr><th>controller</th><th>interceptions per episode</th><th>real frames used to train it</th></tr>
+    <tr><td>standing still</td><td>0.93</td><td>—</td></tr>
+    <tr><td>trained in the dream, inputs <i>z</i> only</td><td>0.93–1.03</td><td>0</td></tr>
+    <tr><td><b>trained in the dream, inputs [<i>z</i>, <i>h</i>]</b></td><td><b>1.4–1.5</b></td><td><b>0</b></td></tr>
+    <tr><td>trained in the real game with the same optimiser</td><td>1.1–1.3</td><td>1,024,000</td></tr>
+    <tr><td>oracle reading the true state</td><td>1.55–1.63</td><td>—</td></tr>
+  </table>
+  <p class="small">Interceptions per 200-step episode on the real game, 100 held-out episodes; the ball reaches the floor about 1.7 times per episode, so the oracle is near the ceiling. Ranges span two evaluation seed sets.</p>
+
+  <p>A policy trained on zero real frames plays the real game at 85–90% of a privileged-state oracle. Removing <i>h</i> from its input collapses it to the do-nothing baseline, which is the paper's central claim reproduced: the controller needs the recurrent state because a frame contains no velocity. And the thing to watch during training is not the dream return alone but the dream return <em>against</em> the real return. For the <i>z</i>-only controller the dream return rises exactly as smoothly as the good controller's while its real score falls: with a representation that cannot support the task, the only progress available to the optimiser is progress against the model's flaws. From the inside, exploitation looks exactly like success.</p>
+
+  <figure class="dark"><img src="runs/ctrl_eval/real_vs_dream_side_by_side.gif" alt="The same controller playing the real game on the left and its own dream on the right" loading="lazy">
+  <figcaption>The same controller in the real game (left) and inside its own dream (right), from the same warm-up. They diverge within about thirty frames while the dream stays internally coherent. That is the regime in which a dream-trained controller can still transfer: it learned a reflex — ball coming down here, move there — not a trajectory.</figcaption></figure>
+
+  <p>Two things we learned the hard way in v1 recur through every later tier. The first is that a learned policy that beats an oracle means the metric is broken: the real-trained controller's headline score turned out to come from pinning the ball against the paddle for several contact frames per catch, so we count interceptions rather than contact frames from then on. The second is that an off-by-one in aligning dreamed steps with true steps silently charged the model one frame of ball motion at every horizon, and was caught only because the one-step error was implausibly far above a floor we trusted.</p>
+
+  <h2>v2 — a mass you can only see as colour</h2>
+  <p>In v1 everything about the ball's motion could be inferred from motion. The second tier adds a link from appearance to dynamics. At each reset the ball is given a mass, drawn log-uniformly between half and double the v1 ball, and shown only as colour on a yellow–red–purple scale. Mass sets speed — heavier is slower, as if launched with the same impulse — and how much the paddle deflects the ball. A band of masses is held out of all training data, so we can ask whether the model interpolates the law to colours it never saw move.</p>
+
+  <figure class="dark"><img src="runs/v2_env/light_vs_heavy.gif" alt="A light yellow ball and a heavy purple ball, side by side" loading="lazy">
+  <figcaption>A light episode and a heavy one. Colour is the only cue to how fast the ball will move.</figcaption></figure>
+
+  <p>The vision model behaves as it should, with one twist worth sitting with. Colour is in the code, distributed across the same dimensions that carry position rather than on an axis of its own. Velocity components are still absent from a single frame. But <em>speed</em> is now recoverable from a single frame at R² 0.98 — not because the encoder sees motion, but because colour determines the magnitude of motion. "Decodable from a frame" and "visible in a frame" have come apart, and a vision model trained on shuffled stills with no notion of time has acquired information about the dynamics.</p>
+
+  <p>The dynamics model's question is whether it uses that. A competent v1-style model infers speed from motion after two frames and never needs colour, so every claim below is paired with a <em>colour-blind twin</em>: the same model trained on the same frames encoded by the v1 VAE, which never saw a coloured ball and carries no colour or speed information. Whatever the colour-seeing model can do that the twin cannot is attributable to reading colour.</p>
+
+  <figure><img src="runs/rnn_v2/causal/cold_start_speed.png" alt="Scatter plots of dreamed speed against true speed after a one-frame warm-up, for the colour-seeing model and the colour-blind control" loading="lazy">
+  <figcaption>Speed from a single frame. The model is given exactly one frame — no motion information — and dreams 24 steps; the dreamed speed is plotted against the true speed. The colour-seeing model (left) dreams lighter balls faster, correlation 0.56; the colour-blind control (right) dreams one average speed for everything, correlation 0.12. With eight frames of warm-up the two are indistinguishable: colour is a prior, used when motion evidence is scarce.</figcaption></figure>
+
+  <p>Correlation is not causation, and a world model is precisely the tool that makes an intervention cheap. We take one real episode, repaint the ball in its warm-up frames as if it had a different mass — re-rendered exactly from the recorded state — re-encode, and dream forward with the same actions. Nothing changes but the colour. The colour-seeing model dreams the repainted-light ball faster and the repainted-heavy ball slower, with a slope of −0.60 in log speed against log mass against the true law's −1.00; the colour-blind twin does not budge (+0.01). The repainted colour persists through the whole dream, and the repaint at the held-out mass sits closest to the law of all: the model learned a monotone law, not a lookup table.</p>
+
+  <figure class="dark"><img src="runs/rnn_v2/causal/recolor_counterfactual.png" alt="Contact sheet: one source episode repainted as five masses and dreamed forward, one row per mass" loading="lazy">
+  <figcaption>Repaint and re-dream. One real start, the ball repainted as five different masses, each dreamed 23 steps. Read down a column: by the last step the ball repainted light (upper rows) has travelled visibly further than the ball repainted heavy (bottom row). This is a model answering "what if this object were different?" in the right direction, having been told nothing about mass, speed, or the relationship between them.</figcaption></figure>
+
+  <h3>A constant that would not stay constant</h3>
+  <p>The first v2 controller reached only 79% of the oracle and was tied by the mass-blind v1 controller, which loses only on fast balls. The reason was found by eye in the controller's dream video before any metric caught it: over a long sampled dream the ball slowly changed colour. Read back with a probe, the dreamed mass was uncorrelated with the truth within 25 steps at the sampling temperature the controller trained at, though a deterministic dream held it for 200. Position has restoring forces in this world — walls, the paddle, the speed law. Colour has none. Any latent the model merely copies forward will random-walk under sampling, and this controller had been trained against a speed law that slid under it.</p>
+
+  <figure><img src="runs/rnn_v2_fix_comparison.png" alt="Correlation of the dreamed ball's mass with the truth over a 200-step sampled dream, for the baseline and four candidate fixes" loading="lazy">
+  <figcaption>Fixing colour drift. Correlation between the dreamed ball's mass and the true mass along a 200-step sampled dream. The baseline decays to −0.4: a random walk. Training on posterior means (orange) made the model brittle. A multi-step open-loop loss (green) helped. A conservation penalty on a frozen mass probe during short open-loop rollouts (red) holds the correlation flat at about 0.45 for the whole dream — drift replaced by a bounded error — at a slightly <em>better</em> likelihood and dream horizon.</figcaption></figure>
+
+  <p>Retraining the controller in the fixed dream is the cleanest positive result in the project. In a 2×2 over dynamics model and temperature, the model is the whole effect: halving the temperature inside the drifting dream made things worse, and inside the fixed dream slightly better. The retrained controller intercepts 0.94–1.00 balls per floor visit against the oracle's 0.99, in every mass tercile including the fast balls where the mass-blind controller loses, on colours it never saw, still on zero real frames.</p>
+
+  <figure><img src="runs/ctrl_eval_v2_fixed/interceptions_per_visit_by_mass.png" alt="Grouped bars of interceptions per floor visit by mass tercile for each controller, with the oracle as a line" loading="lazy">
+  <figcaption>Skill by mass. Interceptions per floor visit for light, medium and heavy balls — the mass-fair measure, since light balls reach the floor about four times as often. Controllers trained in the fixed dream (teal) reach the oracle line; the ones from the drifting dream (blue) do not.</figcaption></figure>
+
+  <p>Finally, does the agent itself use colour? A regression of its decisions on state variables gave a false positive on the mass-blind v1 controller, so we intervened instead: repaint the ball in a real eight-frame history, hold everything else fixed, and re-decide. Every v2 controller's drive shifts by a quarter to a third of a standard deviation, flipping its action on 7–14% of approach frames, in the direction the physics predicts; the null control that re-renders with the ball's own colour is exactly zero; the oracle, reading true state, is unaffected. The chain closes: V encodes colour, M reads speed off it and conserves it, C acts on it.</p>
+
+  <h2>v3 — a ball you cannot see</h2>
+  <p>The third tier removes the ball from view. An opaque band across the box hides it for a stretch of every vertical traverse, and about one hidden run in six contains a side-wall bounce that happens out of sight, so where the ball reappears depends on a collision no frame ever showed. For a sixth of all frames the image carries no information about the ball's position at all, and anything the world model knows about it must have been carried from earlier frames through its own dynamics. This is object permanence, and it is the first test of whether <i>h</i> is a state estimator rather than a velocity buffer.</p>
+
+  <figure class="dark"><img src="runs/v3_env/occlusion_episode.gif" alt="The ball passes behind the band and bounces off a wall while hidden" loading="lazy">
+  <figcaption>The band. The ball disappears, bounces off a side wall behind it, and emerges somewhere the entry trajectory alone would not predict.</figcaption></figure>
+
+  <p>The vision model does the right thing and nothing else: position is recovered at R² 0.98 when the ball is visible and not at all when it is hidden, a partly covered ball is reconstructed as a partial ball in the right place, and on fully hidden frames the decoder paints nothing — no hallucinated ball at a prior location for the dynamics model to correct. The dynamics model's answer is more interesting than either yes or no. On hidden frames its state holds the ball's height, its vertical velocity and how long it has been hidden, and carries essentially nothing horizontal: it knows the ball is falling behind the band and will come out at the bottom in about so many frames, but not where along the band.</p>
+
+  <figure><img src="runs/rnn_v3/permanence/position_from_h_by_hidden_time.png" alt="Position error and R-squared read from h as a function of how many frames the ball has been hidden, against a no-memory baseline and a feed-forward model" loading="lazy">
+  <figcaption>Memory, measured. Ball position read out of the recurrent state as the occlusion goes on, against the no-memory baseline (the ball is where it vanished; error grows as speed times time) and a feed-forward model with the same inputs and no memory. There is memory — the recurrent model holds a roughly constant error for twenty frames while the baseline runs away — but the error never gets below twice the ball's diameter, and for the first ten hidden frames, which is most of them, assuming the ball never moved is better.</figcaption></figure>
+
+  <p>The mechanism is the project's central lesson stated in its cleanest form. Teacher forcing pays for one thing: the next frame. While the ball is hidden the next frame is the blank band <em>whatever the ball's horizontal position</em>. Tracking height and the clock pays immediately, because they determine when the ball reappears and that frame is worth a lot of likelihood. Tracking horizontal position pays nothing until the exit, ten steps away, and one frame in ten cannot compete with nine in which the variable is irrelevant. The model learned exactly what its loss paid for, when it paid for it. A privileged model trained with a supervised position head holds hidden x at R² 0.71 at a <em>better</em> likelihood, so this is an objective problem, not a capacity problem; the fair fixes we tried — a rollout loss long enough to reach the exit frame, and up-weighting the re-emergence frames — closed half the gap in the state and none of it in the dream.</p>
+
+  <h3>A test that could not fail, and the tier that did not need memory</h3>
+  <p>The controller stage of v3 ended in the most useful negative result of the project. Before reading any controller number we should have run the cheapest possible policy: an oracle that tracks the true ball only while it is at least half visible and otherwise stands still — vision without memory. It caught 99% of balls, 97% of those requiring a long move. The band had been placed by an argument about frames that left out two things: the paddle is a quarter of the box wide, so it never has to reach the landing point, only within half its own width; and the ball is partly visible for about fifteen frames before it disappears and again as it emerges, so a wait-and-see policy has 25 frames of run-up, not ten. The task never required object permanence, and five controllers had been trained to measure it.</p>
+
+  <p>v3.1 fixed the design the way v3 should have started: a sweep of bands and paddle widths with the two oracles, before any training. Lowering the band's bottom edge, not raising its height, is what defeats a memoryless policy, because such a policy pre-positions while the ball is still visible above the band and only the drift during the hidden stretch can beat it. With the band's bottom at contact height and a narrower paddle, the full oracle still catches 99% and the memoryless one 48%. The gap between them is, by construction, the entire value of memory for play in that world. The encoder was also retrained on all three band heights, so that the taller-band tests were no longer confounded by an out-of-distribution VAE.</p>
+
+  <figure><img src="runs/ctrl_eval_v31/skill_vs_memoryless_bound.png" alt="Bar chart of interceptions per floor visit for every controller against the wait-and-see oracle and the full oracle" loading="lazy">
+  <figcaption>Above the bound is memory. Every controller on the v3.1 band against the wait-and-see oracle (vision, no memory, dashed) and the full oracle (solid). The fair controller trained inside the dream scores 0.73 against the bound's 0.51 and is flat across how far the paddle had to travel while blind, where the bound collapses to 0.04 on long moves. The <i>same</i> controller with its memory input removed — same encoder, same dynamics model, same optimiser — scores 0.51, exactly the bound. That ablation is what makes the 0.73 mean something.</figcaption></figure>
+
+  <p>On the re-designed band the fair dynamics model's memory of the hidden ball's horizontal position went from 0.17 to 0.52 — with occlusions twice as long and twice as many hidden bounces, the loss now paid for x often enough to learn it — and matched the privileged ceiling. It lost the exit clock in exchange, the exact inverse of v3. And the dream itself stopped letting the ball out: a deterministic rollout never takes a step whose per-step probability is below one half, so a model that has lost the exit clock never ends an occlusion. Yet a controller trained inside that dead dream beats the memoryless bound by 0.22, moves the paddle on half the frames the ball is hidden, and covers 28% of the required move while blind. What transferred was not a simulation of the occlusion but M's dense reward head, which reads the true ball–paddle gap at R² 0.72 from a state that carries the hidden ball's position. The world model was useful as a feature-conditioned reward model while being a bad world. That is a weaker claim than the method usually makes, and it is the one the evidence supports.</p>
+
+  <figure><img src="runs/ctrl_eval_v31_seeds/skill_vs_bound_two_seeds.png" alt="Pairs of bars, two training seeds per controller" loading="lazy">
+  <figcaption>Two training seeds per row. The gap within each pair is what a single-seed table cannot see: seed spreads of 0.1–0.25 against between-row gaps of 0.02–0.08. The headline survives — the fair controller is above the bound and above the memory-less control on both seeds, and best on long moves — and every finer ordering dissolves, including the "floor", whose second seed landed above the bound.</figcaption></figure>
+
+  <h2>v4 — a bit set by an event</h2>
+  <p>In every earlier tier the information needed to predict the future was recoverable from a short window of recent frames. The last tier removes that. A weak vertical gravity acts on the ball, and its direction flips on every paddle contact. The acceleration is invisible in any window shorter than about fifteen frames and unmistakable over forty, so the two signs produce visibly different trajectories while being indistinguishable frame to frame. To predict well, a model has to notice the contact and remember its consequence for a hundred frames or more. This is the regime where an LSTM that must <em>carry</em> a bit through hundreds of updates was expected to lose to a transformer that can <em>look back</em> at the frame where the bit was set.</p>
+
+  <figure class="dark"><img src="runs/v4_env/gravity_episode.gif" alt="An episode whose arc changes curvature at a paddle contact" loading="lazy">
+  <figcaption>The switch. Watch the arc: its curvature flips at the paddle contact. Nothing else changes.</figcaption></figure>
+
+  <p>The design sweep came first this time, and it retired the controller question before any training: a wrong gravity sign shifts the landing point by at most 0.035 of the box, a quarter paddle, and the error vanishes as the ball approaches while the paddle's speed does not, so a blind tracker always has slack to correct itself. A horizontal side-wind was tried as a replacement and failed for a reason with a closed form — the box walls fold the parabola, and no acceleration exists that is both binding for a paddle this fast and still lets the ball cross the box. The sign never matters for play. It matters a great deal for prediction, so v4 became a dynamics tier, and we built a causal transformer over the last 128 latents and actions, sharing every head with the LSTM so the two differ in nothing but the sequence module.</p>
+
+  <figure class="wide"><img src="runs/v4_switch_comparison.png" alt="Three panels: sign recall from the model state versus frames since the flip; what h adds over z; memory versus inference" loading="lazy">
+  <figcaption>Does anything remember the flip? Left: accuracy of a linear probe reading the gravity sign from each model's state, as a function of frames since the last flip. A memory of the event would be perfect at 0–10 frames and decay; every curve is at chance there and <em>rises</em> to a peak at 25–50 frames — the signature of inferring the sign from the trajectory's curvature once it has bent enough. Middle: what the state adds over a single frame, since the single-frame null is not flat. Right: recall in the ten frames after a flip (only memory of the contact could give this) against recall fifty frames later on episodes whose warm-up began <em>after</em> the flip (only the trajectory could). The memory column is at chance for LSTM, transformer and feed-forward alike, and below what one frame gives.</figcaption></figure>
+
+  <p>The interventional test agrees. For real paddle contacts we re-simulate a twin warm-up with the paddle moved so the ball misses, dream both forward, and compare the curvature of the dreamed paths; a model that knows contact flips gravity produces opposite curvatures. The fraction with opposite sign is 0.47 for the LSTM and 0.41 for the transformer against a chance level of 0.50 — nothing, for every model. The transformer is the better one-step predictor by every ordinary measure, and the variant with a context of 32 frames, built as the control that <em>cannot</em> see back as far as a flip, is the best model in the table. Seeing back to the flip was never used. The one-step loss pays for the sign only through its effect on the next latent, which is one part in ten thousand, spread over hundreds of frames; the cheapest way to earn most of that is to read the curvature from the recent window, which both architectures can do and both did. Storing a bit at a rare event and holding it indefinitely is a strictly harder solution to the same objective, and nothing in the objective rewards the difference.</p>
+
+  <h2>Discussion</h2>
+  <p>Read as a whole, the four tiers say one thing about the recipe as it is usually run. A one-step teacher-forced dynamics loss learns whatever the next frame pays for: velocity, paid every frame; colour to speed, paid every frame; the height and exit time of a hidden ball, paid at re-emergence ten frames away; its horizontal position, paid once the occlusions were long enough for the exit frame to matter. It does not learn what the next frame does not pay for: a constant that nothing restores, an exit clock twenty frames away, a bit whose per-frame effect is negligible. In every tier where a ceiling was hit, a privileged head proved the network could hold the state when told what to hold. The objective set the ceiling, not the architecture — including in the one tier built to compare architectures.</p>
+
+  <p>The methodological lessons were paid for and are worth listing. Measure the environment before training in it: a memoryless oracle, an oracle sweep, and a check that the dream actually puts the object where the agent can act each cost minutes and each changed what every later number meant, twice by showing the tier's premise was false before a model existed. Pair every positive claim with a matched control — the colour-blind twin, the memory-less ablation, the context-32 transformer settled more than the main runs did. Intervene rather than regress: repaint-and-redream and re-simulate-a-miss answered in one table what regression analyses had muddled twice. Report the fraction of cases scored, the seed spread and the null next to every number; censoring, single-seed orderings and a non-flat null would each have misled without them. And a world model can be useful while being a bad world; say the weaker thing the evidence supports.</p>
+
+  <p>What would move the remaining negatives is, we think, an objective with long-range credit — a predictive or contrastive target on far-future latents, or a loss that pays for an event's consequences directly — rather than another architecture. That, a dream that re-emerges hidden objects, and a second seed everywhere are where a next tier should start.</p>
+
+  <h2>Open source code</h2>
+  <p>Everything is in the <a href="https://github.com/anirudhmazumder/latent-physics-wm">repository</a>, MIT licensed: the simulator, all three models and their trainers, every evaluation, 206 tests, the checkpoints and every figure on this page, and a script that regenerates all the data deterministically. The <a href="{{ '/docs/' | relative_url }}">documentation</a> is written for a reader new to world models and goes deeper than this page on every tier; the technical run logs record every command, wall-clock time and number. Everything here ran on one Apple M1 laptop with 8 GB of memory. The recipe is Ha and Schmidhuber's; the per-tier experimental design is what this project adds. Claude was used for implementation and documentation.</p>
+
+  <h3>Reading further</h3>
+  <ol class="toc">
+    <li><a href="{{ '/docs/00_big_picture.html' | relative_url }}">The big picture</a></li>
+    <li><a href="{{ '/docs/01_environment_and_data.html' | relative_url }}">The environment and the data</a></li>
+    <li><a href="{{ '/docs/02_vae_the_vision_model.html' | relative_url }}">v1 — V: the vision model</a></li>
+    <li><a href="{{ '/docs/03_dynamics_model.html' | relative_url }}">v1 — M: the dynamics model</a></li>
+    <li><a href="{{ '/docs/04_controller.html' | relative_url }}">v1 — C: the controller</a></li>
+    <li><a href="{{ '/docs/05_results_and_lessons.html' | relative_url }}">v1 — results and lessons</a></li>
+    <li><a href="{{ '/docs/v2/' | relative_url }}">v2 — mass from colour (six documents)</a></li>
+    <li><a href="{{ '/docs/v3/' | relative_url }}">v3 and v3.1 — the occlusion band (eleven documents)</a></li>
+    <li><a href="{{ '/docs/v4/' | relative_url }}">v4 — the gravity switch (four documents)</a></li>
+    <li><a href="{{ '/docs/glossary.html' | relative_url }}">Glossary</a></li>
+  </ol>
+</div>
+</article>
+
+<footer class="end col">A personal project with a research bent · MIT · <a href="https://github.com/anirudhmazumder/latent-physics-wm">Source on GitHub</a></footer>
 
 <script>
 (() => {
+  // The interactive banner: the v1 physics in JavaScript, a tracking agent the
+  // reader can override with the arrow keys or by tapping, and a "dream" copy of
+  // the physics whose velocity is perturbed each step and re-synced every 90 frames.
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  // ---- reveal on scroll
-  const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: 0.08 });
-  document.querySelectorAll('.reveal').forEach(el => io.observe(el));
-
-  // ---- count-up stats
-  const counters = document.querySelectorAll('[data-count]');
-  const cio = new IntersectionObserver(es => es.forEach(e => {
-    if (!e.isIntersecting) return; cio.unobserve(e.target);
-    const el = e.target, target = parseFloat(el.dataset.count), dec = parseInt(el.dataset.dec || '0', 10);
-    if (reduced || target === 0) { el.textContent = target.toFixed(dec); return; }
-    const t0 = performance.now(), dur = 1400;
-    const tick = t => { const p = Math.min(1, (t - t0) / dur), k = 1 - Math.pow(1 - p, 3); el.textContent = (target * k).toFixed(dec); if (p < 1) requestAnimationFrame(tick); };
-    requestAnimationFrame(tick);
-  }), { threshold: 0.5 });
-  counters.forEach(el => cio.observe(el));
-
-  // ---- the live world: the actual v1 physics, in JS, plus a "dream" that drifts.
-  // The dream is a second copy of the physics whose velocity is perturbed a little
-  // every step and which is re-synced to the real ball every 90 frames -- a
-  // caricature of what the MDN-RNN's open-loop rollout does (see docs 03).
-  const cv = document.getElementById('world'); const ctx = cv.getContext('2d');
+  const cv = document.getElementById('world'), ctx = cv.getContext('2d');
   const R = 0.08, SPEED = 0.022, PW = 0.26, PH = 0.045, PY = PH / 2, PSPEED = 0.030, ENGLISH = 0.35, SUB = 4;
   const rnd = (a, b) => a + Math.random() * (b - a);
   function launch(w) {
     w.x = rnd(R, 1 - R); w.y = rnd(PY + PH / 2 + R + 0.05, 1 - R);
     let th; do { th = rnd(0, 2 * Math.PI); } while (Math.abs(Math.sin(th)) < 0.25 || Math.abs(Math.cos(th)) < 0.25);
-    w.vx = SPEED * Math.cos(th); w.vy = SPEED * Math.sin(th); w.px = rnd(PW / 2, 1 - PW / 2); w.pvx = 0;
+    w.vx = SPEED * Math.cos(th); w.vy = SPEED * Math.sin(th); w.px = rnd(PW / 2, 1 - PW / 2); w.pvx = 0; w.hit = 0;
   }
   function step(w, action, noise) {
     const dt = 1 / SUB, drive = (action - 1) * PSPEED, hw = PW / 2;
@@ -207,58 +227,47 @@ description: A world model learns a paddle-and-ball game from pixels, four times
       w.x += w.vx * dt; w.y += w.vy * dt;
       if (w.x < R) { w.x = 2 * R - w.x; w.vx = -w.vx; } else if (w.x > 1 - R) { w.x = 2 * (1 - R) - w.x; w.vx = -w.vx; }
       if (w.y < R) { w.y = 2 * R - w.y; w.vy = -w.vy; } else if (w.y > 1 - R) { w.y = 2 * (1 - R) - w.y; w.vy = -w.vy; }
-      // paddle: closest point on the box to the ball centre
       const qx = Math.min(Math.max(w.x, w.px - hw), w.px + hw), qy = Math.min(Math.max(w.y, PY - PH / 2), PY + PH / 2);
       const dx = w.x - qx, dy = w.y - qy, d2 = dx * dx + dy * dy;
       if (d2 < R * R && d2 > 1e-12) {
         const d = Math.sqrt(d2), nxn = dx / d, nyn = dy / d; w.x = qx + nxn * R; w.y = qy + nyn * R;
         const vn = w.vx * nxn + w.vy * nyn; if (vn < 0) { w.vx -= 2 * vn * nxn; w.vy -= 2 * vn * nyn; }
         w.vx += ENGLISH * w.pvx; const sp = Math.hypot(w.vx, w.vy); w.vx *= SPEED / sp; w.vy *= SPEED / sp;
-        if (Math.abs(w.vy) < 0.15 * SPEED) { const sgn = w.vy >= 0 ? 1 : -1; w.vy = sgn * 0.15 * SPEED; w.vx = Math.sign(w.vx || 1) * Math.sqrt(SPEED * SPEED - w.vy * w.vy); }
-        w.hit = 6;
+        if (Math.abs(w.vy) < 0.15 * SPEED) { const sg = w.vy >= 0 ? 1 : -1; w.vy = sg * 0.15 * SPEED; w.vx = Math.sign(w.vx || 1) * Math.sqrt(SPEED * SPEED - w.vy * w.vy); }
+        w.hit = 8;
       }
     }
     if (noise) { const a = Math.atan2(w.vy, w.vx) + (Math.random() - 0.5) * noise; w.vx = SPEED * Math.cos(a); w.vy = SPEED * Math.sin(a); }
     if (w.hit) w.hit--;
   }
-  const real = {}, dream = {}; launch(real); Object.assign(dream, real); let frame = 0, age = 0; const trail = [];
-  const track = w => { const err = w.x - w.px; return Math.abs(err) < PW / 4 ? 1 : (err > 0 ? 2 : 0); };
+  const real = {}, dream = {}; launch(real); Object.assign(dream, real);
+  let age = 0, override = null, overrideUntil = 0, hits = 0; const trail = [];
+  const track = w => { const e = w.x - w.px; return Math.abs(e) < PW / 4 ? 1 : (e > 0 ? 2 : 0); };
+  addEventListener('keydown', e => { if (e.key === 'ArrowLeft') { override = 0; overrideUntil = performance.now() + 250; e.preventDefault(); } if (e.key === 'ArrowRight') { override = 2; overrideUntil = performance.now() + 250; e.preventDefault(); } });
+  const tap = e => { const x = (e.touches ? e.touches[0].clientX : e.clientX) - cv.getBoundingClientRect().left; override = x < cv.clientWidth / 2 ? 0 : 2; overrideUntil = performance.now() + 400; };
+  cv.addEventListener('pointerdown', tap); cv.addEventListener('touchstart', tap, { passive: true });
+  function fit() { const w = cv.clientWidth, h = cv.clientHeight, dpr = Math.min(2, devicePixelRatio || 1); if (cv.width !== w * dpr || cv.height !== h * dpr) { cv.width = w * dpr; cv.height = h * dpr; } }
   function draw() {
-    // Leave room at the bottom for the legend so the paddle is never under it.
-    const W = cv.width, H = cv.height, pad = 64, s = Math.min(W - 2 * pad, H - pad - 40); const ox = (W - s) / 2, oy = 40 + (H - pad - 40 - s) / 2;
+    fit(); const W = cv.width, H = cv.height, s = Math.min(W * 0.9, H - 80 * (W / cv.clientWidth)); const ox = (W - s) / 2, oy = (H - s) / 2;
     const X = x => ox + x * s, Y = y => oy + (1 - y) * s;
-    ctx.fillStyle = '#111114'; ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = '#16161b'; ctx.fillRect(ox, oy, s, s);
-    ctx.strokeStyle = 'rgba(255,255,255,.06)'; ctx.lineWidth = 1; for (let g = 1; g < 8; g++) { ctx.beginPath(); ctx.moveTo(X(g / 8), oy); ctx.lineTo(X(g / 8), oy + s); ctx.moveTo(ox, Y(g / 8)); ctx.lineTo(ox + s, Y(g / 8)); ctx.stroke(); }
-    // dream trail + ball
-    trail.push([dream.x, dream.y]); if (trail.length > 40) trail.shift();
-    ctx.lineWidth = 2; for (let i = 1; i < trail.length; i++) { ctx.strokeStyle = `rgba(240,131,111,${0.02 + 0.3 * i / trail.length})`; ctx.beginPath(); ctx.moveTo(X(trail[i - 1][0]), Y(trail[i - 1][1])); ctx.lineTo(X(trail[i][0]), Y(trail[i][1])); ctx.stroke(); }
-    ctx.beginPath(); ctx.arc(X(dream.x), Y(dream.y), R * s, 0, 7); ctx.fillStyle = 'rgba(240,131,111,.22)'; ctx.fill(); ctx.strokeStyle = 'rgba(240,131,111,.7)'; ctx.setLineDash([4, 4]); ctx.stroke(); ctx.setLineDash([]);
-    // link between real and dreamed ball
+    ctx.fillStyle = '#111114'; ctx.fillRect(0, 0, W, H); ctx.fillStyle = '#17171c'; ctx.fillRect(ox, oy, s, s);
+    ctx.strokeStyle = 'rgba(255,255,255,.05)'; ctx.lineWidth = 1; for (let g = 1; g < 8; g++) { ctx.beginPath(); ctx.moveTo(X(g / 8), oy); ctx.lineTo(X(g / 8), oy + s); ctx.moveTo(ox, Y(g / 8)); ctx.lineTo(ox + s, Y(g / 8)); ctx.stroke(); }
+    trail.push([dream.x, dream.y]); if (trail.length > 45) trail.shift();
+    ctx.lineWidth = 2 * (W / cv.clientWidth); for (let i = 1; i < trail.length; i++) { ctx.strokeStyle = `rgba(240,131,111,${0.02 + 0.28 * i / trail.length})`; ctx.beginPath(); ctx.moveTo(X(trail[i - 1][0]), Y(trail[i - 1][1])); ctx.lineTo(X(trail[i][0]), Y(trail[i][1])); ctx.stroke(); }
+    ctx.beginPath(); ctx.arc(X(dream.x), Y(dream.y), R * s, 0, 7); ctx.fillStyle = 'rgba(240,131,111,.2)'; ctx.fill(); ctx.strokeStyle = 'rgba(240,131,111,.7)'; ctx.setLineDash([5, 5]); ctx.stroke(); ctx.setLineDash([]);
     ctx.strokeStyle = 'rgba(240,131,111,.25)'; ctx.beginPath(); ctx.moveTo(X(real.x), Y(real.y)); ctx.lineTo(X(dream.x), Y(dream.y)); ctx.stroke();
-    // paddle
     ctx.fillStyle = real.hit ? '#7cb8f0' : '#3a8fe0'; ctx.fillRect(X(real.px - PW / 2), Y(PY + PH / 2), PW * s, PH * s);
-    // real ball
     ctx.beginPath(); ctx.arc(X(real.x), Y(real.y), R * s, 0, 7); ctx.fillStyle = '#e05a46'; ctx.fill();
-    // resync marker
-    const el = document.getElementById('resync'); el.textContent = age < 6 ? 're-synced' : `dream age ${age} · drift ${(Math.hypot(real.x - dream.x, real.y - dream.y) / R).toFixed(1)} radii`;
+    const el = document.getElementById('hud-status'); const manual = performance.now() < overrideUntil;
+    el.textContent = (manual ? 'you are driving · ' : 'agent driving · ') + (age < 6 ? 'dream re-synced' : `dream age ${age}, ${(Math.hypot(real.x - dream.x, real.y - dream.y) / R).toFixed(1)} radii off`) + ` · ${hits} caught`;
   }
   function loop() {
-    const a = track(real); step(real, a, 0); step(dream, a, 0.05); frame++; age++;
+    const a = performance.now() < overrideUntil ? override : track(real);
+    const before = real.hit; step(real, a, 0); if (real.hit === 8 && before === 0) hits++; step(dream, a, 0.05); age++;
     if (age >= 90) { Object.assign(dream, { x: real.x, y: real.y, vx: real.vx, vy: real.vy, px: real.px }); age = 0; trail.length = 0; }
-    draw(); if (!reduced) requestAnimationFrame(loop);
+    draw(); requestAnimationFrame(loop);
   }
-  draw(); if (!reduced) requestAnimationFrame(loop);
-
-  // ---- pipeline flows: particles along the edges (skipped under reduced motion)
-  const svg = document.getElementById('pipe'), flows = document.getElementById('flows');
-  const edges = ['e1', 'e2', 'e3', 'e4'].map(id => document.getElementById(id)).concat([svg.querySelectorAll('path.edge.dream')[1]]);
-  if (!reduced) {
-    const parts = [];
-    edges.forEach((p, i) => { const L = p.getTotalLength(); for (let k = 0; k < 3; k++) { const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle'); c.setAttribute('r', i === 4 ? 2.6 : 3.2); c.setAttribute('class', 'flow' + (i === 3 ? ' b' : '')); flows.appendChild(c); parts.push({ p, L, c, t: k / 3, v: 0.0035 + 0.0012 * (i === 4) }); } });
-    const anim = () => { parts.forEach(q => { q.t = (q.t + q.v) % 1; const pt = q.p.getPointAtLength(q.t * q.L); q.c.setAttribute('cx', pt.x); q.c.setAttribute('cy', pt.y); q.c.setAttribute('opacity', 0.35 + 0.65 * Math.sin(Math.PI * q.t)); }); requestAnimationFrame(anim); };
-    anim();
-  }
+  draw(); if (!reduced) requestAnimationFrame(loop); else document.querySelector('.banner .hint').textContent = 'The interactive demo is paused because your system prefers reduced motion.';
 })();
 </script>
 </body>
