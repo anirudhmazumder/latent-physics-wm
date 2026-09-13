@@ -1,0 +1,46 @@
+# GitHub Pages configuration. The site is built from the repository root so
+# every Markdown document renders as a page and the figures under runs/ are
+# served at the same relative paths the documents already use.
+title: latent-physics-wm
+description: Learning world models that understand physics and cause and effect, one small environment at a time.
+theme: jekyll-theme-cayman
+show_downloads: false
+markdown: kramdown
+kramdown:
+  input: GFM
+  hard_wrap: false
+plugins:
+  - jekyll-relative-links      # links to foo.md become links to foo.html
+  - jekyll-optional-front-matter
+  - jekyll-readme-index
+  - jekyll-default-layout
+  - jekyll-titles-from-headings
+relative_links:
+  enabled: true
+  collections: false
+titles_from_headings:
+  strip_title: true
+# README.md is the repository front page; index.md is the site front page.
+readme_index:
+  enabled: false
+exclude:
+  - data/
+  - tests/
+  - scripts/
+  - worldsim/**/*.py
+  - wm/**/*.py
+  - "**/*.py"
+  - "**/*.pt"
+  - "**/*.npy"
+  - "**/*.log"
+  - "**/*.sh"
+  - "**/__pycache__/"
+  - environment.yml
+  - requirements.txt
+  - pytest.ini
+  - LICENSE
+  - Gemfile
+  - Gemfile.lock
+  - vendor/
+include:
+  - runs/
