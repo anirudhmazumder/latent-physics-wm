@@ -28,7 +28,6 @@ readme_index:
 exclude:
   # Source (.py/.sh) and small text files are published as raw files because the
   # documents link to them; only the large binaries and the data are left out.
-  - data/
   - "**/*.pt"
   - "**/*.npy"
   - "**/__pycache__/"
@@ -40,7 +39,6 @@ exclude:
   - vendor/
 include:
   - runs/
-  - data/README.md
   # Jekyll skips files whose names begin with an underscore unless listed here.
   - runs/_eval_clock31.sh
   - runs/_eval_ctrl_v31.sh
