@@ -1,0 +1,210 @@
+{
+  "ckpt": "runs/rnn_v4_ff/rnn.pt",
+  "cfg": {
+    "z_dim": 16,
+    "n_actions": 3,
+    "hidden": 256,
+    "n_gauss": 5,
+    "predict_delta": true,
+    "ablate_actions": false,
+    "mass_head": false,
+    "feedforward": true,
+    "pos_head": false,
+    "clock_head": false,
+    "vy_head": false,
+    "arch": "lstm"
+  },
+  "val_roots": [
+    "data/v4/val",
+    "data/v4/val_mix"
+  ],
+  "warmup": 8,
+  "horizon": 64,
+  "n_metric": 30,
+  "a_pixels": {
+    "vae_floor_mse": 0.00016372701793443412,
+    "pixel_mse_tau0.0": {
+      "h1": 0.001214261632412672,
+      "h16": 0.011024023406207561,
+      "h64": 0.011137089692056179,
+      "mean": 0.010514050722122192
+    },
+    "pixel_mse_tau0.5": {
+      "h1": 0.005959653295576572,
+      "h16": 0.010998408310115337,
+      "h64": 0.010830669663846493,
+      "mean": 0.010799585841596127
+    },
+    "pixel_mse_tau1.0": {
+      "h1": 0.005731281358748674,
+      "h16": 0.011318972334265709,
+      "h64": 0.01219392754137516,
+      "mean": 0.011478545144200325
+    }
+  },
+  "b_state": {
+    "tau0.0": {
+      "useful_dream_horizon": 3,
+      "speed_horizon_mean": 0.0,
+      "speed_ratio_median_final": 0.1608527428007701,
+      "ball_x_err_h16": 0.21338817545154426,
+      "ball_y_err_h16": 0.20421565917080817,
+      "paddle_x_err_h16": 0.07099701867392468,
+      "ball_err_final": 0.5560338702263784
+    },
+    "tau0.5": {
+      "useful_dream_horizon": 0,
+      "speed_horizon_mean": 0.8,
+      "speed_ratio_median_final": 0.4710575169739719,
+      "ball_x_err_h16": 0.3450080403558834,
+      "ball_y_err_h16": 0.28451185028526704,
+      "paddle_x_err_h16": 0.06172712246326051,
+      "ball_err_final": 0.4072304145177679
+    },
+    "tau1.0": {
+      "useful_dream_horizon": 0,
+      "speed_horizon_mean": 0.8333333333333334,
+      "speed_ratio_median_final": 1.3049122327438862,
+      "ball_x_err_h16": 0.329627333205143,
+      "ball_y_err_h16": 0.3085504229948434,
+      "paddle_x_err_h16": 0.10616656564158028,
+      "ball_err_final": 0.40842173496269074
+    },
+    "probe_floor": {
+      "ball_x": 0.011429116094916243,
+      "ball_y": 0.008858832702168834,
+      "paddle_x": 0.06662128632152864
+    }
+  },
+  "c_velocity": {
+    "z": {
+      "linear": {
+        "ball_x": 0.2357928179652098,
+        "ball_y": 0.2811543182049847,
+        "ball_vx": -0.005198397115641962,
+        "ball_vy": -0.0053195251144841915,
+        "paddle_x": 0.8831097464423495,
+        "paddle_vx": -0.01187165476435914,
+        "gravity_sign": -0.08981300286927385
+      },
+      "knn": {
+        "ball_x": 0.997983884216277,
+        "ball_y": 0.9985480511459977,
+        "ball_vx": -0.040828646159216664,
+        "ball_vy": -0.30129843010736046,
+        "paddle_x": 0.9484282141010042,
+        "paddle_vx": -0.09660480368795388,
+        "gravity_sign": -0.23169229321760998
+      },
+      "poly2": {
+        "ball_x": 0.959354829048075,
+        "ball_y": 0.9793398251515953,
+        "ball_vx": -0.003977897757118987,
+        "ball_vy": -0.14314220012588974,
+        "paddle_x": 0.9922485114433212,
+        "paddle_vx": -0.042083354710908516,
+        "gravity_sign": -0.1561023805150452
+      }
+    },
+    "h": {
+      "linear": {
+        "ball_x": 0.9817671064734477,
+        "ball_y": 0.9800553536988451,
+        "ball_vx": 0.03292719421049217,
+        "ball_vy": -0.12743662595236604,
+        "paddle_x": 0.9956728435038253,
+        "paddle_vx": 0.6370629995462209,
+        "gravity_sign": -0.20316730835849595
+      },
+      "knn": {
+        "ball_x": 0.996967154786877,
+        "ball_y": 0.997271497021381,
+        "ball_vx": -0.017253377723415175,
+        "ball_vy": -0.3033506795212695,
+        "paddle_x": 0.9413138778205867,
+        "paddle_vx": 0.33593898423097324,
+        "gravity_sign": -0.24893967314955656
+      },
+      "poly2": {
+        "ball_x": 0.9965108347906646,
+        "ball_y": 0.9960297922554412,
+        "ball_vx": -0.028146305649821013,
+        "ball_vy": -0.42656089064934233,
+        "paddle_x": 0.9982859193755778,
+        "paddle_vx": 0.5860259514243389,
+        "gravity_sign": -0.29695487488363304
+      }
+    },
+    "z+h": {
+      "linear": {
+        "ball_x": 0.982403429801916,
+        "ball_y": 0.9822571838488731,
+        "ball_vx": 0.03528729780857809,
+        "ball_vy": -0.12299419310397042,
+        "paddle_x": 0.9961021453665544,
+        "paddle_vx": 0.6369298164405837,
+        "gravity_sign": -0.20832152589746622
+      },
+      "knn": {
+        "ball_x": 0.997200581788915,
+        "ball_y": 0.9974840436003639,
+        "ball_vx": -0.018311245267903065,
+        "ball_vy": -0.3100779713444304,
+        "paddle_x": 0.9419857674333726,
+        "paddle_vx": 0.3217591767379453,
+        "gravity_sign": -0.2471379360923145
+      },
+      "poly2": {
+        "ball_x": 0.9968437061253796,
+        "ball_y": 0.9966236748311472,
+        "ball_vx": -0.031586478211034885,
+        "ball_vy": -0.4240205135688708,
+        "paddle_x": 0.9982385522373768,
+        "paddle_vx": 0.5839288877399396,
+        "gravity_sign": -0.29191630038602323
+      }
+    },
+    "c_linear": {
+      "ball_x": -0.01601285754405901,
+      "ball_y": -0.0039333974507151925,
+      "ball_vx": -9.578267119669803e-05,
+      "ball_vy": -8.056420129776143e-05,
+      "paddle_x": -0.05927839189709139,
+      "paddle_vx": -0.0013393953862870234,
+      "gravity_sign": -0.09863639065299568
+    }
+  },
+  "d_actions": {
+    "paddle_sep_at_h30": 0.580820021499583,
+    "paddle_drift_left": -0.3135437394100177,
+    "paddle_drift_right": 0.2672762820895654
+  },
+  "d_actions_ablated": {
+    "paddle_sep_at_h30": 0.0,
+    "paddle_drift_left": 0.026560957277214657,
+    "paddle_drift_right": 0.026560957277214657
+  },
+  "e_events": {
+    "base_rate": 0.007000000216066837,
+    "precision": 0.14626865671641792,
+    "recall": 1.0,
+    "f1": 0.2552083333333333,
+    "pr_auc": 0.3749070114845139,
+    "n_events_in_curve": 42,
+    "best_f1": {
+      "f1": 0.5212121212121212,
+      "precision": 0.3706896551724138,
+      "recall": 0.8775510204081632,
+      "threshold": 0.9854720234870911
+    },
+    "prob_at_lag_-3": 0.27535736560821533,
+    "prob_at_lag_0": 0.977658212184906,
+    "prob_at_lag_-10": 0.025337567552924156,
+    "note": "A good curve rises BEFORE lag 0. The contact is a deterministic consequence of where the ball and paddle are several frames earlier, so a model that has learned the geometry should be confident in advance; a model that has only learned to recognise contact after the fact would show a spike at lag 0 and nothing before it."
+  },
+  "f_bounces": {
+    "n_cases": 200,
+    "fraction_predicted": 0.02,
+    "fraction_at_random_time": 0.005
+  }
+}

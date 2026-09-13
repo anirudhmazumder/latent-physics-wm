@@ -212,6 +212,7 @@ def classification_suite(
     seed: int = 0,
     which: Sequence[str] = ("logistic", "knn"),
     n_neighbors: int = 10,
+    n_shuffles: int = 0,
 ) -> Dict[str, float]:
     """Held-out ACCURACY for a discrete factor, with the majority baseline.
 
@@ -273,6 +274,86 @@ def classification_suite(
             n_neighbors=n_neighbors, weights="distance"
         ).fit(Xtr, ytr)
         out["knn"] = float(m.score(Xte, yte))
+
+    if n_shuffles > 0:
+        null = shuffled_label_null(
+            mu, y, group_ids=group_ids, seed=seed, which=which,
+            n_neighbors=n_neighbors, n_shuffles=n_shuffles,
+        )
+        out.update(null)
+    return out
+
+
+def shuffled_label_null(
+    mu: np.ndarray,
+    y: np.ndarray,
+    group_ids: Optional[np.ndarray] = None,
+    seed: int = 0,
+    which: Sequence[str] = ("logistic", "knn"),
+    n_neighbors: int = 10,
+    n_shuffles: int = 5,
+) -> Dict[str, float]:
+    """The same probes, on labels that have been detached from the features.
+
+    Why the majority-class rate is not enough on its own. A held-out accuracy is
+    a random variable, and the two things that inflate it here are not visible
+    in the base rate:
+
+    * the probe is fitted on ~100 features and can overfit a finite training
+      set in ways that happen to transfer if the split is small;
+    * the frames are not independent. An episode's labels come in long runs, so
+      the *effective* sample size is the number of runs, not the number of
+      frames, and the sampling spread of a held-out accuracy around 0.5 is far
+      wider than a binomial on 20,000 frames would suggest.
+
+    Shuffling the labels kills any real relationship while keeping both effects
+    exactly: same feature matrix, same split, same classifier, same class
+    balance, same run-length structure. Whatever accuracy comes back is what
+    "nothing" looks like on this data, and a measured accuracy is only evidence
+    if it clears it.
+
+    The shuffle is done at the GROUP level when groups are available: whole
+    episodes' label sequences are permuted between episodes rather than frames
+    being shuffled individually. A per-frame shuffle would destroy the run
+    structure and produce an optimistically tight null -- the very thing the
+    test is supposed to account for. (Episodes of unequal length fall back to a
+    per-frame permutation, and the returned dict says so.)
+    """
+    mu = np.asarray(mu, dtype=np.float64)
+    y = np.asarray(y).ravel()
+    rng = np.random.default_rng(seed + 991)
+
+    blocks: Optional[list] = None
+    if group_ids is not None:
+        order = [np.where(group_ids == g)[0] for g in np.unique(group_ids)]
+        if len({len(o) for o in order}) == 1 and len(order) > 2:
+            blocks = order
+
+    accs: Dict[str, list] = {k: [] for k in which}
+    for s in range(n_shuffles):
+        if blocks is not None:
+            perm = rng.permutation(len(blocks))
+            y_s = y.copy()
+            for dst, src in enumerate(perm):
+                y_s[blocks[dst]] = y[blocks[src]]
+        else:
+            y_s = y[rng.permutation(len(y))]
+        rec = classification_suite(
+            mu, y_s, group_ids=group_ids, seed=seed + s, which=which,
+            n_neighbors=n_neighbors, n_shuffles=0,
+        )
+        for k in which:
+            if k in rec:
+                accs[k].append(rec[k])
+
+    out: Dict[str, float] = {
+        "null_shuffle_blocks": "episode" if blocks is not None else "frame",
+        "null_n_shuffles": int(n_shuffles),
+    }
+    for k, v in accs.items():
+        if v:
+            out[f"null_{k}_mean"] = float(np.mean(v))
+            out[f"null_{k}_max"] = float(np.max(v))
     return out
 
 

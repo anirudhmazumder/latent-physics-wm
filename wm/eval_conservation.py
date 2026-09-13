@@ -537,6 +537,15 @@ def main() -> None:
     p.add_argument("--probe-samples", type=int, default=12000)
     p.add_argument("--mass-probe-stride", type=int, default=2,
                    help="use every Nth frame when fitting the log-mass probe")
+    # v4. The conserved quantity in the gravity-switch world is the SIGN: it is
+    # constant between paddle contacts and nothing in the model's loss restores
+    # it once a dream lets it drift. Off unless asked for, so v1-v3.1 reruns are
+    # byte-identical.
+    p.add_argument("--sign-metric", action="store_true",
+                   help="v4: probe-decoded gravity-sign consistency along the "
+                        "dream. Needs a dataset with a gravity_sign column.")
+    p.add_argument("--sign-probe-data", nargs="+", default=None,
+                   help="roots to fit the sign probe on (default: --val)")
     p.add_argument("--device", default="cpu")
     p.add_argument("--seed", type=int, default=0)
     a = p.parse_args()
@@ -614,6 +623,9 @@ def main() -> None:
     plot_conservation(res, floor, a.taus, out / "conservation.png",
                       f"conservation over a {a.horizon}-step dream -- {name}")
 
+    sign_metric = sign_conservation(
+        model, a, device, name) if a.sign_metric else None
+
     report = {
         "name": name, "ckpt": str(a.ckpt), "vae": str(a.vae),
         "val_roots": list(a.val), "n_episodes": int(n),
@@ -623,6 +635,7 @@ def main() -> None:
         "has_mass": bool(ep.has_mass),
         "band": list(band) if band else None,
         "action_policy_past_episode_end": "hold the last recorded action",
+        "sign_conservation": sign_metric,
         "probe_floor": {k: (v.tolist() if isinstance(v, np.ndarray) else v)
                         for k, v in floor.items()},
         "per_tau": {
@@ -651,6 +664,56 @@ def main() -> None:
     }
     (out / "report.json").write_text(json.dumps(report, indent=2, default=float))
     _summary(report, res, floor, a, out)
+
+
+def sign_conservation(model, a, device: str, name: str) -> Dict:
+    """(vi) v4: does the dreamed world keep the gravity sign it started with?
+
+    The v2 lesson said the ball's mass drifts in a sampled dream because nothing
+    in the one-step loss punishes losing it. v4's sign is the same failure mode
+    with the difficulty turned up: mass was at least *visible* in every frame,
+    so a drifting dream contradicted its own pixels, whereas the sign is visible
+    in no frame at all. There is literally nothing in a dreamed image for the
+    model to check itself against.
+
+    Measured with the same instrument as ``wm.eval_switch_v4`` (a): a linear
+    probe from h to the sign, fitted on REAL teacher-forced passes and then
+    frozen, read along the dream. A step at which the model's own hit head says
+    a contact is happening is excluded, because at such a step the sign is
+    *supposed* to change and holding it would be the error.
+
+    Reusing that module rather than reimplementing is deliberate: two different
+    sign probes would make the number here and the number in the memory curve
+    incomparable, and comparing them is the point.
+    """
+    from .eval_switch_v4 import (
+        SignProbe, experiment_e, hidden_states, load_split,
+    )
+    from .probes import make_split as _split
+
+    roots = a.sign_probe_data or a.val
+    sp = load_split(roots)
+    if "gravity_sign" not in sp.names:
+        print("  (--sign-metric asked for, but this world has no gravity_sign "
+              "column; skipping)")
+        return None
+
+    H = hidden_states(model, sp.mu, sp.actions, device)
+    E, T, _ = H.shape
+    X = H.reshape(E * T, -1)
+    y = sp.sign[:, :T].reshape(-1)
+    grp = np.repeat(np.arange(E), T)
+    tr, te = _split(len(X), frac_train=0.7, seed=a.seed, group_ids=grp)
+    probe = SignProbe().fit(X, y, tr[::2])
+    held = probe.accuracy(X[te], y[te])
+    print(f"\n  sign probe on real teacher-forced h: held-out accuracy "
+          f"{held:.3f} ({len(roots)} root(s), {E} episodes)")
+
+    rec = experiment_e(model, sp, probe, device, a.seed, warm=a.warmup,
+                       horizon=min(a.horizon, T - a.warmup - 1),
+                       taus=tuple(a.taus), n_ep=min(a.n_episodes, E))
+    rec["teacher_forced_probe_accuracy"] = held
+    return rec
 
 
 def _fit_mass_probe(roots: Sequence[str], suffix: str, stride: int) -> Poly2Probe:
@@ -750,6 +813,24 @@ def _summary(report: Dict, res: Dict, floor: Dict, a, out: Path) -> None:
                   f"{hv['vx_sign_flipped']:12.3f}")
         print("    ('floor' is the same estimator on TRUE latents: the instrument's "
               "own score.)")
+
+    sc = report.get("sign_conservation")
+    if sc:
+        print("\n(vi) v4: the gravity SIGN along the dream -- the conserved "
+              "quantity here.")
+        print(f"    A frozen linear probe on h, {sc['teacher_forced_probe_accuracy']:.3f} "
+              f"accurate on real teacher-forced passes, read along a "
+              f"{sc['horizon']}-step dream.")
+        print("    " + f"{'tau':>6s}{'consistency':>13s}{'(all steps)':>13s}"
+              f"{'steps the model calls a contact':>34s}")
+        for t in sc["taus"]:
+            print(f"    {t['tau']:6.2f}{t['sign_consistency']:13.3f}"
+                  f"{t['sign_consistency_all_steps']:13.3f}"
+                  f"{t['frac_steps_model_predicts_contact']:34.3f}")
+        print("    'consistency' = fraction of dreamed steps whose decoded sign "
+              "still matches the\n    one in force when the dream began, over "
+              "steps at which the model's own hit head\n    does not think a "
+              "contact is happening.")
 
     print("\n(iv) fraction of dreamed frames with a well-formed ball "
           "(area within 50-150% of the VAE reference)")

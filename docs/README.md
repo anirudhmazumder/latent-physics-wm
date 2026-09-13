@@ -41,6 +41,15 @@ they build on one another.
 | v3.1-09 | [Results and lessons](v3/09_v31_results_and_lessons.md) | v3.1 in one page, the project after three tiers, and v4 |
 | v3.1-10 | [Exit clock and second seeds](v3/10_v31_clock_and_seeds.md) | A counter head learns the past, not the future; two seeds keep the headline and drop the details |
 
+## v4 — the gravity switch (a bit set by an event, held indefinitely)
+
+| # | document | one line |
+|---|---|---|
+| v4-00 | [Design](v4/00_v4_design.md) | A hidden gravity sign flipped by paddle contact; LSTM vs transformer |
+| v4-01 | [Environment, sweeps, data](v4/01_v4_env_data_and_sweeps.md) | Two oracle sweeps show the sign never matters for play — with a closed form; v4 becomes a dynamics tier |
+| v4-02 | [M: LSTM vs transformer](v4/02_v4_dynamics_lstm_vs_transformer.md) | Neither remembers the flip; both infer the sign from curvature; the flip counterfactual is at chance |
+| v4-03 | [Results and retrospective](v4/03_v4_results_and_retrospective.md) | v4 in one page, and what four tiers established |
+
 **See it live.** `python -m wm.live` opens a window with the real game (arrow
 keys) next to what the VAE sees, what the RNN predicted this frame would look
 like, and a free-running dream that drifts until you re-sync it. `A` hands
@@ -50,5 +59,5 @@ control to the dream-trained controller. `python -m wm.live --record out.gif
 
 Technical run logs with exact commands and every number, written by the
 implementing agents and reviewed: [`../wm/README_M.md`](../wm/README_M.md),
-[`../wm/README_C.md`](../wm/README_C.md); for v2: [`../wm/README_V2.md`](../wm/README_V2.md), [`../wm/README_M2.md`](../wm/README_M2.md), [`../wm/README_C2.md`](../wm/README_C2.md), [`../wm/README_FIX.md`](../wm/README_FIX.md), [`../wm/README_C2_FIX.md`](../wm/README_C2_FIX.md); for v3: [`../wm/README_V3.md`](../wm/README_V3.md), [`../wm/README_M3.md`](../wm/README_M3.md), [`../wm/README_FIX3.md`](../wm/README_FIX3.md), [`../wm/README_C3.md`](../wm/README_C3.md); for v3.1: [`../wm/README_V31.md`](../wm/README_V31.md), [`../wm/README_C31.md`](../wm/README_C31.md), [`../wm/README_CLOCK31.md`](../wm/README_CLOCK31.md), [`../wm/README_C31_SEEDS.md`](../wm/README_C31_SEEDS.md). The environment's own notes:
+[`../wm/README_C.md`](../wm/README_C.md); for v2: [`../wm/README_V2.md`](../wm/README_V2.md), [`../wm/README_M2.md`](../wm/README_M2.md), [`../wm/README_C2.md`](../wm/README_C2.md), [`../wm/README_FIX.md`](../wm/README_FIX.md), [`../wm/README_C2_FIX.md`](../wm/README_C2_FIX.md); for v3: [`../wm/README_V3.md`](../wm/README_V3.md), [`../wm/README_M3.md`](../wm/README_M3.md), [`../wm/README_FIX3.md`](../wm/README_FIX3.md), [`../wm/README_C3.md`](../wm/README_C3.md); for v3.1: [`../wm/README_V31.md`](../wm/README_V31.md), [`../wm/README_C31.md`](../wm/README_C31.md), [`../wm/README_CLOCK31.md`](../wm/README_CLOCK31.md), [`../wm/README_C31_SEEDS.md`](../wm/README_C31_SEEDS.md); for v4: [`../wm/README_M4.md`](../wm/README_M4.md). The environment's own notes:
 [`../worldsim/worldsim.md`](../worldsim/worldsim.md).

@@ -41,6 +41,15 @@ transferred was a dense reward on a memory-carrying state, not a simulation.
 A second training seed per row keeps that headline and dissolves the finer
 orderings. Docs in `docs/v3/06–10`.
 
+**v4 (gravity switch):** a hidden gravity direction flipped by paddle contact,
+invisible per frame. Two oracle sweeps showed the sign never matters for play
+(a closed form says why), so v4 is a dynamics tier: an LSTM and a causal
+transformer both learn to *infer* the sign from the trajectory's curvature and
+neither *remembers* the flip — the interventional flip counterfactual is at
+chance for both, and the transformer that cannot see back to the flip is the
+best predictor. The objective, not the architecture, set the ceiling. Docs in
+`docs/v4/`.
+
 **Start with the docs:** [`docs/README.md`](docs/README.md) — written so that
 someone new to world models can follow what was built, why, what was measured,
 and what it means.
@@ -57,5 +66,5 @@ tests/      unit tests: python -m tests.test_rnn && python -m tests.test_control
 Python environment: conda `NN` (`/opt/miniconda3/envs/NN/bin/python`), PyTorch
 2.12, numpy, scikit-learn, matplotlib, Pillow, scipy, `cma`.
 
-Roadmap: revive the v3.1 dream (exit clock) → v4 gravity switch (transformer vs LSTM) (see
+All four planned tiers are done; see `docs/v4/03_v4_results_and_retrospective.md` for what would move the remaining negatives. (see
 `worldsim/worldsim.md` and `docs/05_results_and_lessons.md`).

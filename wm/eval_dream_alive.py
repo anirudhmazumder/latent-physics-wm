@@ -215,7 +215,7 @@ def real_fractions(root: str, cfg: BoxConfig, n_frames: int = 4096,
         "frac_ball_below_band": float(bel.mean()),
         "mean_mass": float(np.concatenate(mass).mean()),
         "meta_frac_frames_visible":
-            meta.get("occlusion", {}).get("frac_frames_visible"),
+            (meta.get("occlusion") or {}).get("frac_frames_visible"),
     }
 
 
@@ -506,8 +506,9 @@ def plot_dream_alive(report: Dict, out: Path) -> Path:
         ax.set_title(f"reward head R2 (teacher-forced) = {r2:.2f}", fontsize=8)
         axes[i][0].set_title(f"{name}", fontsize=10, loc="left",
                              fontweight="bold")
-    fig.suptitle("is the v3.1 dream alive? decoded ball presence over 150 dream "
-                 "steps, against the real data", fontsize=12)
+    fig.suptitle(f"is the dream alive? decoded ball presence over "
+                 f"{report['steps']} dream steps, against the real data",
+                 fontsize=12)
     fig.tight_layout(rect=(0, 0, 1, 0.97))
     fig.savefig(out, dpi=130)
     plt.close(fig)
@@ -693,15 +694,26 @@ def write_report(report: Dict, out: Path) -> None:
         f"**{rs['arrivals_per_run']:.2f}** | {rs['mean_y_sd']:.3f} | "
         f"{rs['frac_reemerged']:.1%} ({rs['n_started_hidden']}) |",
         "",
-        "The detector's `ball present` is a half-a-ball-outside-the-band "
-        "threshold, so it should land between the dataset's "
-        "`frac_frames_visible` "
-        f"({real['meta_frac_frames_visible']:.1%}, the ball entirely clear of "
-        "the band) and `visible + partial` (57 %) — i.e. at roughly the "
-        "fraction of frames with `ball_visible > 0.5`. It does. `ball below "
-        "the band` is the reference the dream is graded against: the fraction "
-        "of frames on which the ball is in the strip where the paddle can act "
-        "at all, which in this world is only a few per cent.",
+        # In a world with no occluder (v4) there is no `frac_frames_visible`
+        # to calibrate against and no band for the ball to be below, so the
+        # calibration paragraph is replaced by one that says what the two
+        # columns mean when the band has been pushed out of the box.
+        ("The detector's `ball present` is a half-a-ball-outside-the-band "
+         "threshold, so it should land between the dataset's "
+         "`frac_frames_visible` "
+         f"({real['meta_frac_frames_visible']:.1%}, the ball entirely clear of "
+         "the band) and `visible + partial` (57 %) — i.e. at roughly the "
+         "fraction of frames with `ball_visible > 0.5`. It does. `ball below "
+         "the band` is the reference the dream is graded against: the fraction "
+         "of frames on which the ball is in the strip where the paddle can act "
+         "at all, which in this world is only a few per cent."
+         if real["meta_frac_frames_visible"] is not None else
+         "This world has no occluder, so the band was pushed above the ceiling: "
+         "`ball present` is therefore measured over the whole frame and `ball "
+         "below the band` is identical to it by construction. Only the presence "
+         "column and the reward-head correlation carry information here; the "
+         "arrivals and re-emergence columns are artefacts of a band that is not "
+         "there."),
         "",
         "## Every cell",
         "",
@@ -798,10 +810,14 @@ def main() -> None:
           f"steps, warmup {a.warmup}")
 
     real = real_fractions(a.real_root, cfg, n_frames=a.real_frames, seed=a.seed)
+    # ``meta_frac_frames_visible`` exists only for a world that HAS an occluder.
+    # v4 has none (the band is pushed above the ceiling so that "outside the
+    # band" means the whole frame), so the parenthetical is simply dropped.
+    mv = real["meta_frac_frames_visible"]
     print(f"real frames ({real['root']}): ball present "
-          f"{real['frac_ball_present']:.1%} (meta says visible "
-          f"{real['meta_frac_frames_visible']:.1%}), below the band "
-          f"{real['frac_ball_below_band']:.1%}")
+          f"{real['frac_ball_present']:.1%}"
+          + (f" (meta says visible {mv:.1%})" if mv is not None else "")
+          + f", below the band {real['frac_ball_below_band']:.1%}")
 
     # One set of starts for the whole script. Drawn here rather than inside
     # each cell so that all twelve dreams AND the real reference below are the

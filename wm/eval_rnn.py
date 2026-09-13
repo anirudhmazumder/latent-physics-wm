@@ -611,7 +611,7 @@ def part_c_velocity(
         ax.grid(alpha=0.3, axis="y")
     axes[0].set_ylabel("held-out R^2")
     axes[0].legend()
-    fig.suptitle("what is decodable from the latent (z) vs the LSTM state (h)")
+    fig.suptitle("what is decodable from the latent (z) vs the model state (h)")
     fig.tight_layout()
     fig.savefig(out / "where_is_velocity.png", dpi=130)
     plt.close(fig)

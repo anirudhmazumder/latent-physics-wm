@@ -118,38 +118,47 @@ class RNNConfig:
     # out" and "how fast is it falling" are the same fact twice, and the
     # ceiling run is allowed to be told both.
     vy_head: bool = False
+    # v4. Which sequence backbone a checkpoint was trained with. This is the
+    # ONLY thing ``load_rnn`` needs in order to hand back the right class, and
+    # giving it a default means every pre-v4 checkpoint -- whose saved config
+    # has no such key -- still loads as an LSTM with a byte-identical state
+    # dict. ``wm.transformer.TransformerConfig`` sets it to "transformer".
+    arch: str = "lstm"
 
 
-class MDNRNN(nn.Module):
-    """Single-layer LSTM + mixture-density head, as in Ha & Schmidhuber (2018)."""
+class MDNDynamics(nn.Module):
+    """Everything a dynamics model needs EXCEPT the sequence backbone.
 
-    def __init__(self, cfg: Optional[RNNConfig] = None):
-        super().__init__()
-        self.cfg = cfg or RNNConfig()
+    Split out of ``MDNRNN`` in v4, when a causal transformer arrived as a second
+    backbone. The heads, the mixture likelihood, the delta bookkeeping and the
+    sampler are not properties of "being an LSTM" -- they are properties of
+    "predicting z_{t+1} as a mixture" -- and the LSTM-vs-transformer comparison
+    is only worth anything if *literally the same* head code and *literally the
+    same* loss run on top of both. So they live here, once, and each backbone
+    supplies only ``forward`` and ``init_hidden``.
+
+    The refactor is deliberately shallow: every parameter is still an attribute
+    of the model itself (``self.mdn``, ``self.hit_head``, ...) rather than of a
+    nested ``self.heads`` module, so the state-dict keys are unchanged and every
+    checkpoint written before v4 loads without a shim.
+
+    The contract a subclass must honour, and which the evals rely on so that no
+    call site ever has to ask which model it is holding:
+
+        ``forward(z, a, h) -> (parts, h)``  parts has "h" (B, T, hidden) and
+                                            "z_in", plus the head outputs
+        ``step(z_t, a_t, h) -> (parts, h)`` one timestep, T kept as 1
+        ``init_hidden(B, device)``          a tuple whose ``[0][0]`` is the
+                                            (B, hidden) carried state and whose
+                                            ``[1][0]`` is the same shape
+        ``cfg.hidden``                      the width of ``parts["h"]``
+    """
+
+    cfg: object  # RNNConfig or TransformerConfig; both expose .hidden
+
+    def _build_heads(self) -> None:
+        """Construct every head. Called by the subclass after it has set cfg."""
         c = self.cfg
-        in_dim = c.z_dim + c.n_actions
-
-        if c.feedforward:
-            # The memory control (v3). Two hidden layers of 256, so it has
-            # MORE per-step nonlinearity than the LSTM and strictly less
-            # information: its output at time t is a function of (z_t, a_t)
-            # alone. It therefore CANNOT carry the ball's position through an
-            # occlusion, which is exactly the floor every memory test needs.
-            # ``lstm`` stays None and the attribute name is not reused, so the
-            # two state dicts are disjoint and neither can load the other by
-            # accident.
-            self.lstm = None
-            self.ff = nn.Sequential(
-                nn.Linear(in_dim, c.hidden), nn.Tanh(),
-                nn.Linear(c.hidden, c.hidden), nn.Tanh(),
-            )
-        else:
-            # One layer, exactly as in the paper. Depth is not the bottleneck on
-            # this problem -- the thing that is hard is carrying velocity through
-            # time, which is a recurrence property, not a depth property.
-            self.lstm = nn.LSTM(in_dim, c.hidden, num_layers=1, batch_first=True)
-            self.ff = None
-
         # One linear head emitting all mixture parameters at once:
         #   K logits + K*z means + K*z log-stds
         self.mdn = nn.Linear(c.hidden, c.n_gauss * (1 + 2 * c.z_dim))
@@ -181,17 +190,6 @@ class MDNRNN(nn.Module):
         nn.init.zeros_(self.mdn.bias)
         nn.init.normal_(self.mdn.weight, std=1e-3)
 
-    # ------------------------------------------------------------------ core
-
-    def init_hidden(
-        self, batch: int, device: str | torch.device = "cpu"
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """(h, c) of zeros. For ``feedforward=True`` this is a dummy the model
-        passes through untouched -- the signature is kept so callers do not
-        have to know which kind of model they hold."""
-        h = torch.zeros(1, batch, self.cfg.hidden, device=device)
-        return h, h.clone()
-
     def _split(self, raw: torch.Tensor) -> Dict[str, torch.Tensor]:
         """(B, T, K*(1+2z)) -> logits (B,T,K), mean/logstd (B,T,K,z)."""
         B, T, _ = raw.shape
@@ -203,45 +201,8 @@ class MDNRNN(nn.Module):
             "logstd": logstd.view(B, T, K, z).clamp(LOGSTD_MIN, LOGSTD_MAX),
         }
 
-    def forward(
-        self,
-        z: torch.Tensor,              # (B, T, z_dim)
-        a_onehot: torch.Tensor,       # (B, T, n_actions)
-        h: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
-    ) -> Tuple[Dict[str, torch.Tensor], Tuple[torch.Tensor, torch.Tensor]]:
-        if self.cfg.ablate_actions:
-            # The ablation is done HERE rather than by not building the input,
-            # so the parameter count and every shape stay identical to the main
-            # model and the NLL comparison is apples to apples.
-            a_onehot = torch.zeros_like(a_onehot)
-
-        x = torch.cat([z, a_onehot], dim=-1)
-        if self.ff is not None:
-            # No recurrence: every timestep is processed independently and the
-            # carried state is passed straight back out untouched, so callers
-            # written for the LSTM (warm-up loops, ``step``, the dream
-            # environment) need no branch of their own.
-            out = self.ff(x)
-            # The CARRIED state (the second return value) has to be the thing a
-            # caller can hand to the controller as ``h_pre`` -- ``wm.dream_env``
-            # and ``wm.eval_controller`` both read ``h[0][0]``, i.e. "the state
-            # produced after consuming the previous input". For the LSTM that is
-            # the last timestep's output, so for the MLP it is the last
-            # timestep's output too. Returning the incoming dummy instead (what
-            # this did before stage three of v3) would hand a controller a
-            # constant zero vector and silently turn the memory FLOOR into a
-            # z-only policy, which is a different experiment.
-            #
-            # This changes nothing about the model: nothing is fed back in (the
-            # MLP ignores its ``h`` argument), so every per-step output, every
-            # probe of ``parts["h"]`` and every number in README_M3 is
-            # unaffected. Only the convenience handle changes.
-            h = (
-                out[:, -1].unsqueeze(0).contiguous(),
-                torch.zeros_like(out[:, -1]).unsqueeze(0),
-            )
-        else:
-            out, h = self.lstm(x, h)
+    def _heads(self, out: torch.Tensor, z: torch.Tensor) -> Dict[str, torch.Tensor]:
+        """Backbone output (B, T, hidden) + the input latents -> ``parts``."""
         parts = self._split(self.mdn(out))
         parts["hit_logit"] = self.hit_head(out)          # (B, T, 1)
         parts["reward"] = self.reward_head(out)          # (B, T, 1)
@@ -256,15 +217,15 @@ class MDNRNN(nn.Module):
         parts["h"] = out                                 # (B, T, hidden)
         # Stash z so the delta bookkeeping lives in one place.
         parts["z_in"] = z
-        return parts, h
+        return parts
 
-    def step(
-        self,
-        z_t: torch.Tensor,            # (B, z_dim)
-        a_t: torch.Tensor,            # (B, n_actions) one-hot
-        h: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
-    ):
-        """One timestep. Returns (parts with T=1 squeezed to T dim kept, h)."""
+    def step(self, z_t: torch.Tensor, a_t: torch.Tensor, h=None):
+        """One timestep. Returns (parts with the T dim kept at 1, h).
+
+        The generic implementation: unsqueeze, call ``forward``, hand back what
+        it returns. A backbone whose per-step cost differs from its per-window
+        cost (the transformer) overrides this.
+        """
         parts, h = self.forward(z_t.unsqueeze(1), a_t.unsqueeze(1), h)
         return parts, h
 
@@ -402,11 +363,97 @@ class MDNRNN(nn.Module):
         return m + eps * s
 
 
+class MDNRNN(MDNDynamics):
+    """Single-layer LSTM + mixture-density head, as in Ha & Schmidhuber (2018)."""
+
+    def __init__(self, cfg: Optional[RNNConfig] = None):
+        super().__init__()
+        self.cfg = cfg or RNNConfig()
+        c = self.cfg
+        in_dim = c.z_dim + c.n_actions
+
+        if c.feedforward:
+            # The memory control (v3). Two hidden layers of 256, so it has
+            # MORE per-step nonlinearity than the LSTM and strictly less
+            # information: its output at time t is a function of (z_t, a_t)
+            # alone. It therefore CANNOT carry the ball's position through an
+            # occlusion, which is exactly the floor every memory test needs.
+            # ``lstm`` stays None and the attribute name is not reused, so the
+            # two state dicts are disjoint and neither can load the other by
+            # accident.
+            self.lstm = None
+            self.ff = nn.Sequential(
+                nn.Linear(in_dim, c.hidden), nn.Tanh(),
+                nn.Linear(c.hidden, c.hidden), nn.Tanh(),
+            )
+        else:
+            # One layer, exactly as in the paper. Depth is not the bottleneck on
+            # this problem -- the thing that is hard is carrying velocity through
+            # time, which is a recurrence property, not a depth property.
+            self.lstm = nn.LSTM(in_dim, c.hidden, num_layers=1, batch_first=True)
+            self.ff = None
+
+        self._build_heads()
+
+    # ------------------------------------------------------------------ core
+
+    def init_hidden(
+        self, batch: int, device: str | torch.device = "cpu"
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """(h, c) of zeros. For ``feedforward=True`` this is a dummy the model
+        passes through untouched -- the signature is kept so callers do not
+        have to know which kind of model they hold."""
+        h = torch.zeros(1, batch, self.cfg.hidden, device=device)
+        return h, h.clone()
+
+    def forward(
+        self,
+        z: torch.Tensor,              # (B, T, z_dim)
+        a_onehot: torch.Tensor,       # (B, T, n_actions)
+        h: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,
+    ) -> Tuple[Dict[str, torch.Tensor], Tuple[torch.Tensor, torch.Tensor]]:
+        if self.cfg.ablate_actions:
+            # The ablation is done HERE rather than by not building the input,
+            # so the parameter count and every shape stay identical to the main
+            # model and the NLL comparison is apples to apples.
+            a_onehot = torch.zeros_like(a_onehot)
+
+        x = torch.cat([z, a_onehot], dim=-1)
+        if self.ff is not None:
+            # No recurrence: every timestep is processed independently and the
+            # carried state is passed straight back out untouched, so callers
+            # written for the LSTM (warm-up loops, ``step``, the dream
+            # environment) need no branch of their own.
+            out = self.ff(x)
+            # The CARRIED state (the second return value) has to be the thing a
+            # caller can hand to the controller as ``h_pre`` -- ``wm.dream_env``
+            # and ``wm.eval_controller`` both read ``h[0][0]``, i.e. "the state
+            # produced after consuming the previous input". For the LSTM that is
+            # the last timestep's output, so for the MLP it is the last
+            # timestep's output too. Returning the incoming dummy instead (what
+            # this did before stage three of v3) would hand a controller a
+            # constant zero vector and silently turn the memory FLOOR into a
+            # z-only policy, which is a different experiment.
+            #
+            # This changes nothing about the model: nothing is fed back in (the
+            # MLP ignores its ``h`` argument), so every per-step output, every
+            # probe of ``parts["h"]`` and every number in README_M3 is
+            # unaffected. Only the convenience handle changes.
+            h = (
+                out[:, -1].unsqueeze(0).contiguous(),
+                torch.zeros_like(out[:, -1]).unsqueeze(0),
+            )
+        else:
+            out, h = self.lstm(x, h)
+        return self._heads(out, z), h
+
+
+
 # ------------------------------------------------------------- combined loss
 
 
 def rnn_loss(
-    model: MDNRNN,
+    model: MDNDynamics,
     parts: Dict[str, torch.Tensor],
     batch: Dict[str, torch.Tensor],
     pos_weight: float = 1.0,
@@ -452,7 +499,7 @@ def rnn_loss(
 # ------------------------------------------------------------------ ckpt i/o
 
 
-def save_rnn(path, model: MDNRNN, args: Optional[dict] = None, extra: Optional[dict] = None):
+def save_rnn(path, model: MDNDynamics, args: Optional[dict] = None, extra: Optional[dict] = None):
     from pathlib import Path
 
     path = Path(path)
@@ -468,11 +515,32 @@ def save_rnn(path, model: MDNRNN, args: Optional[dict] = None, extra: Optional[d
     return path
 
 
-def load_rnn(path, device: str = "cpu") -> Tuple[MDNRNN, RNNConfig]:
+def load_rnn(path, device: str = "cpu") -> Tuple[MDNDynamics, object]:
+    """Load whichever dynamics model wrote this checkpoint.
+
+    v4 added a second backbone, so this dispatches on the ``arch`` key of the
+    saved config. Checkpoints written before v4 have no such key; they get the
+    dataclass default ``"lstm"`` and load exactly as they always did. The
+    filtering on ``__dataclass_fields__`` is the same trick as before and is
+    what lets a config gain a field without invalidating old checkpoints.
+    """
     ck = torch.load(path, map_location=device, weights_only=False)
-    fields = set(RNNConfig.__dataclass_fields__)
-    cfg = RNNConfig(**{k: v for k, v in ck["cfg"].items() if k in fields})
-    model = MDNRNN(cfg).to(device)
+    saved = dict(ck["cfg"])
+    arch = str(saved.get("arch", "lstm"))
+    if arch == "transformer":
+        # Imported lazily: transformer.py imports this module for the shared
+        # heads, so a top-level import here would be circular.
+        from .transformer import TransformerConfig, TransformerDynamics
+
+        cls, cfg_cls = TransformerDynamics, TransformerConfig
+    elif arch == "lstm":
+        cls, cfg_cls = MDNRNN, RNNConfig
+    else:
+        raise ValueError(f"{path}: unknown arch {arch!r}")
+
+    fields = set(cfg_cls.__dataclass_fields__)
+    cfg = cfg_cls(**{k: v for k, v in saved.items() if k in fields})
+    model = cls(cfg).to(device)
     model.load_state_dict(ck["model"])
     model.eval()
     return model, cfg

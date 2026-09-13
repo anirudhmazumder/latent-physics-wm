@@ -1,0 +1,13 @@
+Traceback (most recent call last):
+  File "/opt/miniconda3/envs/NN/lib/python3.10/runpy.py", line 196, in _run_module_as_main
+    return _run_code(code, main_globals, None,
+  File "/opt/miniconda3/envs/NN/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/Users/masudip/Desktop/Anirudh/Extracurricular/Computer Science/Projects/latent-physics-wm/wm/eval_dream_alive.py", line 869, in <module>
+    main()
+  File "/Users/masudip/Desktop/Anirudh/Extracurricular/Computer Science/Projects/latent-physics-wm/wm/eval_dream_alive.py", line 825, in main
+    name, path = spec.split("=", 1)
+ValueError: not enough values to unpack (expected 2, got 1)
+start pool: 300 episodes x 200 steps, warmup 8
+real frames (data/v4/train_mix): ball present 100.0%, below the band 100.0%
+real continuation of those 64 starts: present 100.0%, below the band 100.0%, arrivals/run 1.00, re-emergence nan% of 0 that began hidden

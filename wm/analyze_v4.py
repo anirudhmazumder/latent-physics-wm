@@ -38,7 +38,14 @@ So this file measures three things in order:
 
 1. **the raw probe** -- logistic and kNN accuracy for the sign from ``mu``,
    split at the EPISODE level (the sign is constant within an episode between
-   flips, so a per-frame split is not a weak test, it is no test at all);
+   flips, so a per-frame split is not a weak test, it is no test at all),
+   against TWO nulls: the majority-class rate, and the same two probes run on
+   labels shuffled between whole episodes. The second is the one that matters.
+   "Chance" for a probe on 20,000 autocorrelated frames is not 0.500 with a
+   binomial error bar around it -- the effective sample size is the number of
+   sign RUNS, a few hundred -- so a raw accuracy of 0.55 may be nothing at all.
+   The shuffled-label null measures what nothing looks like here rather than
+   assuming it (``wm.probes.shuffled_label_null``);
 2. **the position distribution by sign** -- how big the shift actually is,
    in ``ball_y``, ``ball_x``, ``|v|`` and their histograms, so the size of the
    available leak is a measured quantity;
@@ -163,6 +170,15 @@ def sign_figure(report: Dict, path: Path) -> Path:
     ax[1].axhline(0.5, ls="--", c="k", lw=1)
     ax[1].text(len(vals) - 0.4, 0.508, "chance", ha="right", fontsize=8)
     ax[1].axhline(report["sign_probe"]["majority"], ls=":", c="0.4", lw=1)
+    # The null the numbers are actually judged against: the worst shuffled-label
+    # accuracy any of the probes reached. Anything under this line is nothing.
+    nulls = [report["sign_probe"].get(f"null_{k}_max") for k in WHICH_CLF]
+    nulls = [v for v in nulls if v is not None]
+    if nulls:
+        ax[1].axhspan(0.0, max(nulls), color="0.85", zorder=0)
+        ax[1].text(-0.4, max(nulls) + 0.01,
+                   f"shuffled-label null (worst {max(nulls):.3f})",
+                   fontsize=8, color="0.35")
     ax[1].set_xticks(range(len(vals)))
     ax[1].set_xticklabels(labels, fontsize=8)
     ax[1].set_ylim(0, 1)
@@ -189,6 +205,10 @@ def main() -> None:
                    help="position bins per axis for the matched probe. Finer "
                         "bins match position more tightly but throw away more "
                         "frames; 8x8 keeps ~2/3 of them at 0.08 ball radius")
+    p.add_argument("--shuffles", type=int, default=5,
+                   help="how many shuffled-label refits to average for the "
+                        "null. 0 disables it and leaves only the base rate, "
+                        "which is not enough -- see the module docstring.")
     p.add_argument("--seed", type=int, default=0)
     a = p.parse_args()
 
@@ -217,13 +237,18 @@ def main() -> None:
 
     # ------------------------------------------------------- the raw probe
     clf = classification_suite(mu, y, group_ids=group_ids, seed=a.seed,
-                               which=WHICH_CLF)
+                               which=WHICH_CLF, n_shuffles=a.shuffles)
     print("\ngravity_sign from ONE frame's mu (held-out, episode-level split):")
     print(f"  majority-class baseline  {clf['majority']:.3f}"
           f"   ({clf['n_train']} train / {clf['n_test']} test frames)")
     for k in WHICH_CLF:
         if k in clf:
-            print(f"  {k:9s}                {clf[k]:.3f}")
+            null = clf.get(f"null_{k}_mean")
+            tail = ("" if null is None else
+                    f"   (shuffled-label null {null:.3f}, "
+                    f"worst of {clf['null_n_shuffles']} "
+                    f"{clf[f'null_{k}_max']:.3f})")
+            print(f"  {k:9s}                {clf[k]:.3f}{tail}")
 
     # ------------------------------------------------- how big is the leak
     shift = position_shift(state, names)
@@ -245,7 +270,7 @@ def main() -> None:
     else:
         matched = classification_suite(
             mu[idx], y[idx], group_ids=group_ids[idx], seed=a.seed,
-            which=WHICH_CLF,
+            which=WHICH_CLF, n_shuffles=a.shuffles,
         )
         print(f"\nposition-matched probe ({len(idx)} of {len(mu)} frames kept; "
               f"the two signs are equally frequent inside every "
@@ -266,6 +291,15 @@ def main() -> None:
     for nm in names:
         print(f"  {nm:12s}" + "".join(f"{base[k][nm]:9.3f}" for k in WHICH_R2))
 
+    # The line every accuracy above is judged against. Taken as the WORST of
+    # the shuffled refits rather than their mean: with a handful of shuffles the
+    # mean understates the spread, and the conservative reading is the one that
+    # protects the negative result this whole file is trying to establish.
+    null_worst = max(
+        [clf.get(f"null_{k}_max", 0.5) for k in WHICH_CLF]
+        + [matched.get(f"null_{k}_max", 0.5) for k in WHICH_CLF]
+        + [0.5])
+
     report = {
         "data": a.data,
         "ckpt": a.ckpt,
@@ -276,6 +310,7 @@ def main() -> None:
         "kl_per_dim": au["kl_per_dim"].tolist(),
         "sign_probe": clf,
         "sign_probe_position_matched": matched,
+        "null_worst": null_worst,
         "n_matched_frames": int(len(idx)),
         "position_shift": shift,
         "probes_r2": base,
@@ -291,7 +326,10 @@ def main() -> None:
 
     best = max([clf.get(k, 0.0) for k in WHICH_CLF] +
                [matched.get(k, 0.0) for k in WHICH_CLF])
-    if best > 0.60:
+    null = null_worst
+    print(f"\nthe null: shuffled labels reach {null:.3f} at worst, so anything "
+          f"at or below that is indistinguishable from no information.")
+    if best > max(0.60, null + 0.05):
         print(f"\n  !! sign accuracy reaches {best:.3f}, well above chance. "
               "Compare it against best_possible_acc_from_ball_y above: if the "
               "raw probe is high and the position-matched one is not, the "
@@ -300,8 +338,9 @@ def main() -> None:
               "the frame carries the sign and the v4 premise is broken -- find "
               "it before training M.")
     else:
-        print(f"\n  sign accuracy tops out at {best:.3f}: the frames do not "
-              "carry the bit, which is what v4 needs to be true.")
+        print(f"\n  sign accuracy tops out at {best:.3f} against a null of "
+              f"{null:.3f}: the frames do not carry the bit, which is what v4 "
+              "needs to be true.")
 
 
 if __name__ == "__main__":

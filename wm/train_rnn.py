@@ -80,6 +80,7 @@ from .conservation import (
     Poly2Probe, conservation_penalty, rollout_losses,
 )
 from .rnn import MDNRNN, RNNConfig, rnn_loss, save_rnn
+from .transformer import TransformerConfig, TransformerDynamics
 from .seq_data import LatentSequenceDataset, episode_arrays, make_seq_loader
 from .train_vae import pick_device
 
@@ -324,6 +325,24 @@ def main() -> None:
                    help="v3 control: replace the LSTM with a 2x256 MLP on "
                         "[z_t, a_t]. No recurrence, so no memory -- the floor "
                         "for every object-permanence test.")
+    # --- v4: the second backbone -------------------------------------------
+    p.add_argument("--arch", choices=("lstm", "transformer"), default="lstm",
+                   help="v4: which sequence model M is. Everything else -- the "
+                        "MDN head, the loss, the sampler, the data, the eval -- "
+                        "is identical between the two, which is the whole point "
+                        "of the comparison.")
+    p.add_argument("--context", type=int, default=128,
+                   help="transformer only: how many past (z, a) pairs it may "
+                        "attend over. Set it shorter than the typical interval "
+                        "between flips (~100 frames) to build a transformer "
+                        "that CANNOT see the event it is supposed to remember.")
+    p.add_argument("--d-model", type=int, default=128, help="transformer width")
+    p.add_argument("--n-layers", type=int, default=4)
+    p.add_argument("--n-heads", type=int, default=4)
+    p.add_argument("--d-ff", type=int, default=None,
+                   help="transformer feed-forward width; default 2*d_model, "
+                        "chosen to bring the parameter count nearer the LSTM's")
+    p.add_argument("--dropout", type=float, default=0.0)
     p.add_argument("--latent-suffix", default="",
                    help='read mu<suffix>.npy instead of mu.npy, e.g. "v1vae"')
     p.add_argument("--ablate-color", action="store_true",
@@ -506,13 +525,36 @@ def main() -> None:
         f"hit_rate={train_ds.hit_rate():.4%}  pos_weight={pos_weight:.1f}"
     )
 
-    cfg = RNNConfig(
-        z_dim=z_dim, n_actions=3, hidden=a.hidden, n_gauss=a.n_gauss,
-        predict_delta=not a.no_delta, ablate_actions=a.ablate_actions,
-        mass_head=a.mass_head, feedforward=a.feedforward,
-        pos_head=a.pos_head, clock_head=a.clock_head, vy_head=a.vy_head,
-    )
-    model = MDNRNN(cfg).to(device)
+    if a.arch == "transformer":
+        # The auxiliary heads are LSTM-era machinery (v2's mass, v3's position,
+        # v3.1's clock) and none of them is part of the v4 comparison. Refusing
+        # them here is better than silently accepting a flag that would make the
+        # two arms differ in more than their backbone.
+        for flag in ("mass_head", "pos_head", "clock_head", "vy_head",
+                     "feedforward"):
+            if getattr(a, flag):
+                raise SystemExit(f"--{flag.replace('_', '-')} is not supported "
+                                 f"with --arch transformer")
+        if a.seq_len > a.context:
+            raise SystemExit(
+                f"--seq-len {a.seq_len} > --context {a.context}: the tail of "
+                "every training window would be attending over a window longer "
+                "than the model can position-embed")
+        cfg = TransformerConfig(
+            z_dim=z_dim, n_actions=3, d_model=a.d_model, n_layers=a.n_layers,
+            n_heads=a.n_heads, context=a.context, n_gauss=a.n_gauss,
+            predict_delta=not a.no_delta, dropout=a.dropout, d_ff=a.d_ff,
+            ablate_actions=a.ablate_actions,
+        )
+        model = TransformerDynamics(cfg).to(device)
+    else:
+        cfg = RNNConfig(
+            z_dim=z_dim, n_actions=3, hidden=a.hidden, n_gauss=a.n_gauss,
+            predict_delta=not a.no_delta, ablate_actions=a.ablate_actions,
+            mass_head=a.mass_head, feedforward=a.feedforward,
+            pos_head=a.pos_head, clock_head=a.clock_head, vy_head=a.vy_head,
+        )
+        model = MDNRNN(cfg).to(device)
     print(f"params={sum(p_.numel() for p_ in model.parameters())/1e3:.0f}k  cfg={cfg}")
     opt = torch.optim.Adam(model.parameters(), lr=a.lr)
 
