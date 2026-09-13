@@ -1,7 +1,7 @@
 # V2 stage two ("M") — the dynamics model, and the causal experiments
 
 Technical log. Hardware: Apple M1, 8 GB. Interpreter
-`/opt/miniconda3/envs/NN/bin/python`, all commands from the repo root. The v2
+`python`, all commands from the repo root. The v2
 VAE (`runs/vae_v2/vae.pt`, z_dim 16) and the v1 VAE (`runs/vae_b1/vae.pt`) were
 both frozen; no dataset was modified. Read
 [`docs/v2/00_v2_design.md`](../docs/v2/00_v2_design.md) §3 first, then

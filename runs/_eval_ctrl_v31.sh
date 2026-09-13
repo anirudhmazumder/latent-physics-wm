@@ -13,7 +13,7 @@
 # `--recon-roots` prints the reconstruction on each of them so the claim can be
 # checked rather than asserted.
 cd "$(dirname "$0")/.."
-PY=/opt/miniconda3/envs/NN/bin/python
+PY=${PY:-python}
 OMP_NUM_THREADS=6 $PY -m wm.eval_controller_v3 \
     --out runs/ctrl_eval_v31 \
     --vae runs/vae_v31/vae.pt --rnn runs/rnn_v31/rnn.pt \

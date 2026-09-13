@@ -1,7 +1,7 @@
 # v3.1 follow-up B — a second training seed for every controller row
 
 Technical log. Hardware: Apple M1, 8 GB, CPU. Interpreter
-`/opt/miniconda3/envs/NN/bin/python`, every command from the repo root. The v3.1
+`python`, every command from the repo root. The v3.1
 VAE and all five dynamics checkpoints were frozen, no dataset was modified, and
 nothing under an existing `runs/ctrl_v31*/` directory was touched — the seed-1
 runs are new directories with an `_s1` suffix.

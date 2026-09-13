@@ -1,7 +1,7 @@
 #!/bin/zsh
 # Stage three of v3: six controllers, three concurrent processes at a time.
 cd "$(dirname "$0")/.."
-PY=/opt/miniconda3/envs/NN/bin/python
+PY=${PY:-python}
 COMMON=(--vae runs/vae_v3/vae.pt --data data/v3/train data/v3/train_mix
         --occluder --inputs zh --reward dense
         --dream-steps 150 --popsize 32 --rollouts 16 --generations 200 --sigma0 0.5

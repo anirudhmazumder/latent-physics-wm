@@ -1,0 +1,26 @@
+# Conda environment for latent-physics-wm.
+#
+#   conda env create -f environment.yml
+#   conda activate latent-physics-wm
+#
+# Every result in docs/ was produced under this set of versions on an Apple M1
+# (8 GB), Python 3.10. The pip section installs torch from PyPI, which on Apple
+# Silicon is the MPS-capable wheel. On a CUDA machine, delete the `torch` line
+# below and install torch afterwards following
+# https://pytorch.org/get-started/locally/ for your CUDA version.
+name: latent-physics-wm
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+  - pip:
+      - torch==2.12.0
+      - numpy==1.25.2
+      - scikit-learn==1.7.2
+      - matplotlib==3.10.9
+      - Pillow==11.0.0
+      - scipy==1.9.3
+      - cma==4.4.4
+      - pygame==2.6.1
+      - pytest

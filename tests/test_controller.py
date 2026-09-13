@@ -19,6 +19,8 @@ from pathlib import Path
 import numpy as np
 import torch
 
+from unittest import SkipTest  # noqa: E402
+from tests.conftest import require_ckpt, require_data  # noqa: E402
 from wm.controller import (
     LinearController,
     NormStats,
@@ -365,9 +367,7 @@ def test_oracle_beats_random_in_the_real_env() -> None:
     event bit, wrong action mapping, seeds not shared) and every other number in
     stage three is noise.
     """
-    if not _have_ckpts():
-        print("    (skipped: V/M checkpoints missing)")
-        return
+    require_ckpt(VAE_CKPT); require_ckpt(RNN_CKPT)
     from wm.analyze import load_ckpt
     from wm.eval_controller import run_real_episodes, summarise
     from wm.rnn import load_rnn
@@ -399,9 +399,7 @@ def test_real_harness_is_seed_paired() -> None:
     with STAY would be a weak test, so we check the cheaper invariant -- the
     initial states match exactly across runs.
     """
-    if not _have_ckpts():
-        print("    (skipped: V/M checkpoints missing)")
-        return
+    require_ckpt(VAE_CKPT); require_ckpt(RNN_CKPT)
     from wm.analyze import load_ckpt
     from wm.eval_controller import run_real_episodes
     from wm.rnn import load_rnn
@@ -420,9 +418,7 @@ def test_real_harness_is_seed_paired() -> None:
 def test_population_real_matches_single_real() -> None:
     """``run_population_real`` (the --fitness real path) must agree with the
     single-controller harness on the same params and seeds."""
-    if not _have_ckpts():
-        print("    (skipped: V/M checkpoints missing)")
-        return
+    require_ckpt(VAE_CKPT); require_ckpt(RNN_CKPT)
     from wm.analyze import load_ckpt
     from wm.eval_controller import run_population_real, run_real_episodes
     from wm.rnn import load_rnn
@@ -453,6 +449,8 @@ def main() -> int:
         try:
             fn()
             print(f"  PASS  {fn.__name__}")
+        except SkipTest as exc:
+            print(f"  SKIP  {fn.__name__}: {exc}")
         except Exception as exc:  # noqa: BLE001
             failed += 1
             print(f"  FAIL  {fn.__name__}: {type(exc).__name__}: {exc}")

@@ -16,7 +16,7 @@
 # optional (it sets the chance catch rate, and therefore the memoryless bound
 # of 0.48 that every result is graded against) and neither is --occluder-y.
 cd "$(dirname "$0")/.."
-PY=/opt/miniconda3/envs/NN/bin/python
+PY=${PY:-python}
 ENV=(--occluder --occluder-y 0.13 0.63 --paddle-w 0.16 --ball-radius 0.08)
 COMMON=(--vae runs/vae_v31/vae.pt --data data/v31/train data/v31/train_mix
         --inputs zh --reward dense "${ENV[@]}"

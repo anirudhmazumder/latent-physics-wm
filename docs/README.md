@@ -1,7 +1,34 @@
-# Documentation — v1 world model for the paddle game
+# Documentation — a world model for the paddle game, in four tiers
 
 Read in order. Each document is self-contained enough to be read alone, but
-they build on one another.
+they build on one another. New to world models? Every term is defined in the
+[glossary](glossary.md).
+
+## Start here
+
+**If you have 10 minutes.** Read [00 — the big picture](00_big_picture.md) for
+what a world model is and what V, M and C are, then
+[05 — results and lessons](05_results_and_lessons.md) §1–2 for what the v1 tier
+actually demonstrated. That is the whole recipe, once, end to end. If a term
+stops you, it is in the [glossary](glossary.md).
+
+**If you have an hour.** Add the four tier summaries, which are the shortest
+path to what the project as a whole found:
+
+1. [05 — results and lessons](05_results_and_lessons.md) — v1: the recipe works
+2. [v2-04 — results and lessons](v2/04_v2_results_and_lessons.md) and
+   [v2-06 — C in the fixed dream](v2/06_v2_controller_fixed.md) — an
+   appearance → dynamics causal edge, and the conserved quantity that had to be
+   fixed before the policy could use it
+3. [v3.1-09 — results and lessons](v3/09_v31_results_and_lessons.md) — memory
+   that pays off in play, and the honest negative in
+   [v3-05](v3/05_v3_results_and_lessons.md) that forced the re-design
+4. [v4-03 — results and retrospective](v4/03_v4_results_and_retrospective.md) —
+   inference beats memory, and what four tiers established
+
+Then pick whichever mechanism you want the detail on. The technical run logs
+(exact commands, wall clock, every number) are indexed in
+[`../wm/README.md`](../wm/README.md).
 
 | # | document | one line |
 |---|---|---|

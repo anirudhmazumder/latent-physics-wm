@@ -2,7 +2,7 @@
 # v4 stage one, after the VAE: analysis, the sign probe, latent caching.
 set -e
 cd "$(dirname "$0")/.."
-PY=/opt/miniconda3/envs/NN/bin/python
+PY=${PY:-python}
 CK=runs/vae_v4/vae.pt
 
 # The version-independent half (active units, per-dim KL, tuning maps, prior

@@ -4,7 +4,7 @@ Run BEFORE any training (the v3 lesson). 60 episodes x 200 steps per cell,
 seeds 5000+, interceptions per floor visit. `oracle` = tracks the true ball
 always; `wait&see` = tracks it only while `ball_visible > 0.5`, else STAY
 (the memoryless upper bound); `stay` = never moves. Script: `sweep_v31.py`
-(run with `PYTHONPATH=. python runs/v31_design/sweep_v31.py`).
+(run with `python runs/v31_design/sweep_v31.py`).
 
 | band (lo, hi) | paddle_w | oracle | wait&see | stay |
 |---|---|---|---|---|

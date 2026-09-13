@@ -22,6 +22,8 @@ from pathlib import Path
 
 import numpy as np
 
+from unittest import SkipTest  # noqa: E402
+from tests.conftest import require_ckpt, require_data  # noqa: E402
 from worldsim.bouncing_box import (
     EVENT_PADDLE,
     STATE_NAMES,
@@ -51,9 +53,7 @@ def test_v1_frames_byte_identical() -> None:
     gives you a plausible-looking but different episode, which is exactly the
     kind of silent break this test exists to catch.
     """
-    if not (V1_VAL / "frames.npy").exists():
-        print("  (skipped: data/v1/val not present)")
-        return
+    require_data(V1_VAL / "frames.npy")
 
     meta = json.loads((V1_VAL / "meta.json").read_text())
     ref = np.load(V1_VAL / "frames.npy", mmap_mode="r")
@@ -249,9 +249,12 @@ def test_mass_flags_ignored_without_the_v2_flag() -> None:
 def _main() -> None:
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for fn in fns:
-        fn()
-        print(f"ok  {fn.__name__}")
-    print(f"\n{len(fns)} passed")
+        try:
+            fn()
+            print(f"ok  {fn.__name__}")
+        except SkipTest as exc:
+            print(f"skip {fn.__name__}: {exc}")
+    print(f"\n{len(fns)} passed or skipped")
 
 
 if __name__ == "__main__":

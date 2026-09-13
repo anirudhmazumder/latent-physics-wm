@@ -31,7 +31,7 @@ for line. Two things are added:
                   landing error, so it raises the price of a wrong sign without
                   touching the physics. 0.26 is v1's; 0.16 is v3.1's.
 
-    PYTHONPATH=. /opt/miniconda3/envs/NN/bin/python runs/v4_design/sweep_v41.py
+    python runs/v4_design/sweep_v41.py
 
 Criterion: the smallest wind with gap(ballistic - sign_blind) >= 0.15 and at
 most 5% of episodes stalled or pinned, preferring paddle_w 0.26.

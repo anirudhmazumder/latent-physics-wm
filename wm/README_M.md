@@ -1,7 +1,7 @@
 # Stage two ("M") — run log, results, and caveats
 
 Technical log only. Hardware: Apple M1, 8 GB. Interpreter:
-`/opt/miniconda3/envs/NN/bin/python` (torch 2.12, numpy 1.25). All commands run
+`python` (torch 2.12, numpy 1.25). All commands run
 from the repo root. The VAE (`runs/vae_b1/vae.pt`, z_dim 16) was **not** touched.
 
 ## Files added

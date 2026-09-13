@@ -1,7 +1,7 @@
 # Stage three ("C") — run log, results, and caveats
 
 Technical log only. Hardware: Apple M1, 8 GB. Interpreter
-`/opt/miniconda3/envs/NN/bin/python` (torch 2.12, numpy 1.25, `cma` 4.4.4).
+`python` (torch 2.12, numpy 1.25, `cma` 4.4.4).
 All commands from the repo root, all on CPU. **V (`runs/vae_b1/vae.pt`) and M
 (`runs/rnn_v1/rnn.pt`) were not touched, not retrained, not fine-tuned.**
 

@@ -6,7 +6,7 @@ axis, or the paddle's width. It is the paddle's *speed*, exactly as
 
 Run BEFORE any training, same as v4. 60 episodes × 200 steps per cell, seeds
 5000+, **interceptions per floor visit**. Script: `sweep_v41.py`, run with
-`PYTHONPATH=. /opt/miniconda3/envs/NN/bin/python runs/v4_design/sweep_v41.py`
+`python runs/v4_design/sweep_v41.py`
 (431 s, one core). Raw numbers in `sweep_v41.json`, console output in
 `sweep_v41.log`.
 

@@ -4,7 +4,7 @@
 # memory-horizon test AND fed to the VAE so that the encoder is in-distribution
 # on all three (the confound that made v3's taller-band numbers unreadable).
 set -e
-PY=/opt/miniconda3/envs/NN/bin/python
+PY=${PY:-python}
 cd "$(dirname "$0")/../.."
 C="$PY -m worldsim.collect --ball-radius 0.08 --steps 200 --res 64 --occluder --paddle-w 0.16"
 

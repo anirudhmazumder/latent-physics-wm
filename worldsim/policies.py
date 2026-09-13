@@ -1,5 +1,8 @@
 """Action sequences for data collection.
 
+The behaviour policies used to collect every dataset (v1-v4).
+Written up in `docs/01_environment_and_data.md`; see also `data/README.md`.
+
 Uniform i.i.d. random actions look like the obvious choice and are a trap: the
 paddle random-walks with tiny steps and spends nearly all its time near where it
 started. The dynamics model then never sees sustained paddle motion, so it never

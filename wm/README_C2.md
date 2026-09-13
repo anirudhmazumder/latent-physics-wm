@@ -1,7 +1,7 @@
 # v2 stage three ("C") — the controller, by mass
 
 Technical log. Hardware: Apple M1, 8 GB. Interpreter
-`/opt/miniconda3/envs/NN/bin/python`, all commands from the repo root, all on
+`python`, all commands from the repo root, all on
 CPU. **The v2 VAE (`runs/vae_v2/vae.pt`) and the v2 MDN-RNN
 (`runs/rnn_v2/rnn.pt`) were frozen; no dataset and no v1 artefact was
 modified.** Read [`docs/v2/00_v2_design.md`](../docs/v2/00_v2_design.md) §3 "C"

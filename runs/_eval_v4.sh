@@ -8,7 +8,7 @@
 #   Nothing else about the measurement changes, and the paddle detector (which
 #   searches the rows below the band) then searches the whole frame, as it should.
 cd "$(dirname "$0")/.."
-PY=/opt/miniconda3/envs/NN/bin/python
+PY=${PY:-python}
 R=runs/$1
 VAL="data/v4/val data/v4/val_mix"
 case "$2" in

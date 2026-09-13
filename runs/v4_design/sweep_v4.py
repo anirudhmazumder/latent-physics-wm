@@ -26,7 +26,7 @@ The headline number is interceptions per floor visit: interceptions rather than
 contact frames (no pinning loophole) and per CHANCE rather than per episode,
 because under gravity the number of chances is itself a function of the cell.
 
-    PYTHONPATH=. /opt/miniconda3/envs/NN/bin/python runs/v4_design/sweep_v4.py
+    python runs/v4_design/sweep_v4.py
 
 Every cell also reports the fraction of episodes that STALL -- the ball never
 reaching either end of the box for 100+ consecutive frames. A cell can have a

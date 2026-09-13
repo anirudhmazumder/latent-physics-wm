@@ -1,7 +1,7 @@
 # V3 stage three ("C") — the controller through the occlusion band
 
 Technical log. Hardware: Apple M1, 8 GB, CPU. Interpreter
-`/opt/miniconda3/envs/NN/bin/python`, every command from the repo root. The v3
+`python`, every command from the repo root. The v3
 VAE (`runs/vae_v3/vae.pt`) and all five v3 dynamics checkpoints were frozen, and
 no dataset was modified. Read [`docs/v3/00_v3_design.md`](../docs/v3/00_v3_design.md)
 §3-C first, then [`README_M3.md`](README_M3.md) and [`README_FIX3.md`](README_FIX3.md)

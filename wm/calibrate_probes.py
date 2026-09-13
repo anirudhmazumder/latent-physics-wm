@@ -1,5 +1,9 @@
 """Calibrate the probe suite against synthetic codes of KNOWN functional form.
 
+Shared evaluation machinery: the calibration table that makes every probe
+number in `docs/02_vae_the_vision_model.md` and the per-tier V documents
+readable. Not tied to one tier.
+
     python -m wm.calibrate_probes
 
 Why this exists. A probe number on its own is uninterpretable. "Linear R^2 = 0.31"

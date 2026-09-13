@@ -30,6 +30,8 @@ from pathlib import Path
 
 import numpy as np
 
+from unittest import SkipTest  # noqa: E402
+from tests.conftest import require_ckpt, require_data  # noqa: E402
 from wm.controller import StayController
 from wm.eval_controller import (
     floor_visit_stats,
@@ -142,9 +144,7 @@ def test_floor_visit_stats_speed_none_is_the_v1_number() -> None:
 
 
 def test_harness_records_mass_per_episode() -> None:
-    if not _have(VAE_V2, RNN_V2):
-        print("    (skipped: v2 V/M checkpoints missing)")
-        return
+    require_ckpt(VAE_V2); require_ckpt(RNN_V2)
     vae, rnn = _load(VAE_V2, RNN_V2)
     roll = run_real_episodes(
         StayController(), vae, rnn, episodes=6, steps=12, seed_base=5000,
@@ -165,9 +165,7 @@ def test_harness_records_mass_per_episode() -> None:
 
 def test_holdout_flags_reach_the_real_env() -> None:
     """`mass_only` must put EVERY evaluation episode inside the band."""
-    if not _have(VAE_V2, RNN_V2):
-        print("    (skipped: v2 V/M checkpoints missing)")
-        return
+    require_ckpt(VAE_V2); require_ckpt(RNN_V2)
     vae, rnn = _load(VAE_V2, RNN_V2)
     roll = run_real_episodes(
         StayController(), vae, rnn, episodes=10, steps=8, seed_base=6000,
@@ -187,9 +185,7 @@ def test_v1_code_path_is_unchanged() -> None:
     argument defaults to the v1 value, so a v1 call must be bit-identical. The
     reference was recorded from the pre-change code.
     """
-    if not _have(VAE_V1, RNN_V1, CTRL_V1):
-        print("    (skipped: v1 checkpoints missing)")
-        return
+    require_ckpt(VAE_V1); require_ckpt(RNN_V1); require_ckpt(CTRL_V1)
     from wm.controller import load_controller
 
     vae, rnn = _load(VAE_V1, RNN_V1)
@@ -263,6 +259,8 @@ def main() -> int:
         try:
             fn()
             print(f"  PASS  {fn.__name__}")
+        except SkipTest as exc:
+            print(f"  SKIP  {fn.__name__}: {exc}")
         except Exception as exc:  # noqa: BLE001
             failed += 1
             print(f"  FAIL  {fn.__name__}: {type(exc).__name__}: {exc}")

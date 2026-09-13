@@ -53,6 +53,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from unittest import SkipTest  # noqa: E402
+from tests.conftest import require_ckpt, require_data  # noqa: E402
 from wm.clock import (  # noqa: E402
     CLOCK_CLIP, clock_arrays_for_roots, clock_targets, fit_visibility_probe,
     seed_summary, unscale,
@@ -155,10 +157,8 @@ def test_visibility_probe_is_good_enough_to_be_fair() -> None:
     becomes a test of the probe, and `README_CLOCK31.md`'s fair/privileged
     comparison loses its meaning.
     """
-    roots = [V31 / "val", V31 / "val_mix"]
-    if not _have(*roots):
-        print("  (skipped: data/v31/{val,val_mix} not present)")
-        return
+    roots = [require_data(V31 / "val" / "mu.npy").parent,
+             require_data(V31 / "val_mix" / "mu.npy").parent]
     _, r2 = fit_visibility_probe([str(r) for r in roots], n_samples=20000,
                                  seed=0)
     assert r2 > 0.9, f"visibility probe R^2 {r2:.4f}"
@@ -170,10 +170,7 @@ def test_privileged_clock_arrays_match_the_simulator_column() -> None:
     The fair and the privileged run differ in ONE argument, so this is the test
     that the argument does what its name says and nothing else moved with it.
     """
-    root = V31 / "val"
-    if not _have(root):
-        print("  (skipped: data/v31/val not present)")
-        return
+    root = require_data(V31 / "val" / "mu.npy").parent
     arrays, info = clock_arrays_for_roots([str(root)], None, clip=CLOCK_CLIP)
     states = np.load(root / "states.npy")
     expect = clock_targets(states[:, :, 6], clip=CLOCK_CLIP)
@@ -184,10 +181,7 @@ def test_privileged_clock_arrays_match_the_simulator_column() -> None:
 
 def test_fair_clock_arrays_mostly_agree_with_the_simulator() -> None:
     """The probe's thresholded reading matches the truth on >95 % of frames."""
-    root = V31 / "val"
-    if not _have(root):
-        print("  (skipped: data/v31/val not present)")
-        return
+    root = require_data(V31 / "val" / "mu.npy").parent
     probe, _ = fit_visibility_probe([str(root)], n_samples=20000, seed=0)
     arrays, info = clock_arrays_for_roots([str(root)], probe, clip=CLOCK_CLIP)
     assert info["threshold_agreement"] > 0.95
@@ -253,10 +247,7 @@ def test_pre_clock_checkpoints_still_load(tmp_path: Path | None = None) -> None:
 
 def test_real_v31_baseline_checkpoint_still_loads() -> None:
     """The frozen baseline on disk, loaded by the post-change code."""
-    ck = ROOT / "runs" / "rnn_v31" / "rnn.pt"
-    if not ck.exists():
-        print("  (skipped: runs/rnn_v31/rnn.pt not present)")
-        return
+    ck = require_ckpt(ROOT / "runs" / "rnn_v31" / "rnn.pt")
     _, cfg = load_rnn(ck)
     assert cfg.clock_head is False and cfg.vy_head is False
 
@@ -271,10 +262,7 @@ def test_frame_targets_align_with_state() -> None:
     the MDN is predicting. If the clock were sliced one frame earlier it would
     still train, and it would be counting the wrong frame.
     """
-    root = V31 / "val"
-    if not _have(root):
-        print("  (skipped: data/v31/val not present)")
-        return
+    root = require_data(V31 / "val" / "mu.npy").parent
     from wm.seq_data import LatentSequenceDataset
 
     arrays, _ = clock_arrays_for_roots([str(root)], None, clip=CLOCK_CLIP)
@@ -294,10 +282,7 @@ def test_frame_targets_align_with_state() -> None:
 
 def test_frame_targets_shape_is_checked() -> None:
     """A mis-shaped extra target must fail loudly, not broadcast quietly."""
-    root = V31 / "val"
-    if not _have(root):
-        print("  (skipped: data/v31/val not present)")
-        return
+    root = require_data(V31 / "val" / "mu.npy").parent
     from wm.seq_data import LatentSequenceDataset
 
     bad = [np.zeros((3, 5, 2), dtype=np.float32)]
@@ -417,5 +402,8 @@ if __name__ == "__main__":
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for fn in fns:
         print(f"- {fn.__name__}")
-        fn()
-    print(f"\n{len(fns)} checks passed")
+        try:
+            fn()
+        except SkipTest as exc:
+            print(f"  skip: {exc}")
+    print(f"\n{len(fns)} checks passed or skipped")

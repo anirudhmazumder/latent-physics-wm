@@ -207,4 +207,4 @@ dream-alive check before controller training, per-run (V, M) pairing, matched
 `h`-ablation controls, conservation and memory metrics. The only genuinely new
 code is the transformer dynamics model and the flip counterfactual.
 
-Next: [01 — the v4 environment, data and V](01_v4_env_data_vae.md).
+Next: [01 — the v4 environment, data and sweeps](01_v4_env_data_and_sweeps.md).

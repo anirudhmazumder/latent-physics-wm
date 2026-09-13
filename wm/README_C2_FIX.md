@@ -1,7 +1,7 @@
 # v2 stage three, re-run inside the fixed dream — and the test that was missing
 
 Technical log. Hardware: Apple M1, 8 GB. Interpreter
-`/opt/miniconda3/envs/NN/bin/python`, every command from the repo root, CPU
+`python`, every command from the repo root, CPU
 only. **No checkpoint and no dataset was modified**: `runs/vae_v2/vae.pt`,
 `runs/rnn_v2/rnn.pt`, `runs/rnn_v2_cons/rnn.pt` and `runs/ctrl_v2/` were all
 read-only. Read [`README_C2.md`](README_C2.md) for what stage three found the

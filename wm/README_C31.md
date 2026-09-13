@@ -1,7 +1,7 @@
 # v3.1 stage three ("C") — the controller in a world that needs memory
 
 Technical log. Hardware: Apple M1, 8 GB, CPU. Interpreter
-`/opt/miniconda3/envs/NN/bin/python`, every command from the repo root. The v3.1
+`python`, every command from the repo root. The v3.1
 VAE (`runs/vae_v31/vae.pt`) and all five v3.1 dynamics checkpoints were frozen
 and no dataset was modified. Read [`docs/v3/06_v31_design.md`](../docs/v3/06_v31_design.md)
 and [`README_V31.md`](README_V31.md) §5 first — they establish the world, the

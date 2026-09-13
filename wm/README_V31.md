@@ -7,7 +7,7 @@ its dynamics models. The design and the oracle sweep that motivated it are in
 v3's answers to the same questions — which this document re-asks on the new
 geometry — are in [`README_V3.md`](README_V3.md), [`README_M3.md`](README_M3.md)
 and [`README_FIX3.md`](README_FIX3.md). Hardware: Apple M1, 8 GB;
-`/opt/miniconda3/envs/NN/bin/python`; every command from the repo root. No
+`python`; every command from the repo root. No
 existing dataset or checkpoint was modified.
 
 **Why v3.1 exists, in one sentence.** v3's band was placed by an argument about

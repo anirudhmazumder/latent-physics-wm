@@ -45,6 +45,8 @@ from pathlib import Path
 
 import numpy as np
 
+from unittest import SkipTest  # noqa: E402
+from tests.conftest import require_ckpt, require_data  # noqa: E402
 from worldsim.bouncing_box import (
     EVENT_FLIP,
     EVENT_PADDLE,
@@ -120,6 +122,9 @@ def test_earlier_versions_still_byte_identical() -> None:
         assert cfg.gravity == 0.0, "default config must still be gravity-free"
         _replay(root, cfg)
         ran += 1
+    if ran == 0:
+        require_data(REPO / "data" / "v1" / "val" / "frames.npy",
+                     "at least one earlier val split is needed to replay")
     print(f"  ({ran} earlier splits replayed byte-identically)")
 
 
@@ -384,6 +389,9 @@ def test_ballistic_landing_matches_the_simulator() -> None:
 if __name__ == "__main__":
     for name, fn in sorted(globals().items()):
         if name.startswith("test_") and callable(fn):
-            fn()
-            print(f"ok  {name}")
-    print("all v4 environment tests passed")
+            try:
+                fn()
+                print(f"ok  {name}")
+            except SkipTest as exc:
+                print(f"skip {name}: {exc}")
+    print("all v4 environment tests passed or skipped")

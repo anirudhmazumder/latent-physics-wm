@@ -161,9 +161,10 @@ of the staged, frozen recipe.
 
 <a name="reproducing"></a>
 
-Interpreter: the conda environment `NN`
-(`/opt/miniconda3/envs/NN/bin/python`; Python 3.10, PyTorch 2.12, numpy,
-scikit-learn, matplotlib, Pillow, scipy, `cma`). All commands from the repo
+Interpreter: Python 3.10 with PyTorch 2.12, numpy, scikit-learn, matplotlib,
+Pillow, scipy and `cma` — see [Setup](../README.md#setup) in the top-level
+README for the environment file, and use plain `python` once it is active. All
+commands from the repo
 root. The exact sequence with wall-clock times is in
 [`wm/README_M.md`](../wm/README_M.md) and [`wm/README_C.md`](../wm/README_C.md);
 doc 00 §7 has the condensed version. Tests:

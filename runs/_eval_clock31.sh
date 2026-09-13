@@ -18,7 +18,7 @@
 #      contact head's PR-AUC.
 set -e
 cd "$(dirname "$0")/.."
-PY=/opt/miniconda3/envs/NN/bin/python
+PY=${PY:-python}
 export OMP_NUM_THREADS=3
 VAE="--vae runs/vae_v31/vae.pt --val data/v31/val data/v31/val_mix \
      --probe-data data/v31/probe data/v31/val_mix"

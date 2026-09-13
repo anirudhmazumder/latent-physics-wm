@@ -1,5 +1,8 @@
 """Play the real environment with the arrow keys.
 
+The environment, played by a human. Belongs to `docs/01_environment_and_data.md`;
+for the same game with the world model's panels beside it, see `wm/live.py`.
+
     python -m worldsim.play
 
 Worth doing once before you train anything -- it is the fastest way to notice

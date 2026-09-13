@@ -21,7 +21,7 @@
 #
 # Outputs go to runs/<name>_s1/. Nothing under runs/<name>/ is touched.
 cd "$(dirname "$0")/.."
-PY=/opt/miniconda3/envs/NN/bin/python
+PY=${PY:-python}
 ENV=(--occluder --occluder-y 0.13 0.63 --paddle-w 0.16 --ball-radius 0.08)
 COMMON=(--vae runs/vae_v31/vae.pt --data data/v31/train data/v31/train_mix
         --inputs zh --reward dense "${ENV[@]}"

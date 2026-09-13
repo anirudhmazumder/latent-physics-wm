@@ -1,5 +1,8 @@
 """Diagnostics. These matter more than the architecture.
 
+Shared stage-one ("V") machinery, used by every tier (v1-v4).
+Written up in `docs/02_vae_the_vision_model.md`.
+
 Global loss is nearly useless on this problem (see masked_recon_error), so the
 question "is my VAE working" has to be answered by these four instead:
 

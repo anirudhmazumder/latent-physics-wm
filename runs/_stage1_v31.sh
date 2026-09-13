@@ -2,7 +2,7 @@
 # v3.1 stage one, after the VAE: analysis, the by-band probes, latent caching.
 set -e
 cd "$(dirname "$0")/.."
-PY=/opt/miniconda3/envs/NN/bin/python
+PY=${PY:-python}
 CK=runs/vae_v31/vae.pt
 
 # The version-independent half (active units, per-dim KL, tuning, MCC, the

@@ -1,5 +1,19 @@
-"""Design sweep for v3.1: find a band/paddle where a memoryless oracle fails but the full oracle does not."""
-import numpy as np, itertools, sys
+"""Design sweep for v3.1: find a band/paddle where a memoryless oracle fails but the full oracle does not.
+
+Tier v3.1; the table it prints is `runs/v31_design/sweep.md` and the design it
+settled is `docs/v3/06_v31_design.md`.
+
+    python runs/v31_design/sweep_v31.py
+"""
+import itertools
+import sys
+from pathlib import Path
+
+import numpy as np
+
+# Run directly (`python runs/v31_design/sweep_v31.py`) without PYTHONPATH tricks.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 from worldsim.bouncing_box import BouncingBox, BoxConfig, EVENT_PADDLE
 from wm.controller import OracleController, WaitAndSeeOracleController, StayController
 from wm.eval_controller import floor_visit_stats, contact_runs

@@ -32,7 +32,7 @@ that is *distributed* — no single latent dimension carries colour.
 
 ## 1. Commands, in order, with wall clock
 
-Everything ran on the M1 (8 GB) with `/opt/miniconda3/envs/NN/bin/python`.
+Everything ran on the M1 (8 GB) with `python`.
 
 ```bash
 # data -- 40 s total, 1.3 GB

@@ -1,5 +1,8 @@
 """Convolutional VAE for 64x64 frames.
 
+Stage one ("V") of the V-M-C world model; used by every tier (v1-v4).
+Written up in `docs/02_vae_the_vision_model.md`.
+
 The whole model is ~30 lines of actual architecture. Every non-obvious choice is
 annotated inline, because on this problem the architecture is easy and the
 *decisions* are where things go wrong.

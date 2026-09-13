@@ -9,7 +9,7 @@
 # carry the bit and the comparison would measure nothing. 128 is also the
 # transformer's context, so its position table is fully exercised in training.
 cd "$(dirname "$0")/.."
-PY=/opt/miniconda3/envs/NN/bin/python
+PY=${PY:-python}
 D="--data data/v4/train data/v4/train_mix --val data/v4/val data/v4/val_mix"
 COMMON="${=D} --epochs 35 --seq-len 128 --stride 8 --eval-every 5"
 case "$1" in

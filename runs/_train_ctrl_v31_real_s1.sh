@@ -3,7 +3,7 @@
 # runs/_train_ctrl_v31.sh except for --seed 1; OMP_NUM_THREADS=2 rather than 6
 # because it is run alongside the Part A dynamics training.
 cd "$(dirname "$0")/.."
-PY=/opt/miniconda3/envs/NN/bin/python
+PY=${PY:-python}
 OMP_NUM_THREADS=2 $PY -m wm.train_controller --out runs/ctrl_v31_real_s1 \
     --rnn runs/rnn_v31/rnn.pt --vae runs/vae_v31/vae.pt \
     --data data/v31/train data/v31/train_mix \

@@ -1,7 +1,7 @@
 # v3.1 follow-up A — the exit clock, and why it did not revive the dream
 
 Technical log. Hardware: Apple M1, 8 GB, CPU. Interpreter
-`/opt/miniconda3/envs/NN/bin/python`, every command from the repo root. The v3.1
+`python`, every command from the repo root. The v3.1
 VAE (`runs/vae_v31/vae.pt`) and the frozen baseline `runs/rnn_v31/rnn.pt` were
 not retrained and no dataset was modified. Read [`README_V31.md`](README_V31.md)
 §4.5 and [`README_C31.md`](README_C31.md) §0 first — they establish the defect

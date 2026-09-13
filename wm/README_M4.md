@@ -7,7 +7,7 @@ experiments the tier was designed to run. The design is
 controller stage was retired before any training, on the evidence of
 [`runs/v4_design/sweep.md`](../runs/v4_design/sweep.md) and
 [`sweep_v41.md`](../runs/v4_design/sweep_v41.md)). Hardware: Apple M1, 8 GB;
-`/opt/miniconda3/envs/NN/bin/python`; every command from the repo root. No
+`python`; every command from the repo root. No
 existing dataset or checkpoint was modified.
 
 **The result, in three sentences.** The gravity sign is invisible in a single

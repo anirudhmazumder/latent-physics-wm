@@ -1,7 +1,7 @@
 # V3 stage two, the fix attempt — carrying the ball's *x* through the band
 
 Technical log. Hardware: Apple M1, 8 GB, CPU. Interpreter
-`/opt/miniconda3/envs/NN/bin/python`, every command from the repo root. The v3
+`python`, every command from the repo root. The v3
 VAE (`runs/vae_v3/vae.pt`) was frozen, `runs/rnn_v3/` was not touched, and no
 dataset was modified.
 

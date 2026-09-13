@@ -17,7 +17,7 @@
 #                    so changing the window the baseline sees.
 set -e
 cd "$(dirname "$0")/.."
-PY=/opt/miniconda3/envs/NN/bin/python
+PY=${PY:-python}
 COMMON="--data data/v31/train data/v31/train_mix --val data/v31/val data/v31/val_mix --epochs 35 --eval-every 2"
 export OMP_NUM_THREADS=2
 

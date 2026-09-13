@@ -1,7 +1,7 @@
 # V3 stage two ("M") — the dynamics model, and the object-permanence experiments
 
 Technical log. Hardware: Apple M1, 8 GB, CPU. Interpreter
-`/opt/miniconda3/envs/NN/bin/python`, every command from the repo root. The v3
+`python`, every command from the repo root. The v3
 VAE (`runs/vae_v3/vae.pt`, z_dim 16) was frozen and no dataset was modified.
 Read [`docs/v3/00_v3_design.md`](../docs/v3/00_v3_design.md) §3-M first, then
 [`README_V3.md`](README_V3.md) for what stage one established.

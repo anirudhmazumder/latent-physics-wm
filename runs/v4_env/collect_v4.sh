@@ -7,7 +7,7 @@
 # No occluder and no mass: the gravity sign is the only hidden variable, so any
 # memory result is unambiguously about it.
 set -e
-PY=/opt/miniconda3/envs/NN/bin/python
+PY=${PY:-python}
 cd "$(dirname "$0")/../.."
 C="$PY -m worldsim.collect --ball-radius 0.08 --res 64 --gravity 0.0001 --launch-min-angle 40"
 

@@ -1,5 +1,8 @@
 """Visualisation helpers.
 
+Shared rendering and figure helpers, used by every tier (v1-v4) and by
+`wm.live`. The environment itself is `docs/01_environment_and_data.md`.
+
 ``side_by_side`` exists for later: when you have a dynamics model, the way you
 will actually judge it is by putting the true rollout next to the imagined one
 and watching where they diverge.

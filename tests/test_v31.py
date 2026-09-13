@@ -48,6 +48,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from unittest import SkipTest  # noqa: E402
+from tests.conftest import require_ckpt, require_data  # noqa: E402
 from worldsim.bouncing_box import BoxConfig  # noqa: E402
 from worldsim.collect import collect  # noqa: E402
 
@@ -70,10 +72,7 @@ def test_single_root_frame_dataset_is_unchanged() -> None:
     """
     from wm.data import FrameDataset
 
-    root = V31 / "val"
-    if not _have(root):
-        print("  (skipped: data/v31/val not present)")
-        return
+    root = require_data(V31 / "val" / "frames.npy").parent
     a = FrameDataset(root, return_state=True)
     b = FrameDataset([root], return_state=True)
     assert len(a) == len(b) == a.E * a.Tp1
@@ -95,10 +94,8 @@ def test_multi_root_length_and_prefix_alignment() -> None:
     """
     from wm.data import FrameDataset
 
-    r1, r2 = V31 / "val", V31 / "short"
-    if not _have(r1, r2):
-        print("  (skipped: data/v31/{val,short} not present)")
-        return
+    r1 = require_data(V31 / "val" / "frames.npy").parent
+    r2 = require_data(V31 / "short" / "frames.npy").parent
     d1, d2 = FrameDataset(r1), FrameDataset(r2)
     both = FrameDataset([r1, r2], return_state=True)
     assert len(both) == len(d1) + len(d2)
@@ -121,10 +118,8 @@ def test_multi_root_loader_covers_every_item_exactly_once() -> None:
     """A shuffled loader over several roots is a permutation, not a resample."""
     from wm.data import make_loader
 
-    r1, r2 = V31 / "probe", V31 / "val"
-    if not _have(r1, r2):
-        print("  (skipped: data/v31/{probe,val} not present)")
-        return
+    r1 = require_data(V31 / "probe" / "frames.npy").parent
+    r2 = require_data(V31 / "val" / "frames.npy").parent
     loader = make_loader([r1, r2], batch_size=64, shuffle=False, return_state=True)
     ds = loader.dataset
     seen = 0
@@ -138,10 +133,8 @@ def test_multi_root_rejects_mismatched_state_columns() -> None:
     """A v1 root and a v3 root concatenated would silently mis-align `state`."""
     from wm.data import FrameDataset
 
-    v1, v31 = ROOT / "data" / "v1" / "val", V31 / "val"
-    if not _have(v1, v31):
-        print("  (skipped: data/v1/val or data/v31/val not present)")
-        return
+    v1 = require_data(ROOT / "data" / "v1" / "val" / "frames.npy").parent
+    v31 = require_data(V31 / "val" / "frames.npy").parent
     try:
         FrameDataset([v31, v1])
     except ValueError as e:
@@ -182,9 +175,7 @@ def test_paddle_w_reaches_the_config_and_the_meta(tmp_path=None) -> None:
 
 def test_v31_splits_carry_the_narrow_paddle() -> None:
     """The real datasets, not a freshly collected toy one."""
-    if not V31.exists():
-        print("  (skipped: data/v31 not present)")
-        return
+    require_data(V31, "the whole v3.1 dataset")
     for d in sorted(V31.iterdir()):
         if not (d / "meta.json").exists():
             continue
@@ -311,10 +302,7 @@ def test_v3_datasets_replay_byte_identically_after_the_paddle_w_change() -> None
     from worldsim.bouncing_box import BouncingBox
     from worldsim.policies import sticky_random_actions
 
-    root = ROOT / "data" / "v3" / "val"
-    if not _have(root):
-        print("  (skipped: data/v3/val not present)")
-        return
+    root = require_data(ROOT / "data" / "v3" / "val" / "frames.npy").parent
     meta = json.loads((root / "meta.json").read_text())
     c = meta["config"]
     cfg = BoxConfig(res=meta["res"], ball_radius=c["ball_radius"],
@@ -338,6 +326,8 @@ if __name__ == "__main__":
             try:
                 fn()
                 print(f"ok   {name}")
+            except SkipTest as e:
+                print(f"skip {name}: {e}")
             except Exception as e:  # noqa: BLE001
                 fails += 1
                 print(f"FAIL {name}: {type(e).__name__}: {e}")

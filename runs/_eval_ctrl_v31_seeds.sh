@@ -34,7 +34,7 @@
 # paired with the same dynamics model their seed-0 twin used. The script prints
 # the pairing it chose for every row -- read it.
 cd "$(dirname "$0")/.."
-PY=/opt/miniconda3/envs/NN/bin/python
+PY=${PY:-python}
 OMP_NUM_THREADS=6 $PY -m wm.eval_controller_v3 \
     --out runs/ctrl_eval_v31_seeds \
     --vae runs/vae_v31/vae.pt --rnn runs/rnn_v31/rnn.pt \

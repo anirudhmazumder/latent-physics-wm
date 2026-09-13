@@ -1,6 +1,17 @@
+# OS / editor
 .DS_Store
+.vscode/
+.idea/
+
+# Python
 __pycache__/
 *.pyc
-data/
-.vscode/
 .pytest_cache/
+
+# Datasets: regenerate with `bash scripts/collect_all.sh` (see data/README.md)
+data/
+!data/README.md
+
+# Run console output: every run writes a .log next to its outputs. The numbers
+# that matter are re-stated in the per-run README under wm/ and in docs/.
+*.log

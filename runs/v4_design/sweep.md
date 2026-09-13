@@ -3,7 +3,7 @@
 Run BEFORE any training (the v3 lesson, now a habit). 60 episodes × 200 steps
 per cell, seeds 5000+, **interceptions per floor visit**. Script:
 `sweep_v4.py`, run with
-`PYTHONPATH=. /opt/miniconda3/envs/NN/bin/python runs/v4_design/sweep_v4.py`
+`python runs/v4_design/sweep_v4.py`
 (498 s, one core). Raw numbers in `sweep_v4.json`, console output in
 `sweep_v4.log`.
 
@@ -144,4 +144,4 @@ down-traverses simply take longer.
 
 ---
 
-Next: [`wm/README_V4.md`](../../wm/README_V4.md) — the datasets and the v4 VAE.
+Next: [`wm/README_M4.md`](../../wm/README_M4.md) — the datasets, the v4 VAE and the dynamics models.

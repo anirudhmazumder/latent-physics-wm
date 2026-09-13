@@ -1,0 +1,23 @@
+# Pinned to the versions every result in docs/ was produced with
+# (Python 3.10, macOS / Apple Silicon).
+#
+# torch is listed here for the record, but install it FIRST and separately,
+# following the selector at https://pytorch.org/get-started/locally/ for your
+# platform — the right wheel depends on your OS and accelerator (CUDA / ROCm /
+# MPS / CPU) and pip cannot choose it for you. On Apple Silicon the plain
+# `pip install torch` wheel is the MPS-capable one and is what was used here.
+torch==2.12.0
+
+numpy==1.25.2
+scikit-learn==1.7.2
+matplotlib==3.10.9
+Pillow==11.0.0
+scipy==1.9.3
+cma==4.4.4
+
+# Interactive viewer only (`python -m wm.live` without --record); everything
+# else, including `--record`, runs headless without it.
+pygame==2.6.1
+
+# Test runner.
+pytest

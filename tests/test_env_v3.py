@@ -30,6 +30,8 @@ from pathlib import Path
 
 import numpy as np
 
+from unittest import SkipTest  # noqa: E402
+from tests.conftest import require_ckpt, require_data  # noqa: E402
 from worldsim.bouncing_box import (
     EVENT_HIDDEN,
     STATE_NAMES,
@@ -73,9 +75,7 @@ def _replay_first_frames(root: Path, cfg: BoxConfig, n: int = 5) -> np.ndarray:
 
 def test_v1_frames_still_byte_identical() -> None:
     """Default BoxConfig() -- no occluder flag anywhere -- still reproduces v1."""
-    if not (V1_VAL / "frames.npy").exists():
-        print("  (skipped: data/v1/val not present)")
-        return
+    require_data(V1_VAL / "frames.npy")
     meta = json.loads((V1_VAL / "meta.json").read_text())
     cfg = BoxConfig(res=meta["res"], ball_radius=meta["config"]["ball_radius"])
     assert cfg.occluder is False, "default config must still be v1"
@@ -92,9 +92,7 @@ def test_v2_frames_still_byte_identical() -> None:
     change since v2 that touches ``state()`` and ``render()`` -- the two places
     a v2 dataset could be broken from.
     """
-    if not (V2_VAL / "frames.npy").exists():
-        print("  (skipped: data/v2/val not present)")
-        return
+    require_data(V2_VAL / "frames.npy")
     meta = json.loads((V2_VAL / "meta.json").read_text())
     c = meta["config"]
     cfg = BoxConfig(
@@ -334,9 +332,12 @@ def test_band_colour_is_distinguishable_from_everything_else() -> None:
 def _main() -> None:
     fns = [v for k, v in sorted(globals().items()) if k.startswith("test_")]
     for fn in fns:
-        fn()
-        print(f"ok  {fn.__name__}")
-    print(f"\n{len(fns)} passed")
+        try:
+            fn()
+            print(f"ok  {fn.__name__}")
+        except SkipTest as exc:
+            print(f"skip {fn.__name__}: {exc}")
+    print(f"\n{len(fns)} passed or skipped")
 
 
 if __name__ == "__main__":

@@ -20,7 +20,7 @@ it does so while **improving** every other number the project tracks except two.
 | cold-start r (K=1) | +0.563 | +0.436 ← **regression** |
 | contact PR-AUC | 0.698 | 0.586 ← **regression** |
 
-Hardware: Apple M1, 8 GB. Interpreter `/opt/miniconda3/envs/NN/bin/python`, all
+Hardware: Apple M1, 8 GB. Interpreter `python`, all
 commands from the repo root. The v2 VAE (`runs/vae_v2/vae.pt`) was frozen, no
 dataset was touched, and `runs/rnn_v2/rnn.pt` was not modified.
 

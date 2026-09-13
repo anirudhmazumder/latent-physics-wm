@@ -38,7 +38,7 @@ nats *less* KL than v1**, because occlusion genuinely removes information.
 
 ## 1. Commands, in order, with wall clock
 
-Everything ran on the M1 (8 GB) with `/opt/miniconda3/envs/NN/bin/python`,
+Everything ran on the M1 (8 GB) with `python`,
 from the repo root.
 
 ```bash

@@ -1,5 +1,9 @@
 """Probing a frozen latent space for ground-truth factors.
 
+Shared evaluation machinery, used by every tier (v1-v4). The results it
+produces are read in `docs/02_vae_the_vision_model.md` and each tier's
+`0*_..._env_data_vae.md`.
+
 The central question this file answers is not "is the information there" but
 "in what form is it there". Those are different questions and they need
 different probes:
