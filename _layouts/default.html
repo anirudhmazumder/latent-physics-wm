@@ -5,6 +5,7 @@
 {% include nav.html %}
 <main class="doc">
   <div class="crumbs"><a href="{{ '/' | relative_url }}">Home</a><span>/</span><a href="{{ '/docs/' | relative_url }}">Docs</a>{% if page.dir != '/docs/' and page.dir != '/' %}<span>/</span><span>{{ page.dir | remove: '/docs/' | remove: '/' }}</span>{% endif %}</div>
+  {% if page.title %}<h1>{{ page.title }}</h1>{% endif %}
   {{ content }}
 </main>
 <footer class="foot wrap"><span>latent-physics-wm · MIT</span><a href="https://github.com/anirudhmazumder/latent-physics-wm">Source on GitHub</a></footer>
