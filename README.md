@@ -188,12 +188,7 @@ added here is the per-tier experimental design: a hidden variable, a privileged
 ceiling, a memoryless bound, and an ablation that has to land on that bound
 before a positive result counts.
 
-**How this was built.** A human set the goals, the tiered plan and the
-direction at each step, and reviewed the results. An AI assistant (Claude)
-designed the experiments within that plan, implemented the code, ran the
-experiments, verified them — re-running tests, re-measuring headline numbers on
-fresh seeds, and auditing the code its own sub-agents wrote — and drafted the
-documentation. Where a claim rests on a single seed or a single re-check, the
-documents say so.
+This is a personal project with a research bent, not an official research
+artefact. Claude was used for implementation and documentation.
 
-License: to be chosen by the author.
+License: [MIT](LICENSE).
