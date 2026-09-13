@@ -1,0 +1,16 @@
+{
+  "down": {
+    "n_traverses": 181,
+    "n_full": 177,
+    "median_frames": 48.0,
+    "mean_frames": 48.45762711864407,
+    "mean_abs_vy": 0.019159691066265444
+  },
+  "up": {
+    "n_traverses": 186,
+    "n_full": 186,
+    "median_frames": 40.0,
+    "mean_frames": 39.03763440860215,
+    "mean_abs_vy": 0.022394174940243202
+  }
+}

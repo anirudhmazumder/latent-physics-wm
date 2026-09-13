@@ -1,0 +1,5 @@
+{
+  "probe_r2": 0.994806659807473,
+  "train_threshold_agreement": 0.9907794361525705,
+  "val_threshold_agreement": 0.9913290689410093
+}

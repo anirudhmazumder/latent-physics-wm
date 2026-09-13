@@ -202,6 +202,129 @@ def _fit_probes(
     return out
 
 
+# ------------------------------------------------------- classification probes
+
+
+def classification_suite(
+    mu: np.ndarray,
+    y: np.ndarray,
+    group_ids: Optional[np.ndarray] = None,
+    seed: int = 0,
+    which: Sequence[str] = ("logistic", "knn"),
+    n_neighbors: int = 10,
+) -> Dict[str, float]:
+    """Held-out ACCURACY for a discrete factor, with the majority baseline.
+
+    Introduced for v4, where the factor of interest -- the direction of gravity
+    -- is a single bit rather than a real number. R² is the wrong lens for a
+    bit: it is not bounded below in a way anyone can read, it has no natural
+    null value, and a probe that predicts the majority class everywhere scores
+    exactly 0, which looks like "no information" and is in fact "no information
+    *beyond the base rate*" -- a distinction that matters enormously when the
+    base rate is not 50/50. Accuracy against ``majority`` says both things at
+    once.
+
+    The two probes answer different questions, the same way the regression
+    suite's do:
+
+        ``logistic``  is the bit a linear functional of mu? (a hyperplane)
+        ``knn``       is it recoverable AT ALL, by any local map? The upper
+                      bound, and the one that matters for a negative result --
+                      "not linearly decodable" is a much weaker claim than
+                      "not decodable", and only the second one is evidence that
+                      the frames genuinely do not contain the bit.
+
+    ``group_ids`` should be episode indices. Without them the split leaks
+    catastrophically here: ``gravity_sign`` is *constant within an episode
+    between flips*, so a per-frame split puts near-duplicate frames carrying the
+    same label on both sides and kNN scores near 1.0 on pure autocorrelation.
+    That is not a subtle bias, it is the whole answer.
+    """
+    from sklearn.preprocessing import StandardScaler
+
+    mu = np.asarray(mu, dtype=np.float64)
+    y = np.asarray(y).ravel()
+    tr, te = make_split(len(mu), seed=seed, group_ids=group_ids)
+    sx = StandardScaler().fit(mu[tr])
+    Xtr, Xte = sx.transform(mu[tr]), sx.transform(mu[te])
+    ytr, yte = y[tr], y[te]
+
+    vals, counts = np.unique(ytr, return_counts=True)
+    majority = float((yte == vals[np.argmax(counts)]).mean())
+    out: Dict[str, float] = {
+        "majority": majority,
+        "n_train": int(len(ytr)),
+        "n_test": int(len(yte)),
+        "test_base_rate": float((yte == vals[np.argmax(counts)]).mean()),
+    }
+    if len(vals) < 2:
+        out["note"] = "only one class present; no probe is meaningful"
+        return out
+
+    if "logistic" in which:
+        from sklearn.linear_model import LogisticRegression
+
+        m = LogisticRegression(max_iter=2000, C=1.0).fit(Xtr, ytr)
+        out["logistic"] = float(m.score(Xte, yte))
+    if "knn" in which:
+        from sklearn.neighbors import KNeighborsClassifier
+
+        m = KNeighborsClassifier(
+            n_neighbors=n_neighbors, weights="distance"
+        ).fit(Xtr, ytr)
+        out["knn"] = float(m.score(Xte, yte))
+    return out
+
+
+def balance_within_position_bins(
+    state: np.ndarray,
+    y: np.ndarray,
+    bins: int = 8,
+    seed: int = 0,
+    x_col: int = 0,
+    y_col: int = 1,
+) -> np.ndarray:
+    """Indices of a subsample in which the two classes are equally frequent
+    *inside every position bin*.
+
+    The diagnostic for a suspected leak THROUGH position. A hidden dynamical
+    variable can be perfectly invisible per frame and still be decodable from
+    one, because it changes where the ball tends to BE -- under gravity pulling
+    down the ball dawdles near the ceiling and hurries past the floor, so the
+    marginal distribution of ``ball_y`` differs by sign even though no single
+    frame shows the sign. An encoder that codes position (which is its job)
+    then hands a probe a legitimate, and completely uninteresting, route to
+    above-chance accuracy.
+
+    Matching on position closes that route: within a bin the two classes are
+    equinumerous by construction, so a probe reading only position can do no
+    better than chance. If accuracy survives the matching, something other
+    than position carries the bit; if it collapses to chance, the leak is
+    explained and the frames really are uninformative.
+
+    Bins with only one class present contribute nothing and are dropped, which
+    is correct -- there is no matched comparison to be made there.
+    """
+    rng = np.random.default_rng(seed)
+    state = np.asarray(state)
+    y = np.asarray(y).ravel()
+    xi = np.clip((state[:, x_col] * bins).astype(int), 0, bins - 1)
+    yi = np.clip((state[:, y_col] * bins).astype(int), 0, bins - 1)
+    key = yi * bins + xi
+
+    keep = []
+    classes = np.unique(y)
+    for b in np.unique(key):
+        m = np.flatnonzero(key == b)
+        per = [m[y[m] == c] for c in classes]
+        n = min(len(g) for g in per)
+        if n == 0:
+            continue
+        for g in per:
+            keep.append(rng.choice(g, size=n, replace=False))
+    return np.sort(np.concatenate(keep)) if keep else np.zeros(0, np.int64)
+
+
 # --------------------------------------------------------------------- MCC
 
 

@@ -94,6 +94,82 @@ Two diagnostics come with it, both for grading only (the model never sees them):
     why one of the tests asserts they agree: it exists so that analysis code
     can slice hidden stretches straight out of ``events.npy`` without loading
     the (much larger) states array or re-deriving the geometry.
+
+v4: the gravity switch
+----------------------
+With ``gravity > 0`` the ball feels a constant vertical acceleration whose
+DIRECTION is a hidden binary latent, ``gravity_sign`` (+1 pulls toward the
+ceiling, −1 toward the paddle). It is drawn at reset and **multiplied by −1 on
+every paddle contact**, which also sets ``EVENT_FLIP``.
+
+Why that is the right fourth environment. v1 hid velocity (invisible in one
+frame, inferable from two). v2 hid mass behind an appearance cue. v3 hid
+position for a bounded stretch. In all three the information needed to predict
+the next frame was recoverable from a *short window* of recent frames. v4
+removes that: at 1e-4 per frame² the acceleration moves the ball by less than
+the renderer's 1/64 quantisation over ~15 frames, so no bounded window reveals
+the sign — but it holds for the 100+ frames until the next contact and bends
+every trajectory in it. The only way to predict is to notice the event and
+remember its consequence. That is the regime where "carry a bit in a recurrent
+state" and "attend back to the frame where the bit was set" come apart.
+
+Three physics consequences, each of which had to be decided rather than
+inherited:
+
+* **Speed is no longer conserved**, so ``_renormalise_velocity`` is OFF when
+  gravity is on. Gravity is a conservative force and the walls are elastic, so
+  the speed stays bounded anyway (it is a function of height); the only thing
+  that can pump energy in is the paddle's english, so the speed is clipped to
+  ``max_speed`` after contact. In practice the clip essentially never fires --
+  the collector counts and reports how often it does.
+* **The ``min_vy_frac`` guard goes with it.** It lives inside
+  ``_renormalise_velocity``, so it is inert under gravity by construction. That
+  is the right call and not just convenient: the guard exists to stop a ball
+  skimming horizontally forever, and under gravity a horizontal ball is pulled
+  off the horizontal within a few dozen frames on its own.
+* **The launch angle has to be steep enough to cross the box against gravity.**
+  ``launch_min_angle_deg`` generalises v1's ``|sin θ| > 0.25`` rejection rule.
+  With ``vy² > 2 g Δh`` and Δh = 1 − 2r = 0.84, g = 1e-4 needs |vy| > 0.0130,
+  i.e. 36.2° at speed 0.022 -- so v4 launches above 40°, with a little margin.
+  The default 14.5° reproduces the v1 rule exactly (see ``launch_min_sin``).
+
+v4.1: the side-wind (``gravity_axis``)
+--------------------------------------
+The v4 design sweep (``runs/v4_design/sweep.md``) priced the hidden sign with
+privileged controllers and found it was worth *nothing*: a wrong sign moves the
+predicted landing x by at most 0.035 -- a quarter of a paddle -- and that error
+shrinks to zero as the ball arrives, so a bang-bang tracker absorbs it without
+ever committing. The reason is geometric, not a matter of the magnitude: a
+vertical acceleration perturbs the landing *height*, and height converts into
+*x* only through the ball's slow horizontal speed.
+
+``gravity_axis="x"`` turns the acceleration ninety degrees. The flipping term
+now acts on ``ball_v[0]``: a **side-wind**, +1 blowing toward +x. Two things
+follow, and both are the point:
+
+* the sign's effect on the landing x is first-order rather than second-order.
+  It is ``a t² / 2`` in x directly -- ~0.18 over a 60-frame fall at 1e-4, and
+  the two hypotheses differ by twice that -- so a wrong sign misses by a whole
+  paddle, not a quarter of one.
+* **vertical motion is exactly v1's.** ``vy`` is untouched, so traverse
+  durations, the stall rate and the ball's height distribution do not depend on
+  the sign at all. That removes the one leak the v4 sweep found by accident:
+  under vertical gravity the sign also set the ball's energy budget, so a
+  single traverse's duration betrayed it (1.20x) without any memory of the
+  flip. Under a side-wind the two signs have *identical* vertical dynamics, and
+  the sign is only in the horizontal curvature.
+
+Its own new failure mode, which the collector measures: a side-wind can pin the
+ball against a side wall (bounce, decelerate, get blown back, bounce again).
+``worldsim.collect.wall_pinned_fraction`` reports how much of the time the ball
+spends within one radius of a side wall; treat >20% in a cell the way you would
+treat stalls.
+
+Under axis x the launch guard goes back to v1's 14.5 degrees: the energy
+argument that forced 40 degrees was about climbing against a vertical pull, and
+there is no vertical pull any more. ``gravity_sign_init="down"`` reads as
+"toward -x" and ``"up"`` as "toward +x"; the state column is still called
+``gravity_sign`` under both axes so that every v4 consumer works unchanged.
 """
 
 from __future__ import annotations
@@ -118,12 +194,43 @@ STATE_NAMES_V2 = STATE_NAMES + ("mass",)
 # and a consumer that reads meta["state_names"] never has to know which
 # combination of flags produced the file.
 STATE_NAMES_V3 = STATE_NAMES + ("ball_visible",)
+# v4 appends gravity_sign LAST, after any v2/v3 column, so all three switches
+# compose and the column order is always
+#   [ball_x, ball_y, ball_vx, ball_vy, paddle_x, paddle_vx,
+#    (mass), (ball_visible), (gravity_sign)]
+STATE_NAMES_V4 = STATE_NAMES + ("gravity_sign",)
 
 # Bit flags for the per-step event mask.
 EVENT_WALL_X = 1
 EVENT_WALL_Y = 2
 EVENT_PADDLE = 4
 EVENT_HIDDEN = 8  # v3: the ball was fully behind the occluder at the end of the step
+EVENT_FLIP = 16   # v4: gravity_sign was multiplied by -1 during this step
+
+# The v1 launch guard, as a literal. ``asin(0.25) = 14.4775°``, which is what
+# ``LAUNCH_MIN_ANGLE_V1_DEG`` names (rounded to the 0.1° the flag is specified
+# in). See ``launch_min_sin`` for why the constant is pinned rather than
+# recomputed from the degrees.
+LAUNCH_MIN_SIN_V1 = 0.25
+LAUNCH_MIN_ANGLE_V1_DEG = 14.5
+
+
+def launch_min_sin(deg: float) -> float:
+    """``|sin θ|`` threshold for the launch-angle rejection rule.
+
+    Pinned to exactly 0.25 at the v1 default instead of recomputing
+    ``sin(14.5°) = 0.250380``. The difference looks negligible and is not: the
+    rule is a *rejection sampler*, so a threshold 0.00038 higher rejects a
+    sliver of angles v1 accepted, consuming one extra draw from the episode's
+    rng and producing a completely different (but equally valid-looking)
+    episode. That happens on ~0.04% of resets -- often enough to break one
+    episode in a few hundred, rarely enough that you would never find it. Every
+    v1/v2/v3 dataset on disk has to replay byte-for-byte, so the v1 constant is
+    the v1 constant.
+    """
+    if abs(float(deg) - LAUNCH_MIN_ANGLE_V1_DEG) < 1e-9:
+        return LAUNCH_MIN_SIN_V1
+    return float(np.sin(np.deg2rad(float(deg))))
 
 
 @dataclass
@@ -183,6 +290,34 @@ class BoxConfig:
     # brightness, not just hue, so they are not confusable by eye either.
     occluder_color: Tuple[int, int, int] = (95, 110, 130)
 
+    # ------------------------------------------------------------------ v4
+    # Inert while gravity == 0.0, so BoxConfig() is still exactly v1 and every
+    # existing (mass, occluder) combination is untouched.
+    gravity: float = 0.0            # world units per frame^2; v4 uses 1e-4
+    gravity_sign_init: str = "random"   # "random" | "down" | "up"
+    # v4.1: WHICH AXIS the flipping acceleration acts on.
+    #   "y" -- the original vertical gravity. +1 pulls toward the ceiling,
+    #          -1 toward the paddle. Byte-identical to the v4 environment.
+    #   "x" -- a horizontal SIDE-WIND. +1 pushes toward +x (right), -1 toward
+    #          -x (left). Vertical motion is then exactly v1's, so traverse
+    #          times, stall rates and the per-traverse energy cue are v1's too,
+    #          while the sign moves the LANDING X by an order of magnitude
+    #          more than vertical gravity ever did. See runs/v4_design/
+    #          sweep_v41.md for why the axis had to move.
+    # The state column is called ``gravity_sign`` under both axes; under axis x
+    # it is the WIND's sign. The name is kept so that every v4 consumer, probe
+    # and meta.json key works unchanged.
+    gravity_axis: str = "y"
+    # The launch-angle guard, in degrees from horizontal. 14.5 is the v1 rule
+    # (see launch_min_sin); v4 uses 40, which is the shallowest launch whose
+    # vertical kinetic energy still carries the ball across the box against
+    # gravity pointing the other way.
+    launch_min_angle_deg: float = LAUNCH_MIN_ANGLE_V1_DEG
+    # Only consulted when gravity > 0, where speed is no longer renormalised.
+    # Gravity itself cannot push the ball past ~0.026; this bounds the slow
+    # accumulation of english over many paddle contacts. See ``_clip_speed``.
+    max_speed: float = 0.05
+
     def __post_init__(self) -> None:
         if self.paddle_y is None:
             self.paddle_y = self.paddle_h / 2.0
@@ -201,6 +336,20 @@ class BoxConfig:
                 f"{self.occluder_y}"
             )
         self.occluder_y = (lo, hi)
+        if self.gravity < 0.0:
+            raise ValueError(
+                "gravity is a MAGNITUDE (>= 0); the direction lives in "
+                f"gravity_sign_init, got gravity={self.gravity}"
+            )
+        if self.gravity_sign_init not in ("random", "down", "up"):
+            raise ValueError(
+                'gravity_sign_init must be "random", "down" or "up", got '
+                f"{self.gravity_sign_init!r}"
+            )
+        if self.gravity_axis not in ("x", "y"):
+            raise ValueError(
+                f'gravity_axis must be "x" or "y", got {self.gravity_axis!r}'
+            )
 
 
 # --------------------------------------------------------------- mass <-> colour
@@ -326,6 +475,8 @@ class BouncingBox:
         self.rng = np.random.default_rng(seed)
         self._grid: Optional[Tuple[np.ndarray, np.ndarray]] = None
         self._grid_res: Optional[int] = None
+        # v4.1: 0 = horizontal side-wind, 1 = vertical gravity (the v4 world).
+        self._grav_axis = 0 if self.cfg.gravity_axis == "x" else 1
         self.reset()
 
     # ------------------------------------------------------------------ setup
@@ -349,6 +500,14 @@ class BouncingBox:
         # is exact in IEEE754, so v1 reproduces bit-for-bit).
         self.speed = cfg.ball_speed / self.mass
 
+        # v4: the hidden latent. Drawn here, immediately after the mass, and --
+        # like the mass -- consuming NO randomness when the switch is off, so
+        # the v1/v2/v3 rng streams are untouched. ``speed_clips`` is a
+        # diagnostic counter that survives resets (the collector reports the
+        # total over a whole split).
+        self.gravity_sign = self._sample_gravity_sign()
+        self.speed_clips = getattr(self, "speed_clips", 0)
+
         y_lo = cfg.paddle_y + cfg.paddle_h / 2.0 + r + 0.05
         self.ball = np.array(
             [self.rng.uniform(r, 1.0 - r), self.rng.uniform(y_lo, 1.0 - r)],
@@ -357,9 +516,19 @@ class BouncingBox:
 
         # Reject launch angles too close to an axis -- those trajectories are
         # degenerate and take a long time to explore the box.
+        #
+        # v4 raises the floor on |sin| only. The two bounds do different jobs
+        # and only one of them is a v4 concern: |sin θ| keeps the launch off
+        # HORIZONTAL, which under gravity is also what guarantees the ball can
+        # cross the box against the pull; |cos θ| keeps it off VERTICAL, which
+        # is purely about exploring x and stays at the v1 value. Tying both to
+        # one raised constant would be worse than cosmetic -- at 50° the two
+        # bounds become |sin| > 0.766 AND |cos| > 0.766, which no angle
+        # satisfies, and the sampler would spin forever.
+        min_sin = launch_min_sin(cfg.launch_min_angle_deg)
         while True:
             theta = self.rng.uniform(0.0, 2.0 * np.pi)
-            if abs(np.sin(theta)) > 0.25 and abs(np.cos(theta)) > 0.25:
+            if abs(np.sin(theta)) > min_sin and abs(np.cos(theta)) > LAUNCH_MIN_SIN_V1:
                 break
         self.ball_v = self.speed * np.array(
             [np.cos(theta), np.sin(theta)], dtype=np.float64
@@ -395,12 +564,32 @@ class BouncingBox:
             "against [mass_min, mass_max]"
         )
 
+    def _sample_gravity_sign(self) -> float:
+        """v4: +1 (pulls up) / -1 (pulls down). Returns 1.0 and draws nothing
+        in v1/v2/v3 mode, which is what keeps those rng streams identical.
+
+        "down" and "up" exist for the tests and for ``worldsim.play``: a fixed
+        sign turns the flip experiment into an ordinary constant-gravity world,
+        which is the control you want when you are checking the integrator
+        rather than the memory.
+        """
+        cfg = self.cfg
+        if cfg.gravity <= 0.0:
+            return 1.0
+        if cfg.gravity_sign_init == "down":
+            return -1.0
+        if cfg.gravity_sign_init == "up":
+            return 1.0
+        return -1.0 if self.rng.random() < 0.5 else 1.0
+
     @property
     def state_names(self) -> Tuple[str, ...]:
         """Column names matching ``state()``. Write these into meta.json."""
         names = STATE_NAMES_V2 if self.cfg.mass_from_color else STATE_NAMES
         if self.cfg.occluder:
             names = names + ("ball_visible",)
+        if self.cfg.gravity > 0.0:
+            names = names + ("gravity_sign",)
         return names
 
     def ball_visible(self) -> float:
@@ -432,6 +621,20 @@ class BouncingBox:
             # paddle kept moving.
             self.paddle_vx = (new_x - self.paddle_x) / dt
             self.paddle_x = new_x
+
+            # v4: gravity acts BEFORE the move (semi-implicit Euler), once per
+            # substep, so over a whole frame the velocity change is exactly
+            # ``substeps * gravity * dt = gravity``. Guarded rather than
+            # multiplied by a zero sign, so the v1 arithmetic is literally
+            # unchanged when the switch is off.
+            if cfg.gravity > 0.0:
+                # v4.1: the axis is a config choice. Indexing with a stored
+                # integer rather than branching keeps the two axes literally
+                # the same line of arithmetic, so nothing can drift between
+                # them; ``_grav_axis`` is 1 for "y", which is the v4 line.
+                self.ball_v[self._grav_axis] += (
+                    self.gravity_sign * cfg.gravity * dt
+                )
 
             self.ball += self.ball_v * dt
             self._collide_walls()
@@ -467,6 +670,8 @@ class BouncingBox:
             s.append(self.mass)
         if self.cfg.occluder:
             s.append(self.ball_visible())
+        if self.cfg.gravity > 0.0:
+            s.append(self.gravity_sign)
         return np.array(s, dtype=np.float32)
 
     # -------------------------------------------------------------- collisions
@@ -528,13 +733,52 @@ class BouncingBox:
         # heavy (purple) ball barely swerves; a light (yellow) one is flicked
         # hard. With m = 1 this is the v1 line unchanged.
         self.ball_v[0] += cfg.english * self.paddle_vx / self.mass
-        self._renormalise_velocity()
+        if cfg.gravity > 0.0:
+            # v4: no renormalisation -- speed is a real, varying quantity now,
+            # and pinning it would destroy the very curvature the tier is
+            # about. (The min-|vy| guard lives inside ``_renormalise_velocity``
+            # and therefore goes with it; see the module docstring.) Only the
+            # english can pump energy in, so only the english is bounded.
+            self._clip_speed()
+            # THE EVENT. Once per FRAME, not once per substep: a contact that
+            # spans two substeps is one contact, and flipping twice would
+            # silently mean not flipping at all. ``EVENT_PADDLE`` is already
+            # set if an earlier substep in this frame touched the paddle, which
+            # makes it exactly the "have we flipped yet this frame" flag.
+            if not (self._events & EVENT_PADDLE):
+                self.gravity_sign = -self.gravity_sign
+                self._events |= EVENT_FLIP
+        else:
+            self._renormalise_velocity()
         self._events |= EVENT_PADDLE
 
         # English can push the ball back into a wall; re-resolve.
         self._collide_walls()
         self.ball[0] = float(np.clip(self.ball[0], r, 1.0 - r))
         self.ball[1] = float(np.clip(self.ball[1], r, 1.0 - r))
+
+    def _clip_speed(self) -> None:
+        """v4: bound |v| after a paddle contact. Counts how often it fires.
+
+        Gravity alone cannot run the speed away -- it is conservative and the
+        box is 1 unit tall, so |v| is pinned to ``sqrt(v_floor² ± 2 g Δh)``,
+        at most 0.026 for the v4 numbers. The english is the one term that adds
+        energy from outside, up to 0.0105 per contact, and it does NOT average
+        out: a tracking paddle is usually moving toward the ball when it hits,
+        so successive impulses correlate rather than cancelling.
+
+        This guard was expected to be a formality and it is not, which is
+        precisely why the counter exists. Under the tracking half of the
+        ``mix`` behaviour policy the ball is struck often enough to reach the
+        cap, and ``worldsim.collect._gravity_report`` prints how often per
+        split. Read that number before trusting any claim that speed is
+        "roughly constant" in a v4 dataset: it is not, by a factor of about
+        seven between the slowest and fastest frames.
+        """
+        speed = float(np.linalg.norm(self.ball_v))
+        if speed > self.cfg.max_speed:
+            self.ball_v *= self.cfg.max_speed / speed
+            self.speed_clips += 1
 
     def _renormalise_velocity(self) -> None:
         # v2 effect 1 of 2: the conserved quantity is now the *effective* speed

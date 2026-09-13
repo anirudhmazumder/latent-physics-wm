@@ -403,6 +403,291 @@ class WaitAndSeeOracleController(BaseController):
         )
 
 
+# --------------------------------------------------------- v4: the ballistics
+#
+# Under gravity, "where will the ball land" stops being a straight-line
+# extrapolation and becomes a quadratic one -- and its answer depends on a
+# quantity no frame shows. That makes it the right place to build v4's
+# reference controllers, because the SAME solver, handed the true sign or a
+# guessed one, gives both the ceiling and the memoryless bound. Any gap between
+# the two is then attributable to the sign and to nothing else: same geometry,
+# same dead zone, same code path.
+
+
+def _first_positive_root(y: float, vy: float, a: float, target: float,
+                         eps: float = 1e-9) -> Optional[float]:
+    """Smallest t > 0 with ``y + vy t + a t^2 / 2 == target``, or None.
+
+    Written out rather than handed to ``np.roots`` because the degenerate case
+    (a == 0, i.e. gravity off) has to stay exact -- it is the v1 answer -- and
+    because we want the *smallest positive* root, which a general solver makes
+    you post-process anyway.
+    """
+    c = y - target
+    if abs(a) < 1e-15:
+        if abs(vy) < 1e-15:
+            return None
+        t = -c / vy
+        return t if t > eps else None
+    disc = vy * vy - 2.0 * a * c
+    if disc < 0.0:
+        return None                      # the ball never gets that high/low
+    sq = float(np.sqrt(disc))
+    ts = [(-vy + sq) / a, (-vy - sq) / a]
+    ts = [t for t in ts if t > eps]
+    return min(ts) if ts else None
+
+
+def _fold_into_box(x: float, r: float) -> float:
+    """Reflect ``x`` back into ``[r, 1 - r]`` as many times as it takes.
+
+    The ball's horizontal motion is unaccelerated, so side-wall bounces are
+    exactly a mirror-fold of the free-flight line -- no iteration needed, one
+    modulo does every bounce at once. (``explain_decisions`` in
+    ``wm.eval_controller`` folds only once, which is right for its purpose --
+    it is asking what a *linear* reading of the state predicts -- but wrong for
+    a controller that is meant to be a ceiling.)
+    """
+    w = 1.0 - 2.0 * r
+    if w <= 0.0:
+        return x
+    u = (x - r) % (2.0 * w)
+    if u > w:
+        u = 2.0 * w - u
+    return r + u
+
+
+def _reflect_x(x: float, vx: float, lo: float, hi: float) -> Tuple[float, float]:
+    """One substep's worth of side-wall resolution, mirroring ``_collide_walls``.
+
+    A ``while`` rather than an ``if`` only because a pathological substep could
+    in principle overshoot the whole box; in practice it runs once or not at
+    all, and matching the environment's *mirror the position* rule (rather than
+    clamping) is what keeps the simulated x on the environment's own path.
+    """
+    for _ in range(4):
+        if x < lo:
+            x, vx = 2.0 * lo - x, -vx
+        elif x > hi:
+            x, vx = 2.0 * hi - x, -vx
+        else:
+            break
+    return x, vx
+
+
+def _landing_x_side_wind(
+    x: float, y: float, vx: float, vy: float,
+    a: float, ball_radius: float, paddle_h: float,
+    substeps: int = 4, max_frames: int = 400,
+) -> float:
+    """v4.1: landing x under a horizontal acceleration ``a``, by substepping.
+
+    Under ``gravity_axis="x"`` the two motions decouple differently than they
+    did under vertical gravity: ``y`` is now the *unaccelerated* one (so the
+    landing TIME is v1's straight-line answer, with ceiling reflections) and
+    ``x`` is the parabola. But the x-parabola bounces off the side walls, and
+    unlike a straight line a parabola does not unfold through a mirror: the
+    acceleration's direction flips with the reflection, so the ``% 2w`` trick
+    in ``_fold_into_box`` is simply wrong here.
+
+    Rather than derive a piecewise closed form and get one branch subtly wrong,
+    this integrates the same semi-implicit Euler the environment does, in the
+    same quarter-frame substeps, with the same mirror-reflection rule -- so in
+    the absence of a paddle contact it is not an approximation of the
+    simulator's answer, it *is* the simulator's answer for the ball. Exactness
+    over elegance: this is a ceiling, and a ceiling that is 0.02 off is not one.
+
+    The landing is detected as the first downward crossing of contact height,
+    interpolated within the substep so the answer is not quantised to 1/4 of a
+    frame.
+    """
+    lo, hi = ball_radius, 1.0 - ball_radius
+    y_land = paddle_h + ball_radius
+    dt = 1.0 / substeps
+    for _ in range(max_frames * substeps):
+        vx += a * dt
+        x_prev, y_prev = x, y
+        x += vx * dt
+        y += vy * dt
+        x, vx = _reflect_x(x, vx, lo, hi)
+        if y < lo:
+            y, vy = 2.0 * lo - y, -vy
+        elif y > hi:
+            y, vy = 2.0 * hi - y, -vy
+        if y_prev > y_land >= y and y < y_prev:
+            # Linear interpolation inside the substep. x is quadratic in time,
+            # but over a quarter frame the quadratic term is ~1e-5 of a box.
+            f = (y_prev - y_land) / (y_prev - y)
+            return float(np.clip(x_prev + f * (x - x_prev), lo, hi))
+    return float(np.clip(x, lo, hi))
+
+
+def ballistic_landing_x(
+    state: np.ndarray,
+    gravity: float,
+    sign: float,
+    ball_radius: float = 0.08,
+    paddle_h: float = 0.045,
+    max_bounces: int = 4,
+    gravity_axis: str = "y",
+    substeps: int = 4,
+) -> float:
+    """Where the ball will cross contact height, under gravity ``sign*gravity``.
+
+    Exact for the idealised trajectory: parabolic in y, linear in x, elastic
+    mirror reflections off all four walls. It is NOT exact for the simulator,
+    and the two differences are worth naming because they bound how good a
+    "ceiling" this can be -- the environment integrates in quarter-frame
+    substeps (so a wall bounce is resolved up to a quarter of a step late), and
+    a paddle contact between now and the landing changes everything including
+    the sign.
+
+    Returns a clipped x in ``[ball_radius, 1 - ball_radius]``; when the ball
+    provably never reaches contact height under the assumed sign (it is
+    trapped bouncing off the ceiling), it falls back to the ball's current x,
+    which is the best a tracker can do.
+    """
+    x, y, vx, vy = (float(state[0]), float(state[1]),
+                    float(state[2]), float(state[3]))
+    a = float(sign) * float(gravity)
+    if gravity_axis == "x":
+        # v4.1. Separate path rather than a generalised one: the axis-y branch
+        # below is exact and is what every v4 number on disk was produced with,
+        # so it is left byte-for-byte alone.
+        return _landing_x_side_wind(x, y, vx, vy, a, ball_radius, paddle_h,
+                                    substeps=substeps)
+    y_land = paddle_h + ball_radius          # first height at which contact is possible
+    y_top = 1.0 - ball_radius
+
+    for _ in range(max_bounces):
+        t_land = _first_positive_root(y, vy, a, y_land)
+        t_ceil = _first_positive_root(y, vy, a, y_top)
+        if t_land is not None and (t_ceil is None or t_land <= t_ceil):
+            return _fold_into_box(x + vx * t_land, ball_radius)
+        if t_ceil is None:
+            break
+        # Bounce off the ceiling and keep going. (The floor needs no case of
+        # its own: contact height is above it, so the ball always crosses
+        # y_land on its way there.)
+        x += vx * t_ceil
+        vy = -(vy + a * t_ceil)
+        y = y_top
+    return _fold_into_box(x, ball_radius)
+
+
+def _toward(target_x: float, paddle_x: float, paddle_w: float,
+            dead_zone_frac: float) -> int:
+    """``tracking_action``'s decision rule, aimed at an arbitrary target.
+
+    Split out so the ballistic controllers share the dead-zone behaviour of
+    ``OracleController`` exactly. If they did not, the gap between them would
+    partly be a gap between two different bang-bang rules.
+    """
+    err = target_x - paddle_x
+    if abs(err) < dead_zone_frac * paddle_w:
+        return STAY_ACTION
+    return 2 if err > 0.0 else 0
+
+
+class BallisticOracleController(BaseController):
+    """v4: aim at the ball's predicted LANDING x, using the TRUE gravity sign.
+
+    The v4 ceiling, and the reason it has to exist alongside
+    ``OracleController``. The plain tracker aims at where the ball *is*; that
+    is enough in v1-v3 because the paddle crosses the box faster than the ball
+    does, so chasing converges before the ball arrives. Whether it is still
+    enough under gravity is an empirical question and the design sweep asks it
+    directly -- if the tracker is already at 1.0, then knowing the sign buys
+    the *tracking* task nothing and v4's controller question is about
+    anticipation rather than tracking. That is a finding, not a bug, and it is
+    exactly what the sweep is for.
+
+    ``sign_col`` is where the true ``gravity_sign`` lives in the state vector.
+    v4 appends it LAST, so -1 is right for any combination of switches; the
+    argument exists so a caller with an unusual column order can say so rather
+    than silently reading ``ball_visible`` as a sign.
+    """
+
+    name = "ballistic_oracle"
+    uses_true_state = True
+
+    def __init__(
+        self,
+        gravity: float,
+        paddle_w: float = 0.26,
+        dead_zone_frac: float = 0.25,
+        ball_radius: float = 0.08,
+        paddle_h: float = 0.045,
+        assumed_sign: Optional[float] = None,
+        sign_col: int = -1,
+        name: Optional[str] = None,
+        gravity_axis: str = "y",
+    ):
+        self.gravity = float(gravity)
+        self.gravity_axis = str(gravity_axis)
+        self.paddle_w = float(paddle_w)
+        self.dead_zone_frac = float(dead_zone_frac)
+        self.ball_radius = float(ball_radius)
+        self.paddle_h = float(paddle_h)
+        self.assumed_sign = None if assumed_sign is None else float(assumed_sign)
+        self.sign_col = int(sign_col)
+        if name is not None:
+            self.name = name
+
+    def _sign_for(self, s: np.ndarray) -> float:
+        if self.assumed_sign is not None:
+            return self.assumed_sign
+        if len(s) > len(_BASE_STATE_NAMES):
+            return float(s[self.sign_col])
+        return -1.0            # a world with no sign column has no gravity
+
+    def act(self, z, h, state=None) -> np.ndarray:
+        if state is None:
+            raise ValueError(f"{type(self).__name__} needs the true state")
+        state = np.atleast_2d(np.asarray(state))
+        out = np.empty(len(state), np.int64)
+        for i, s in enumerate(state):
+            x_land = ballistic_landing_x(
+                s, self.gravity, self._sign_for(s),
+                self.ball_radius, self.paddle_h,
+                gravity_axis=self.gravity_axis,
+            )
+            out[i] = _toward(x_land, float(s[4]), self.paddle_w, self.dead_zone_frac)
+        return out
+
+
+class SignBlindOracleController(BallisticOracleController):
+    """v4: the same ballistics, but *always* assuming gravity points DOWN.
+
+    THE MEMORYLESS-FOR-THIS-LATENT BOUND, and v4's analogue of v3.1's
+    ``WaitAndSeeOracleController``. It gets everything except the one bit: exact
+    position, exact velocity, exact gravity magnitude, no encoder, no inference
+    -- and a fixed guess for the sign. So it is the best any policy can do that
+    reads only the current frame pair, because the sign is precisely what a
+    bounded window cannot supply.
+
+    Read it against ``BallisticOracleController``: the gap between the two is
+    the entire behavioural value of remembering the flip, measured with no
+    world model in the loop at all. If the gap is small, no controller -- fair
+    or privileged -- can gain much from memory here, and the whole C-stage
+    question is answered before a single policy is trained. That is the v3
+    lesson, applied in advance.
+
+    Why DOWN rather than a coin flip: a fixed guess is the *policy* a
+    memoryless agent would actually converge to (the two signs are equiprobable,
+    so there is nothing to choose between them and no reason to randomise), and
+    fixing it makes the baseline deterministic and therefore paired with the
+    oracle episode for episode.
+    """
+
+    name = "sign_blind_oracle"
+
+    def __init__(self, gravity: float, **kw):
+        kw.pop("assumed_sign", None)
+        kw.setdefault("name", "sign_blind_oracle")
+        super().__init__(gravity, assumed_sign=-1.0, **kw)
+
+
 # --------------------------------------------------- normalisation statistics
 
 

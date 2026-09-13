@@ -1,4 +1,4 @@
-# worldsim — v1, v2 and v3
+# worldsim — v1, v2, v3 and v4
 
 A ball bouncing in a unit box with a paddle you move left/right/stay. Renders to
 64×64 RGB, hands you ground-truth latent state alongside every frame.
@@ -444,18 +444,224 @@ be confounded and no memory result would mean anything.
 
 ---
 
-## Extending to v4
+# v4 — the gravity switch
 
-`BoxConfig` / `BouncingBox` are structured so this stays additive (v2 and v3
-above both were):
+`BoxConfig(gravity=1e-4, launch_min_angle_deg=40)`. Everything else is v1: one
+ball colour, no band, paddle 0.26, launch speed 0.022. The two earlier switches
+still compose with it — `gravity` is orthogonal to `mass_from_color` and
+`occluder`, and the state columns stack in that order.
 
-- **v4 gravity switch** — add a switch sprite and a `gravity_sign` field, flip it
-  on paddle contact, apply in the substep loop. A latent variable that is *not*
-  visible in the current frame at all — the long-range dependency where a
-  transformer dynamics model should beat a GRU, and where you can measure the
-  crossover cleanly.
+## The idea
 
-Keep `events.npy` in mind for v4 — you'll want an `EVENT_SWITCH` flag (16, the
-next free bit after `EVENT_HIDDEN = 8`) so you can condition analysis on "how
-many frames since the switch flipped." `worldsim.collect.hidden_runs` is
-written against a generic boolean mask and will find switch intervals too.
+v1 hid **velocity**: invisible in any one frame, inferable from two. v2 hid
+**mass** behind an appearance cue: visible in one frame, but only as colour.
+v3/v3.1 hid **position** for a stretch of every traverse: recoverable only from
+memory, but only for ~20 frames.
+
+In all three, the information needed to predict the next frame sat in a
+*bounded window* of recent frames. v4 removes that. The ball feels a constant
+vertical acceleration whose **direction** — `gravity_sign`, ±1 — is drawn at
+reset and multiplied by −1 on **every paddle contact**. Nothing in any frame
+shows it. It holds for the ~75–105 frames until the next contact, and it bends
+every trajectory in that stretch. To predict well, a model has to notice the
+event and remember its consequence.
+
+| field | value | meaning |
+|---|---|---|
+| `gravity` | 0.0 (off = v1) / 1e-4 in v4 | acceleration **magnitude**, world units per frame² |
+| `gravity_sign_init` | `"random"` / `"down"` / `"up"` | ±1 with probability ½ at reset; the fixed options give a constant-gravity control world |
+| `launch_min_angle_deg` | 14.5 (= the v1 rule) / 40 in v4 | minimum launch angle from horizontal |
+| `max_speed` | 0.05 | speed cap applied after a paddle contact |
+| `EVENT_FLIP` | 16 | set on the step where the sign flipped |
+
+## Three physics decisions, none of them inherited
+
+**Speed is no longer conserved**, so `_renormalise_velocity` is off whenever
+gravity is on. It has to be: pinning the speed would destroy exactly the
+curvature the tier is about. Gravity is conservative and the walls are elastic,
+so |v| is a function of height and stays bounded on its own; the one term that
+adds energy from outside is the paddle's english, which is why `_clip_speed`
+bounds the speed *after a contact* rather than every frame.
+
+**The `min_vy_frac` guard goes with it**, because it lives inside
+`_renormalise_velocity`. That is the right call and not merely convenient: the
+guard existed to stop a ball skimming horizontally forever, and under gravity a
+horizontal ball is pulled off the horizontal within a few dozen frames anyway.
+
+**The launch angle had to be raised.** With `vy² > 2 g Δh` and Δh = 1 − 2r =
+0.84, g = 1e-4 needs |vy| > 0.0130 — 36.2° at speed 0.022 — or the ball cannot
+cross the box against the pull and the episode degenerates into a floor-skim.
+v4 launches above 40°, with margin. `launch_min_angle_deg` raises the `|sin θ|`
+bound only; the `|cos θ| > 0.25` bound that keeps launches off *vertical* stays
+at its v1 value. Tying both to one constant would be worse than cosmetic: at
+50° the rule would become `|sin| > 0.766 AND |cos| > 0.766`, which no angle
+satisfies, and the rejection sampler would spin forever.
+
+### The byte-identity trap in that parameter
+
+`launch_min_angle_deg` defaults to **14.5**, which *names* the v1 rule
+(`asin(0.25) = 14.4775°`) rather than reproducing it: `sin(14.5°) = 0.250380`.
+The difference looks negligible and is not. The guard is a **rejection
+sampler**, so a threshold 4e-4 too high does not perturb an angle — it rejects a
+draw v1 accepted, shifts that episode's rng stream by one, and produces a
+completely different, completely plausible episode. It happens on ~0.04% of
+resets: often enough to corrupt one episode in a few hundred, rare enough to
+survive a five-frame spot check. `launch_min_sin()` therefore pins the v1 value
+as a literal, and `tests/test_env_v4.py` replays 400 resets against a
+hand-written copy of the v1 loop.
+
+## The flip
+
+```python
+if cfg.gravity > 0.0:
+    self._clip_speed()
+    if not (self._events & EVENT_PADDLE):      # once per FRAME, not per substep
+        self.gravity_sign = -self.gravity_sign
+        self._events |= EVENT_FLIP
+else:
+    self._renormalise_velocity()
+```
+
+Once per *frame* matters. `_collide_paddle` runs in every one of the four
+substeps, and a contact spanning two substeps is one contact — flipping twice
+would silently mean not flipping at all. `EVENT_PADDLE` is already set if an
+earlier substep touched the paddle, which makes it exactly the "have we flipped
+yet this frame" flag.
+
+`EVENT_FLIP` is therefore redundant with `EVENT_PADDLE` whenever gravity is on,
+in the same way `EVENT_HIDDEN` is redundant with `ball_visible`. It exists for
+the same reason: analysis code can slice "frames since the latent changed"
+straight out of `events.npy` without knowing which switches produced the file.
+
+## State vector
+
+```
+[ball_x, ball_y, ball_vx, ball_vy, paddle_x, paddle_vx, (mass), (ball_visible), (gravity_sign)]
+```
+
+`gravity_sign` is appended **last**, after any v2/v3 column, so all three
+switches compose and `meta["state_names"]` is always the authority. It is a
+grading variable: the model never sees it.
+
+## Collecting v4
+
+```bash
+bash runs/v4_env/collect_v4.sh        # the six calls below, ~5 min, 1.5 GB
+```
+
+```bash
+python -m worldsim.collect --out data/v4/train --episodes 150 --steps 200 \
+    --ball-radius 0.08 --res 64 --gravity 0.0001 --launch-min-angle 40
+```
+
+| split | episodes × steps | seed | policy | flips/ep | 0 / 1 / 2 / 3+ flips | mean frames between flips | frames sign-down | speed min/mean/max | stalled frames |
+|---|---|---|---|---|---|---|---|---|---|
+| `train` | 150 × 200 | 0 | sticky | 1.05 | 26 / 51 / 17 / 7% | 74.1 | 55.3% | 0.0074 / 0.0225 / 0.0498 | 1.27% |
+| `train_mix` | 300 × 200 | 10 | mix 0.5 | 1.68 | 7 / 38 / 38 / 16% | 80.8 | 55.1% | 0.0053 / 0.0236 / 0.0516 | 2.40% |
+| `val` | 15 × 200 | 1 | sticky | 0.60 | 47 / 47 / 7 / 0% | 71.0 | 48.6% | 0.0100 / 0.0220 / 0.0292 | 0.00% |
+| `val_mix` | 20 × 200 | 11 | mix | 2.00 | 5 / 25 / 45 / 25% | 77.9 | 60.7% | 0.0154 / 0.0251 / 0.0506 | 0.00% |
+| `probe` | 120 × 24 | 777 | sticky | 0.16 | 85 / 14 / 1 / 0% | — | 54.7% | 0.0168 / 0.0221 / 0.0307 | 0.00% |
+| `long` | 30 × **600** | 50 | mix | 4.87 | 0 / 7 / 10 / 83% | 105.8 | 55.0% | 0.0064 / 0.0270 / 0.0516 | 1.36% |
+
+Every number also lives in that split's `meta["flips"]`. "Stalled frames" is the
+fraction whose preceding 100 frames contain no visit to either end of the box —
+the one failure mode gravity introduces that a bounds check would not catch.
+
+Four things worth reading off it.
+
+1. **Flips are rare and well spaced** — one to two per 200-step episode, 74–106
+   frames apart. That interval is the memory horizon stage two has to bridge,
+   and it is 4–5× v3.1's hidden runs.
+2. **A quarter of `train` episodes never flip at all.** Those are not waste:
+   they are the control condition (the sign held from reset), and the "sign at
+   episode start" baseline needs them.
+3. **`probe` has almost no flips (0.16/episode), by construction.** Its 24-step
+   episodes are far shorter than the flip interval. That is correct for what it
+   is for — fitting per-frame probes, where the question is whether a *single
+   frame* carries the sign, and each episode contributing one constant label is
+   exactly the right design.
+4. **The two signs are not 50/50 in frames (55/45).** Episodes start balanced
+   and flips alternate, but gravity-down traverses take longer (see below), so
+   more frames accumulate under them. Chance level for a sign classifier is
+   therefore 55%, not 50% — `wm.analyze_v4` reports the majority-class baseline
+   next to every accuracy for this reason.
+
+### Speed is genuinely variable, by a factor of seven
+
+`_clip_speed` was expected to be a formality and is not. The english does not
+average out — a tracking paddle is usually moving *toward* the ball when it
+hits, so successive impulses correlate — and on the tracking-heavy splits the
+ball reaches the 0.05 cap (5 clips in `train_mix`, 8 in `long`; none on the
+sticky splits). Combined with gravity's own contribution the observed range is
+0.0053–0.0516. Do not carry a "speed is roughly constant" assumption from v1
+into any v4 analysis: `wm.eval_controller.floor_visit_stats` is handed the
+**per-episode maximum** speed for exactly this reason.
+
+## Figures
+
+```bash
+python -m worldsim.v4_figures --data data/v4/train_mix \
+    --gif-data data/v4/long --traj-data data/v4/long --out runs/v4_env
+```
+
+![sample grid](../runs/v4_env/sample_grid.png)
+
+32 frames: the top panel is gravity-down, the bottom gravity-up, **matched on
+ball height** (each tile pairs with the tile above it). The matching is the
+point — under gravity-down the ball genuinely spends more time high in the box,
+so an unmatched sample would show you the sampling rather than the world. The
+two panels should be, and are, indistinguishable. That is the v4 premise as a
+picture.
+
+`runs/v4_env/gravity_episode.gif` is `data/v4/long` episode 24, frames 108–199,
+with the flip at t = 154. Fitting a quadratic to `ball_y` either side gives
+**−1.04e-4 before** and **+1.16e-4 after**. The ball accelerates *downward* into
+the contact and *upward* away from it — which no constant-gravity world can do.
+
+![trajectories by sign](../runs/v4_env/trajectories_by_sign.png)
+
+`ball_y` against time for six 600-step episodes, red where gravity pulls down,
+blue where it pulls up, dashed at each flip. Red traverses arch (the ball
+decelerates the whole way up and only just reaches the ceiling); blue ones are
+steeper and more nearly straight.
+
+### The cue the design document did not anticipate
+
+That difference is measurable, and it is coarser than a curvature fit
+(`runs/v4_env/traverse_stats.json`, from `data/v4/long`):
+
+| sign in force | full traverses | median frames | mean \|vy\| |
+|---|---|---|---|
+| pulls DOWN | 177 | **48.0** | 0.0192 |
+| pulls UP | 186 | **40.0** | 0.0224 |
+
+A 1.20× difference in crossing time. The sign is invisible in a *frame*, as
+designed — but at a 40° launch it also sets the ball's energy budget, so it is
+partly re-derivable from a *single traverse* rather than only from a memory of
+the flip. Stage two must therefore treat "M knows the sign" and "M remembers
+the flip" as separable claims; the flip counterfactual, which holds the
+trajectory-so-far fixed, is the test that separates them.
+
+## Tests
+
+```bash
+python -m tests.test_env_v4      # 11 tests, includes the v1/v2/v3/v3.1 replays
+python -m pytest tests/ -q
+```
+
+The ones that matter: all four earlier val sets replay byte-for-byte; the v1
+launch rule is reproduced *exactly* over 400 resets; free flight accelerates by
+exactly `gravity` per frame (checked on `ball_v` in float64, not the float32
+state column); the sign flips iff `EVENT_FLIP` fires iff `EVENT_PADDLE` fires;
+`gravity=0.0` is bit-identical to plain v1; and the sign-blind oracle equals the
+ballistic oracle exactly where the true sign is down — which is what licenses
+reading the design sweep's gap as the price of the hidden bit.
+
+## Where the C-stage question went
+
+`runs/v4_design/sweep.md` has the full story and it is a negative result worth
+knowing before stage three: **a sign-blind oracle scores identically to the full
+oracle at every gravity tested (gap 0.00, 8 cells)**. The paddle crosses the box
+faster than the ball falls, and a wrong sign is a *large error far away and no
+error up close*, so the tracker simply waits and corrects. Raising gravity does
+not help — it only stalls episodes. v4's live questions are the M-stage ones.

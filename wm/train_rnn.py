@@ -48,6 +48,20 @@ reason to remember where a hidden ball is (``wm/README_M3.md`` Section 10,
     --pos-head --w-pos w     a linear head on h predicting the true ball
                              position on every frame, hidden included. Openly
                              privileged: the CEILING experiment.
+
+And one more, added in v3.1 after the longer occlusion turned out to cost the
+model its *clock* rather than its map (``wm/README_CLOCK31.md``):
+
+    --clock-head --w-clock w a linear head on h predicting "frames since the
+                             ball was last at least half visible" and "frames
+                             until it next is". SELF-SUPERVISED: the visibility
+                             sequence comes from a frozen degree-2 probe on the
+                             model's own input latents, not from the simulator.
+                             See ``wm/clock.py`` for the argument.
+    --clock-privileged       build the same two targets from the simulator's
+                             ball_visible column instead. The labelled ceiling.
+    --vy-head --w-vy w       a linear head on h predicting the TRUE ball_vy.
+                             Privileged, like --pos-head.
 """
 
 from __future__ import annotations
@@ -61,6 +75,7 @@ from typing import Dict, List
 import numpy as np
 import torch
 
+from .clock import CLOCK_CLIP, clock_arrays_for_roots, fit_visibility_probe
 from .conservation import (
     Poly2Probe, conservation_penalty, rollout_losses,
 )
@@ -248,7 +263,8 @@ def latent_rollout(
 @torch.no_grad()
 def evaluate(model: MDNRNN, loader, pos_weight: float, device: str) -> Dict[str, float]:
     model.eval()
-    agg = {"nll": 0.0, "hit_bce": 0.0, "reward_mse": 0.0, "n": 0}
+    agg = {"nll": 0.0, "hit_bce": 0.0, "reward_mse": 0.0, "clock_mse": 0.0,
+           "n": 0}
     tp = fp = fn = 0
     for batch in loader:
         batch = {k: v.to(device) for k, v in batch.items()}
@@ -257,6 +273,13 @@ def evaluate(model: MDNRNN, loader, pos_weight: float, device: str) -> Dict[str,
         n = batch["z"].shape[0]
         for k in ("nll", "hit_bce", "reward_mse"):
             agg[k] += float(d[k]) * n
+        # The clock head's HELD-OUT error, in the scaled [0, 1] units. Reported
+        # but never selected on: checkpoint selection stays best-val-NLL, the
+        # same rule every run in this project has used, so the clock runs and
+        # the baseline are still selected identically.
+        if model.clock_head is not None and "clock" in batch:
+            agg["clock_mse"] += float(torch.nn.functional.mse_loss(
+                parts["clock"], batch["clock"])) * n
         agg["n"] += n
 
         pred = (torch.sigmoid(parts["hit_logit"].squeeze(-1)) > 0.5).float()
@@ -272,6 +295,7 @@ def evaluate(model: MDNRNN, loader, pos_weight: float, device: str) -> Dict[str,
         "nll": agg["nll"] / n,
         "hit_bce": agg["hit_bce"] / n,
         "reward_mse": agg["reward_mse"] / n,
+        "clock_mse": agg["clock_mse"] / n,
         "hit_precision": prec,
         "hit_recall": rec,
         "hit_f1": 2 * prec * rec / max(prec + rec, 1e-9),
@@ -354,6 +378,37 @@ def main() -> None:
                         "world-model result: it tells the recurrent state what "
                         "to remember. Nothing downstream reads the head.")
     p.add_argument("--w-pos", type=float, default=1.0)
+    # --------------------------------------------------- v3.1 the exit clock
+    # v3's occlusions were 9.5 frames long and the baseline learned the clock
+    # (frames_hidden from h, R^2 0.54) and not x. v3.1's are 21 frames long and
+    # the same architecture learned x (0.52) and lost the clock (-0.23), so a
+    # tau = 0 dream knows where the ball will come out and never decides when.
+    # This head pays for counting directly. wm/clock.py has the full argument.
+    p.add_argument("--clock-head", action="store_true",
+                   help="add a linear head on h predicting (frames since the "
+                        "ball was last at least half visible, frames until it "
+                        "next is), clipped at --clock-clip and scaled to "
+                        "[0, 1]. SELF-SUPERVISED: the visibility sequence is "
+                        "read by a frozen poly-2 probe on the model's own "
+                        "input latents. Target (b) uses hindsight -- the "
+                        "recorded future of the episode -- exactly as the "
+                        "reward head has since v1.")
+    p.add_argument("--w-clock", type=float, default=1.0)
+    p.add_argument("--clock-clip", type=int, default=CLOCK_CLIP,
+                   help="counters saturate here, in frames")
+    p.add_argument("--clock-privileged", action="store_true",
+                   help="build the clock targets from the simulator's "
+                        "ball_visible column instead of from the frozen "
+                        "z-probe. The labelled CEILING for --clock-head: it "
+                        "measures how much of any failure is the probe's "
+                        "fault rather than the objective's.")
+    p.add_argument("--clock-probe-samples", type=int, default=40000,
+                   help="frames used to FIT the frozen visibility probe")
+    p.add_argument("--vy-head", action="store_true",
+                   help="add a linear head on h predicting the TRUE ball_vy. "
+                        "Privileged, like --pos-head; used with "
+                        "--clock-privileged in the ceiling run.")
+    p.add_argument("--w-vy", type=float, default=1.0)
     p.add_argument("--cons-probe-samples", type=int, default=20000,
                    help="frames used to FIT the frozen conservation probe")
     p.add_argument("--grad-clip", type=float, default=1.0)
@@ -390,19 +445,48 @@ def main() -> None:
     # by a probe before training) little colour information, which is exactly
     # the counterfactual the experiment needs.
     latent_suffix = "v1vae" if a.ablate_color else a.latent_suffix
+    val_roots = a.val or a.data
+
+    # --- the clock targets, computed over WHOLE episodes before any windowing.
+    # The visibility probe is fitted on the TRAINING roots only and then frozen,
+    # for the same reason the conservation probe is: a probe that co-adapts
+    # could be satisfied by moving itself. It is applied unchanged to the val
+    # roots, so the val clock MSE is an honest held-out number.
+    train_clock = val_clock = None
+    clock_info: Dict[str, float] = {}
+    if a.clock_head:
+        if a.clock_privileged:
+            vis_probe, clock_info["probe_r2"] = None, float("nan")
+            print("clock targets: PRIVILEGED (simulator ball_visible column)")
+        else:
+            vis_probe, r2 = fit_visibility_probe(
+                a.data, latent_suffix, a.clock_probe_samples, a.seed)
+            clock_info["probe_r2"] = r2
+            print(f"clock visibility probe: poly-2 ridge, mu -> ball_visible, "
+                  f"held-out R^2 {r2:.4f}")
+        tr_arr, tr_info = clock_arrays_for_roots(
+            a.data, vis_probe, latent_suffix, a.clock_clip)
+        va_arr, va_info = clock_arrays_for_roots(
+            val_roots, vis_probe, latent_suffix, a.clock_clip)
+        train_clock, val_clock = {"clock": tr_arr}, {"clock": va_arr}
+        clock_info["train_threshold_agreement"] = tr_info["threshold_agreement"]
+        clock_info["val_threshold_agreement"] = va_info["threshold_agreement"]
+        print(f"clock: thresholded visibility agrees with the simulator on "
+              f"{tr_info['threshold_agreement']:.3%} of training frames "
+              f"({va_info['threshold_agreement']:.3%} of val); clip "
+              f"{a.clock_clip} frames")
 
     train_loader = make_seq_loader(
         a.data, seq_len=a.seq_len, batch_size=a.batch_size, shuffle=True,
         stride=a.stride, use_mean=a.use_mean, seed=a.seed,
-        latent_suffix=latent_suffix,
+        latent_suffix=latent_suffix, frame_targets=train_clock,
     )
-    val_roots = a.val or a.data
     val_loader = make_seq_loader(
         val_roots, seq_len=a.seq_len, batch_size=a.batch_size, shuffle=False,
         stride=a.seq_len,  # non-overlapping windows: val should not double-count
         use_mean=True,     # deterministic val, so epoch-to-epoch changes are the model
         seed=a.seed,
-        latent_suffix=latent_suffix,
+        latent_suffix=latent_suffix, frame_targets=val_clock,
     )
     # NOTE, and it surprises people: train NLL and val NLL are NOT comparable
     # here, and val is much lower. Train targets are posterior SAMPLES, which
@@ -426,7 +510,7 @@ def main() -> None:
         z_dim=z_dim, n_actions=3, hidden=a.hidden, n_gauss=a.n_gauss,
         predict_delta=not a.no_delta, ablate_actions=a.ablate_actions,
         mass_head=a.mass_head, feedforward=a.feedforward,
-        pos_head=a.pos_head,
+        pos_head=a.pos_head, clock_head=a.clock_head, vy_head=a.vy_head,
     )
     model = MDNRNN(cfg).to(device)
     print(f"params={sum(p_.numel() for p_ in model.parameters())/1e3:.0f}k  cfg={cfg}")
@@ -467,12 +551,16 @@ def main() -> None:
     pos_cols = [_state_column(a.data, n) for n in ("ball_x", "ball_y")]
     if a.pos_head and any(c is None for c in pos_cols):
         raise SystemExit("this dataset has no ball_x/ball_y columns")
+    vy_col = _state_column(a.data, "ball_vy")
+    if a.vy_head and vy_col is None:
+        raise SystemExit("this dataset has no ball_vy column")
 
     history: List[dict] = []
     best = float("inf")
     t0 = time.time()
 
-    extra_keys = ("roll_nll", "cons", "mass_mse", "pos_mse", "emerge_frac")
+    extra_keys = ("roll_nll", "cons", "mass_mse", "pos_mse", "emerge_frac",
+                  "clock_mse", "vy_mse")
     for epoch in range(a.epochs):
         model.train()
         agg = {"loss": 0.0, "nll": 0.0, "hit_bce": 0.0, "reward_mse": 0.0, "n": 0}
@@ -521,6 +609,23 @@ def main() -> None:
                 pos_mse = torch.nn.functional.mse_loss(parts["ball_pos"], tgt)
                 loss = loss + a.w_pos * pos_mse
                 d["pos_mse"] = pos_mse.detach()
+
+            # The exit clock. Both counters at once, in the scaled [0, 1]
+            # units, with one MSE -- "how long since" and "how long until" are
+            # the same quantity read from the two ends of an occlusion, and
+            # weighting them separately would be a knob with nothing behind it.
+            if model.clock_head is not None:
+                clock_mse = torch.nn.functional.mse_loss(
+                    parts["clock"], batch["clock"])
+                loss = loss + a.w_clock * clock_mse
+                d["clock_mse"] = clock_mse.detach()
+
+            # ball_vy from h. Privileged; see --vy-head.
+            if model.vy_head is not None:
+                vy_mse = torch.nn.functional.mse_loss(
+                    parts["ball_vy"].squeeze(-1), batch["state"][..., vy_col])
+                loss = loss + a.w_vy * vy_mse
+                d["vy_mse"] = vy_mse.detach()
 
             # log(mass) from h. The window's state rows are all one episode and
             # mass is constant within an episode, so this is a constant target
@@ -587,6 +692,15 @@ def main() -> None:
             msg += f"  mass_mse {row['train_mass_mse']:.4f}"
         if model.pos_head is not None:
             msg += f"  pos_mse {row['train_pos_mse']:.5f}"
+        if model.clock_head is not None:
+            # Printed in FRAMES as well as in the scaled units, because "0.004"
+            # means nothing and "2.5 frames of error on a 21-frame occlusion"
+            # means everything. rmse_frames = clip * sqrt(mse).
+            msg += (f"  clock {row['train_clock_mse']:.5f}"
+                    f" (val {va['clock_mse']:.5f} = "
+                    f"{a.clock_clip * va['clock_mse'] ** 0.5:.1f} frames rmse)")
+        if model.vy_head is not None:
+            msg += f"  vy_mse {row['train_vy_mse']:.5f}"
         if a.emerge_weight != 1.0:
             msg += f"  emerge {row['train_emerge_frac']:.3%}"
 
@@ -613,7 +727,8 @@ def main() -> None:
             best = va["nll"]
             save_rnn(out / "rnn.pt", model, vars(a), extra={"epoch": epoch,
                                                             "val_nll": va["nll"],
-                                                            "pos_weight": pos_weight})
+                                                            "pos_weight": pos_weight,
+                                                            "clock_info": clock_info})
 
     # The selection rule is best-teacher-forced-val-NLL, unchanged from v1 so
     # that every run in the comparison is selected the same way. But a run with
@@ -621,7 +736,11 @@ def main() -> None:
     # the FINAL epoch is saved alongside it -- if the two differ by much, the
     # selection rule is the thing to question, not the model.
     save_rnn(out / "rnn_last.pt", model, vars(a),
-             extra={"epoch": a.epochs - 1, "pos_weight": pos_weight})
+             extra={"epoch": a.epochs - 1, "pos_weight": pos_weight,
+                    "clock_info": clock_info})
+    if clock_info:
+        (out / "clock_info.json").write_text(
+            json.dumps(clock_info, indent=2, default=float))
     (out / "history.json").write_text(json.dumps(history, indent=2, default=float))
     _plot_history(history, out / "training_curves.png", a.rollout_horizon)
     print(f"\nbest val NLL {best:.3f}  ->  {out / 'rnn.pt'}")

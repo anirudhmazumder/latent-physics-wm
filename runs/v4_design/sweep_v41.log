@@ -1,0 +1,84 @@
+ axis      wind  pad_w   ang  oracle  ballistic  signblind    gap   stay  random  visits  flips  stall  pinned  pin_fr
+----------------------------------------------------------------------------------------------------------------------
+    x   0.00005   0.26  14.5    0.98       0.98       0.98   0.00   0.52    0.39    1.72   1.68    13%     33%   19.3%
+    x   0.00005   0.16  14.5    0.98       0.98       0.98   0.00   0.38    0.30    1.73   1.70    13%     32%   18.7%
+    x   0.00010   0.26  14.5    0.98       0.98       0.98   0.00   0.50    0.41    1.72   1.68    13%     42%   21.7%
+    x   0.00010   0.16  14.5    0.98       0.98       0.98   0.00   0.38    0.35    1.72   1.68    13%     37%   20.5%
+    x   0.00020   0.26  14.5    0.98       0.98       0.98   0.00   0.46    0.42    1.72   1.68    13%     33%   18.6%
+    x   0.00020   0.16  14.5    0.99       0.98       0.98   0.00   0.35    0.31    1.72   1.72    13%     38%   19.0%
+    y   0.00010   0.26  40.0    0.98       0.98       0.98   0.00   0.41    0.41    2.12   2.08     5%     28%   19.0%
+
+NO CELL QUALIFIES (need gap >= 0.15, bad episodes <= 5%)
+
+why: how much slack does a wrong sign leave?  [x_g5e-05_w0.26] (3790 descending frames, paddle_w=0.26)
+   frames to landing       n  |dx| pred   > w/2  slack (fr)  slack<0
+                1-10     642      0.000    0.0%         5.0    0.00%
+               10-20     666      0.003    0.0%        14.3    0.00%
+               20-40    1237      0.012    0.0%        28.9    0.00%
+               40-80     876      0.028    4.7%        52.8    0.00%
+              80-120     362      0.022    2.8%        96.5    0.00%
+  overall frames with negative slack: 0.000%
+
+why: how much slack does a wrong sign leave?  [x_g5e-05_w0.16] (4469 descending frames, paddle_w=0.16)
+   frames to landing       n  |dx| pred   > w/2  slack (fr)  slack<0
+                1-10     759      0.001    0.0%         5.0    0.00%
+               10-20     796      0.004    0.0%        14.3    0.00%
+               20-40    1487      0.014    0.0%        28.8    0.00%
+               40-80    1089      0.030   19.2%        52.8    0.00%
+              80-120     331      0.030   14.2%        94.7    0.00%
+  overall frames with negative slack: 0.000%
+
+why: how much slack does a wrong sign leave?  [x_g0.0001_w0.26] (4167 descending frames, paddle_w=0.26)
+   frames to landing       n  |dx| pred   > w/2  slack (fr)  slack<0
+                1-10     678      0.001    0.0%         5.0    0.00%
+               10-20     706      0.006    0.0%        14.3    0.00%
+               20-40    1322      0.020    1.1%        28.6    0.00%
+               40-80    1007      0.069   26.3%        51.4    0.00%
+              80-120     444      0.062   16.2%        95.3    0.00%
+  overall frames with negative slack: 0.000%
+
+why: how much slack does a wrong sign leave?  [x_g0.0001_w0.16] (4622 descending frames, paddle_w=0.16)
+   frames to landing       n  |dx| pred   > w/2  slack (fr)  slack<0
+                1-10     786      0.001    0.0%         4.9    0.00%
+               10-20     826      0.007    0.0%        14.2    0.00%
+               20-40    1531      0.025   11.7%        28.4    0.00%
+               40-80    1118      0.071   34.8%        51.6    0.00%
+              80-120     354      0.066   29.7%        93.7    0.00%
+  overall frames with negative slack: 0.000%
+
+why: how much slack does a wrong sign leave?  [x_g0.0002_w0.26] (4149 descending frames, paddle_w=0.26)
+   frames to landing       n  |dx| pred   > w/2  slack (fr)  slack<0
+                1-10     678      0.002    0.0%         4.9    0.00%
+               10-20     706      0.015    0.0%        14.0    0.00%
+               20-40    1321      0.052   17.0%        27.6    0.00%
+               40-80    1004      0.076   25.0%        51.5    0.00%
+              80-120     429      0.082   24.0%        94.9    0.00%
+  overall frames with negative slack: 0.000%
+
+why: how much slack does a wrong sign leave?  [x_g0.0002_w0.16] (4338 descending frames, paddle_w=0.16)
+   frames to landing       n  |dx| pred   > w/2  slack (fr)  slack<0
+                1-10     732      0.002    0.0%         4.9    0.00%
+               10-20     766      0.016    0.0%        13.9    0.00%
+               20-40    1431      0.056   31.4%        27.4    0.00%
+               40-80    1069      0.094   35.1%        50.5    0.00%
+              80-120     330      0.105   38.5%        93.2    0.00%
+  overall frames with negative slack: 0.000%
+
+why: how much slack does a wrong sign leave?  [v4_reference_axis_y] (4171 descending frames, paddle_w=0.26)
+   frames to landing       n  |dx| pred   > w/2  slack (fr)  slack<0
+                1-10     861      0.001    0.0%         4.9    0.00%
+               10-20     883      0.006    0.0%        14.2    0.00%
+               20-40    1562      0.024    0.0%        28.1    0.00%
+               40-80     494      0.031    6.9%        48.8    0.00%
+              80-120     368      0.035    8.4%        95.9    0.00%
+  overall frames with negative slack: 0.000%
+
+appendix: is the blocker the WIND or the PADDLE's speed?
+ axis      wind  pad_w  pad_spd  ballistic  signblind    gap   stay  slack<0
+----------------------------------------------------------------------------
+    x   0.00020   0.16    0.030       0.97       0.97   0.00   0.35     0.0%
+    x   0.00020   0.16    0.012       0.96       0.96   0.00   0.35     0.0%
+    x   0.00020   0.16    0.006       0.91       0.88   0.03   0.35     5.9%
+    y   0.00010   0.16    0.006       0.86       0.87  -0.01   0.35     0.3%
+
+wrote /Users/masudip/Desktop/Anirudh/Extracurricular/Computer Science/Projects/latent-physics-wm/runs/v4_design/sweep_v41.json  (431s)

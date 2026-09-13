@@ -68,13 +68,20 @@ confounded by the encoder.
 | an agent acting on memory | v3.1 | +0.22 over the memoryless bound; moves while blind; `h`-ablation kills it |
 | a dream that simulates an occlusion | **not yet** | balls do not re-emerge |
 
+## 4b. Follow-ups (doc 10)
+
+A self-supervised counter head did **not** revive the dream: every model learned
+frames-since-hidden (R² 0.76) and none learned frames-until-visible (R² −0.06).
+A second CMA-ES seed per controller row kept the headline — fair τ=1 above the
+memoryless bound and the `z`-only control on both seeds, and best on long moves
+— while dissolving every adjacent ordering; the feed-forward "floor" landed
+above the bound on one seed.
+
 ## 5. Next
 
-1. **Revive the dream.** The missing exit clock is the cause; candidates are an
-   emergence-timed auxiliary target (privileged, as a ceiling), a rollout loss
-   scored on re-emergence frames specifically, or the v4 architecture change.
-2. **Second seeds** for the fair / privileged / real rows; the 0.73 / 0.68 /
-   0.65 ordering is within one seed's spread.
+1. ~~Revive the dream with a counter head~~ — tried, failed instructively (doc 10).
+   What remains is architectural: attention back to the entry frames (v4).
+2. ~~Second seeds~~ — done (doc 10); only the coarse orderings survive.
 3. **A causal test that the controller reads hidden `x`**: perturb `h`'s
    `x`-direction (found by the probe) during occlusion and watch the drive.
 4. **v4 — the gravity switch.** A latent flipped on paddle contact and never

@@ -17,7 +17,14 @@ import argparse
 
 import numpy as np
 
-from .bouncing_box import LEFT, RIGHT, STAY, BouncingBox, BoxConfig
+from .bouncing_box import (
+    EVENT_FLIP,
+    LEFT,
+    RIGHT,
+    STAY,
+    BouncingBox,
+    BoxConfig,
+)
 
 
 def main() -> None:
@@ -37,6 +44,20 @@ def main() -> None:
                         "exactly the problem the controller is given.")
     p.add_argument("--occluder-y", type=float, nargs=2, default=(0.28, 0.58),
                    metavar=("LO", "HI"))
+    p.add_argument("--gravity", type=float, default=0.0,
+                   help="v4: vertical acceleration magnitude (try 0.0001). Its "
+                        "DIRECTION is hidden and flips every time you hit the "
+                        "ball -- worth playing once, because you will find "
+                        "yourself keeping count of your own contacts, which is "
+                        "precisely the state the world model has to carry.")
+    p.add_argument("--gravity-sign-init", choices=["random", "down", "up"],
+                   default="random",
+                   help="v4: fix the starting direction instead of drawing it")
+    p.add_argument("--launch-min-angle", type=float, default=None,
+                   help="minimum launch angle from horizontal in degrees. "
+                        "Defaults to 40 when --gravity is on (below that the "
+                        "ball cannot cross the box against the pull) and to "
+                        "the v1 rule otherwise.")
     a = p.parse_args()
 
     try:
@@ -44,12 +65,21 @@ def main() -> None:
     except ImportError:
         raise SystemExit("play mode needs pygame:  pip install pygame")
 
+    # The v4 launch angle defaults to 40 whenever gravity is on, because the
+    # combination "gravity on, v1 launch angle" is not a variant anyone wants
+    # to play -- the ball cannot climb and the game is a floor-skim.
+    launch = a.launch_min_angle
+    if launch is None:
+        launch = 40.0 if a.gravity > 0.0 else BoxConfig().launch_min_angle_deg
     env = BouncingBox(
         BoxConfig(
             res=a.res,
             mass_from_color=a.mass_from_color,
             occluder=a.occluder,
             occluder_y=tuple(a.occluder_y),
+            gravity=a.gravity,
+            gravity_sign_init=a.gravity_sign_init,
+            launch_min_angle_deg=launch,
         ),
         seed=a.seed,
     )
@@ -62,6 +92,8 @@ def main() -> None:
         title = "worldsim v2"
     if a.occluder:
         title = "worldsim v3" if not a.mass_from_color else "worldsim v2+v3"
+    if a.gravity > 0.0:
+        title = "worldsim v4"
     pygame.display.set_caption(f"{title} - arrows to move, R to reset, Q to quit")
     clock = pygame.time.Clock()
 
@@ -79,6 +111,10 @@ def main() -> None:
                     if a.mass_from_color:
                         print(f"mass {env.mass:.3f}  speed {env.speed:.4f}/frame  "
                               f"colour {env.ball_color}", flush=True)
+                    if a.gravity > 0.0:
+                        print(f"gravity now pulls "
+                              f"{'DOWN' if env.gravity_sign < 0 else 'UP'}",
+                              flush=True)
 
         keys = pygame.key.get_pressed()
         if keys[pygame.K_LEFT]:
@@ -88,7 +124,11 @@ def main() -> None:
         else:
             action = STAY
 
-        frame, _, _ = env.step(action)
+        frame, _, events = env.step(action)
+        if a.gravity > 0.0 and (events & EVENT_FLIP):
+            # The only announcement of the hidden variable you will ever get.
+            print(f"  FLIP -> gravity now pulls "
+                  f"{'DOWN' if env.gravity_sign < 0 else 'UP'}", flush=True)
 
         surf = pygame.surfarray.make_surface(np.transpose(frame, (1, 0, 2)))
         surf = pygame.transform.scale(surf, (side, side))

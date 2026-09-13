@@ -38,7 +38,8 @@ clock, and its dream never lets the ball out — yet a controller trained inside
 it beats the memoryless bound by 0.22, moves the paddle while the ball is
 hidden, and collapses to the bound when its memory input is removed. What
 transferred was a dense reward on a memory-carrying state, not a simulation.
-Docs in `docs/v3/06–09`.
+A second training seed per row keeps that headline and dissolves the finer
+orderings. Docs in `docs/v3/06–10`.
 
 **Start with the docs:** [`docs/README.md`](docs/README.md) — written so that
 someone new to world models can follow what was built, why, what was measured,

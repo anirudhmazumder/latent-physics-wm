@@ -102,6 +102,22 @@ class RNNConfig:
     # self-supervised objective would find it. Default False so every
     # checkpoint trained before it existed loads with an identical state dict.
     pos_head: bool = False
+    # v3.1 fix. Two extra outputs on h: "frames since the ball was last at
+    # least half visible" and "frames until it next is", both clipped and
+    # scaled into [0, 1] (see ``wm/clock.py``). UNLIKE every other auxiliary
+    # head here the fair version's target is NOT privileged: it is built from a
+    # frozen degree-2 probe on the model's own input latents, so every bit of
+    # it is information the model could read off z at that frame. What it adds
+    # is a REASON to count -- which the one-step NLL, 20 frames from the exit,
+    # cannot supply. ``--clock-privileged`` swaps the probe for the simulator's
+    # ball_visible column and is the labelled ceiling. Default False, so every
+    # earlier checkpoint loads with an identical state dict.
+    clock_head: bool = False
+    # A linear head on h predicting the TRUE ball_vy. Privileged, exactly like
+    # pos_head, and used only in the privileged clock run: "when does it come
+    # out" and "how fast is it falling" are the same fact twice, and the
+    # ceiling run is allowed to be told both.
+    vy_head: bool = False
 
 
 class MDNRNN(nn.Module):
@@ -152,6 +168,11 @@ class MDNRNN(nn.Module):
         # eval reads position out of ``h`` with an external probe, which is
         # still a fair measurement of what h holds.
         self.pos_head = nn.Linear(c.hidden, 2) if c.pos_head else None
+        # (frames_since, frames_until) / clip. Exposed under ``"clock"``;
+        # nothing downstream reads it, for the same reason nothing reads
+        # ``ball_pos`` -- every evaluation probes ``h`` from outside.
+        self.clock_head = nn.Linear(c.hidden, 2) if c.clock_head else None
+        self.vy_head = nn.Linear(c.hidden, 1) if c.vy_head else None
 
         # Start with small MDN outputs so the initial predicted delta is ~0,
         # i.e. the model starts life as the identity map. With predict_delta
@@ -228,6 +249,10 @@ class MDNRNN(nn.Module):
             parts["log_mass"] = self.mass_head(out)      # (B, T, 1)
         if self.pos_head is not None:
             parts["ball_pos"] = self.pos_head(out)       # (B, T, 2)
+        if self.clock_head is not None:
+            parts["clock"] = self.clock_head(out)        # (B, T, 2)
+        if self.vy_head is not None:
+            parts["ball_vy"] = self.vy_head(out)         # (B, T, 1)
         parts["h"] = out                                 # (B, T, hidden)
         # Stash z so the delta bookkeeping lives in one place.
         parts["z_in"] = z

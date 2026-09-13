@@ -1,0 +1,208 @@
+real env: {'ball_radius': 0.08, 'mass_from_color': False, 'mass_holdout': None, 'mass_only': None, 'occluder': True, 'occluder_y': [0.13, 0.63], 'paddle_w': 0.16, 'gravity': 0.0, 'launch_min_angle': None}
+M: runs/rnn_v31_ff/rnn.pt  z_dim 16  hidden 256  K 5
+computing input normalisation from the training set ...
+  38400 samples; h std in [0.0211, 0.9440]; 0 dead LSTM units
+C: inputs=zh  in_dim=272  n_params=819
+start pool: 450 episodes x 200 steps
+gen   0  best  121.520  mean  107.292  sigma 0.494  (    1s)   REAL hits/ep 0.88
+gen   1  best  121.767  mean  111.845  sigma 0.489  (   10s)
+gen   2  best  121.868  mean  114.484  sigma 0.485  (   10s)
+gen   3  best  126.002  mean  117.114  sigma 0.481  (   11s)
+gen   4  best  124.376  mean  118.477  sigma 0.476  (   12s)
+gen   5  best  124.918  mean  118.545  sigma 0.473  (   12s)   REAL hits/ep 0.96
+gen   6  best  127.409  mean  119.385  sigma 0.469  (   30s)
+gen   7  best  128.398  mean  123.161  sigma 0.466  (   31s)
+gen   8  best  127.131  mean  121.765  sigma 0.462  (   32s)
+gen   9  best  128.736  mean  124.606  sigma 0.459  (   33s)
+gen  10  best  128.154  mean  123.537  sigma 0.456  (   34s)   REAL hits/ep 1.08
+gen  11  best  128.026  mean  123.122  sigma 0.454  (   51s)
+gen  12  best  130.345  mean  125.873  sigma 0.451  (   52s)
+gen  13  best  129.982  mean  126.727  sigma 0.448  (   52s)
+gen  14  best  128.887  mean  124.867  sigma 0.446  (   53s)
+gen  15  best  130.377  mean  126.500  sigma 0.443  (   54s)   REAL hits/ep 1.17
+gen  16  best  129.090  mean  126.633  sigma 0.441  (   65s)
+gen  17  best  130.531  mean  127.877  sigma 0.439  (   66s)
+gen  18  best  130.570  mean  127.602  sigma 0.437  (   66s)
+gen  19  best  130.003  mean  126.818  sigma 0.435  (   67s)
+gen  20  best  128.819  mean  127.486  sigma 0.433  (   68s)   REAL hits/ep 1.04
+gen  21  best  131.099  mean  128.086  sigma 0.431  (   80s)
+gen  22  best  129.867  mean  128.290  sigma 0.430  (   81s)
+gen  23  best  130.525  mean  127.880  sigma 0.428  (   82s)
+gen  24  best  131.033  mean  128.633  sigma 0.426  (   82s)
+gen  25  best  130.851  mean  128.444  sigma 0.425  (   83s)   REAL hits/ep 0.83
+gen  26  best  131.493  mean  129.753  sigma 0.423  (   98s)
+gen  27  best  130.184  mean  128.757  sigma 0.422  (  100s)
+gen  28  best  130.865  mean  129.528  sigma 0.421  (  101s)
+gen  29  best  130.335  mean  128.266  sigma 0.419  (  104s)
+gen  30  best  129.846  mean  127.659  sigma 0.418  (  107s)   REAL hits/ep 0.79
+gen  31  best  130.932  mean  129.213  sigma 0.417  (  119s)
+gen  32  best  130.968  mean  129.029  sigma 0.415  (  120s)
+gen  33  best  130.863  mean  128.428  sigma 0.414  (  120s)
+gen  34  best  131.038  mean  129.674  sigma 0.413  (  121s)
+gen  35  best  131.316  mean  129.271  sigma 0.412  (  122s)   REAL hits/ep 0.83
+gen  36  best  130.943  mean  128.994  sigma 0.411  (  133s)
+gen  37  best  130.909  mean  129.122  sigma 0.409  (  134s)
+gen  38  best  130.897  mean  129.389  sigma 0.408  (  134s)
+gen  39  best  131.506  mean  129.305  sigma 0.407  (  135s)
+gen  40  best  130.409  mean  128.864  sigma 0.406  (  136s)   REAL hits/ep 0.96
+gen  41  best  130.853  mean  129.671  sigma 0.405  (  147s)
+gen  42  best  130.967  mean  129.462  sigma 0.404  (  147s)
+gen  43  best  130.902  mean  128.995  sigma 0.403  (  148s)
+gen  44  best  130.508  mean  128.706  sigma 0.402  (  148s)
+gen  45  best  130.801  mean  129.367  sigma 0.401  (  149s)   REAL hits/ep 0.71
+gen  46  best  129.839  mean  128.456  sigma 0.400  (  160s)
+gen  47  best  130.297  mean  129.028  sigma 0.399  (  161s)
+gen  48  best  131.249  mean  129.334  sigma 0.399  (  162s)
+gen  49  best  131.176  mean  129.172  sigma 0.398  (  163s)
+gen  50  best  131.119  mean  129.012  sigma 0.397  (  164s)   REAL hits/ep 0.88
+gen  51  best  131.054  mean  129.232  sigma 0.396  (  178s)
+gen  52  best  131.652  mean  129.170  sigma 0.395  (  178s)
+gen  53  best  130.504  mean  128.640  sigma 0.395  (  179s)
+gen  54  best  130.699  mean  129.139  sigma 0.394  (  180s)
+gen  55  best  130.574  mean  128.418  sigma 0.393  (  180s)   REAL hits/ep 0.88
+gen  56  best  131.013  mean  128.723  sigma 0.393  (  190s)
+gen  57  best  130.038  mean  128.566  sigma 0.392  (  192s)
+gen  58  best  131.413  mean  129.750  sigma 0.391  (  193s)
+gen  59  best  130.245  mean  129.101  sigma 0.391  (  194s)
+gen  60  best  129.956  mean  129.015  sigma 0.390  (  195s)   REAL hits/ep 0.75
+gen  61  best  130.984  mean  129.168  sigma 0.390  (  219s)
+gen  62  best  130.334  mean  128.630  sigma 0.389  (  220s)
+gen  63  best  130.015  mean  128.653  sigma 0.389  (  222s)
+gen  64  best  131.479  mean  130.135  sigma 0.388  (  223s)
+gen  65  best  130.876  mean  128.840  sigma 0.388  (  224s)   REAL hits/ep 0.88
+gen  66  best  129.764  mean  128.426  sigma 0.388  (  237s)
+gen  67  best  130.876  mean  129.275  sigma 0.387  (  238s)
+gen  68  best  130.966  mean  129.414  sigma 0.387  (  238s)
+gen  69  best  130.617  mean  129.366  sigma 0.387  (  239s)
+gen  70  best  131.526  mean  130.003  sigma 0.386  (  240s)   REAL hits/ep 0.92
+gen  71  best  130.256  mean  129.003  sigma 0.386  (  249s)
+gen  72  best  130.797  mean  128.951  sigma 0.386  (  249s)
+gen  73  best  130.454  mean  129.118  sigma 0.385  (  250s)
+gen  74  best  130.445  mean  129.094  sigma 0.385  (  251s)
+gen  75  best  130.462  mean  129.027  sigma 0.385  (  252s)   REAL hits/ep 0.92
+gen  76  best  131.614  mean  129.444  sigma 0.384  (  269s)
+gen  77  best  131.374  mean  129.727  sigma 0.384  (  271s)
+gen  78  best  131.256  mean  129.833  sigma 0.384  (  273s)
+gen  79  best  131.376  mean  129.436  sigma 0.384  (  274s)
+gen  80  best  131.335  mean  129.493  sigma 0.383  (  274s)   REAL hits/ep 0.79
+gen  81  best  130.705  mean  129.231  sigma 0.383  (  284s)
+gen  82  best  131.156  mean  129.364  sigma 0.383  (  285s)
+gen  83  best  130.432  mean  128.704  sigma 0.383  (  286s)
+gen  84  best  131.723  mean  129.853  sigma 0.383  (  286s)
+gen  85  best  132.353  mean  129.812  sigma 0.383  (  287s)   REAL hits/ep 0.88
+gen  86  best  130.463  mean  129.544  sigma 0.382  (  299s)
+gen  87  best  131.019  mean  129.277  sigma 0.382  (  300s)
+gen  88  best  130.548  mean  129.335  sigma 0.382  (  300s)
+gen  89  best  131.611  mean  129.945  sigma 0.382  (  301s)
+gen  90  best  131.164  mean  129.632  sigma 0.382  (  302s)   REAL hits/ep 0.92
+gen  91  best  131.162  mean  129.741  sigma 0.382  (  317s)
+gen  92  best  131.328  mean  129.545  sigma 0.382  (  318s)
+gen  93  best  131.742  mean  130.283  sigma 0.382  (  319s)
+gen  94  best  131.750  mean  130.144  sigma 0.382  (  320s)
+gen  95  best  130.762  mean  129.443  sigma 0.382  (  321s)   REAL hits/ep 0.92
+gen  96  best  131.221  mean  129.892  sigma 0.382  (  333s)
+gen  97  best  130.965  mean  129.538  sigma 0.382  (  334s)
+gen  98  best  130.922  mean  129.379  sigma 0.382  (  334s)
+gen  99  best  131.191  mean  129.521  sigma 0.382  (  335s)
+gen 100  best  131.002  mean  129.575  sigma 0.382  (  336s)   REAL hits/ep 1.04
+gen 101  best  131.485  mean  129.999  sigma 0.382  (  347s)
+gen 102  best  130.986  mean  129.584  sigma 0.382  (  348s)
+gen 103  best  131.940  mean  130.265  sigma 0.381  (  349s)
+gen 104  best  131.637  mean  130.189  sigma 0.381  (  350s)
+gen 105  best  131.086  mean  129.522  sigma 0.381  (  351s)   REAL hits/ep 0.88
+gen 106  best  131.702  mean  129.934  sigma 0.381  (  363s)
+gen 107  best  131.430  mean  129.318  sigma 0.381  (  365s)
+gen 108  best  130.824  mean  129.128  sigma 0.381  (  366s)
+gen 109  best  130.636  mean  128.781  sigma 0.381  (  367s)
+gen 110  best  130.396  mean  128.706  sigma 0.381  (  368s)   REAL hits/ep 1.00
+gen 111  best  131.692  mean  130.329  sigma 0.381  (  379s)
+gen 112  best  131.023  mean  129.691  sigma 0.381  (  380s)
+gen 113  best  131.269  mean  129.347  sigma 0.381  (  381s)
+gen 114  best  130.596  mean  129.243  sigma 0.380  (  382s)
+gen 115  best  131.259  mean  129.894  sigma 0.380  (  383s)   REAL hits/ep 0.83
+gen 116  best  130.597  mean  129.430  sigma 0.380  (  394s)
+gen 117  best  131.494  mean  129.557  sigma 0.380  (  395s)
+gen 118  best  131.427  mean  129.007  sigma 0.380  (  397s)
+gen 119  best  131.480  mean  129.920  sigma 0.379  (  398s)
+gen 120  best  131.614  mean  129.699  sigma 0.379  (  399s)   REAL hits/ep 0.79
+gen 121  best  131.076  mean  129.966  sigma 0.379  (  412s)
+gen 122  best  131.338  mean  129.912  sigma 0.379  (  413s)
+gen 123  best  131.598  mean  130.164  sigma 0.379  (  414s)
+gen 124  best  131.339  mean  129.884  sigma 0.378  (  415s)
+gen 125  best  131.431  mean  130.098  sigma 0.378  (  417s)   REAL hits/ep 0.88
+gen 126  best  131.508  mean  129.694  sigma 0.378  (  428s)
+gen 127  best  131.809  mean  130.501  sigma 0.378  (  429s)
+gen 128  best  131.503  mean  130.079  sigma 0.378  (  430s)
+gen 129  best  131.048  mean  129.196  sigma 0.378  (  430s)
+gen 130  best  131.777  mean  130.453  sigma 0.377  (  431s)   REAL hits/ep 0.88
+gen 131  best  131.133  mean  129.541  sigma 0.377  (  444s)
+gen 132  best  130.701  mean  129.556  sigma 0.377  (  445s)
+gen 133  best  132.006  mean  130.181  sigma 0.377  (  445s)
+gen 134  best  131.585  mean  129.811  sigma 0.377  (  446s)
+gen 135  best  131.347  mean  129.835  sigma 0.377  (  447s)   REAL hits/ep 1.04
+gen 136  best  130.666  mean  129.120  sigma 0.377  (  459s)
+gen 137  best  131.111  mean  129.643  sigma 0.377  (  460s)
+gen 138  best  131.135  mean  129.166  sigma 0.377  (  461s)
+gen 139  best  131.594  mean  130.003  sigma 0.377  (  462s)
+gen 140  best  131.087  mean  129.447  sigma 0.378  (  463s)   REAL hits/ep 0.96
+gen 141  best  131.017  mean  129.719  sigma 0.378  (  476s)
+gen 142  best  131.235  mean  130.017  sigma 0.378  (  476s)
+gen 143  best  131.296  mean  129.934  sigma 0.378  (  477s)
+gen 144  best  130.795  mean  129.524  sigma 0.378  (  478s)
+gen 145  best  131.589  mean  129.927  sigma 0.378  (  479s)   REAL hits/ep 0.92
+gen 146  best  131.086  mean  130.030  sigma 0.379  (  494s)
+gen 147  best  131.178  mean  129.487  sigma 0.379  (  495s)
+gen 148  best  131.817  mean  129.922  sigma 0.379  (  496s)
+gen 149  best  131.847  mean  129.915  sigma 0.379  (  498s)
+gen 150  best  131.329  mean  129.788  sigma 0.379  (  501s)   REAL hits/ep 0.92
+gen 151  best  130.855  mean  129.644  sigma 0.379  (  515s)
+gen 152  best  131.448  mean  130.191  sigma 0.379  (  516s)
+gen 153  best  130.698  mean  129.758  sigma 0.380  (  516s)
+gen 154  best  131.180  mean  130.007  sigma 0.380  (  517s)
+gen 155  best  130.984  mean  129.611  sigma 0.380  (  520s)   REAL hits/ep 0.83
+gen 156  best  131.601  mean  129.765  sigma 0.380  (  532s)
+gen 157  best  131.036  mean  129.307  sigma 0.380  (  533s)
+gen 158  best  131.570  mean  130.072  sigma 0.380  (  534s)
+gen 159  best  131.437  mean  129.701  sigma 0.380  (  535s)
+gen 160  best  130.952  mean  129.379  sigma 0.380  (  536s)   REAL hits/ep 0.88
+gen 161  best  131.634  mean  130.001  sigma 0.380  (  548s)
+gen 162  best  131.350  mean  130.221  sigma 0.380  (  549s)
+gen 163  best  130.706  mean  129.112  sigma 0.380  (  550s)
+gen 164  best  130.795  mean  129.346  sigma 0.381  (  551s)
+gen 165  best  131.321  mean  129.851  sigma 0.381  (  552s)   REAL hits/ep 0.75
+gen 166  best  131.229  mean  129.832  sigma 0.381  (  565s)
+gen 167  best  131.097  mean  130.203  sigma 0.381  (  566s)
+gen 168  best  131.113  mean  129.905  sigma 0.381  (  567s)
+gen 169  best  130.959  mean  129.662  sigma 0.381  (  568s)
+gen 170  best  130.808  mean  129.421  sigma 0.381  (  569s)   REAL hits/ep 0.71
+gen 171  best  131.361  mean  129.951  sigma 0.382  (  581s)
+gen 172  best  131.488  mean  129.806  sigma 0.382  (  582s)
+gen 173  best  131.662  mean  130.202  sigma 0.382  (  582s)
+gen 174  best  131.152  mean  129.849  sigma 0.382  (  584s)
+gen 175  best  131.639  mean  129.990  sigma 0.382  (  585s)   REAL hits/ep 0.83
+gen 176  best  131.269  mean  129.936  sigma 0.382  (  602s)
+gen 177  best  131.933  mean  130.262  sigma 0.383  (  603s)
+gen 178  best  131.790  mean  130.285  sigma 0.383  (  604s)
+gen 179  best  130.340  mean  129.337  sigma 0.383  (  605s)
+gen 180  best  131.563  mean  129.365  sigma 0.383  (  606s)   REAL hits/ep 0.62
+gen 181  best  131.534  mean  129.961  sigma 0.383  (  619s)
+gen 182  best  131.346  mean  130.110  sigma 0.383  (  619s)
+gen 183  best  131.652  mean  130.212  sigma 0.383  (  620s)
+gen 184  best  131.023  mean  129.244  sigma 0.384  (  621s)
+gen 185  best  131.334  mean  129.708  sigma 0.384  (  622s)   REAL hits/ep 0.83
+gen 186  best  130.751  mean  129.882  sigma 0.384  (  637s)
+gen 187  best  130.524  mean  129.512  sigma 0.384  (  639s)
+gen 188  best  132.260  mean  130.491  sigma 0.384  (  640s)
+gen 189  best  130.545  mean  129.479  sigma 0.384  (  642s)
+gen 190  best  131.011  mean  129.257  sigma 0.384  (  644s)   REAL hits/ep 0.67
+gen 191  best  130.937  mean  129.437  sigma 0.385  (  657s)
+gen 192  best  131.552  mean  130.192  sigma 0.385  (  657s)
+gen 193  best  130.847  mean  129.448  sigma 0.385  (  658s)
+gen 194  best  131.800  mean  129.901  sigma 0.385  (  659s)
+gen 195  best  131.307  mean  129.779  sigma 0.385  (  660s)   REAL hits/ep 0.79
+gen 196  best  131.174  mean  129.745  sigma 0.386  (  671s)
+gen 197  best  130.896  mean  129.724  sigma 0.386  (  672s)
+gen 198  best  131.557  mean  129.941  sigma 0.386  (  673s)
+gen 199  best  131.681  mean  129.681  sigma 0.386  (  674s)   REAL hits/ep 0.79
+
+best real hits/ep 1.167 | final dream fitness 131.681 | 687s -> runs/ctrl_v31_ff_s1

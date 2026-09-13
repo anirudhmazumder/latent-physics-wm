@@ -131,6 +131,7 @@ class LatentSequenceDataset(Dataset):
         use_mean: bool = False,
         seed: int | None = None,
         latent_suffix: str = "",
+        frame_targets: Dict[str, Sequence[np.ndarray]] | None = None,
     ):
         if isinstance(roots, (str, Path)):
             roots = [roots]
@@ -162,6 +163,28 @@ class LatentSequenceDataset(Dataset):
         # Our own generator so that sampling z is reproducible and independent
         # of whatever else is drawing from the global torch/numpy streams.
         self._rng = np.random.default_rng(seed)
+
+        # Optional EXTRA per-frame targets, one (E, T+1, D) array per root,
+        # sliced into windows exactly as ``state`` is (the POST-transition
+        # frames t0+1 .. t0+L). Added for v3.1's clock head, whose targets have
+        # to be computed over the WHOLE episode -- a 32-frame window cannot see
+        # the exit of a 21-frame occlusion that started before it -- and then
+        # cut up here. Kept generic and empty by default, so the returned dict
+        # is byte-identical to what it was for every existing caller.
+        self.frame_targets: Dict[str, List[np.ndarray]] = {}
+        for name, arrays in (frame_targets or {}).items():
+            if len(arrays) != len(self.eps):
+                raise ValueError(
+                    f"frame_targets[{name!r}]: {len(arrays)} arrays for "
+                    f"{len(self.eps)} roots")
+            for arr, ep in zip(arrays, self.eps):
+                if arr.shape[:2] != (ep.mu.shape[0], ep.mu.shape[1]):
+                    raise ValueError(
+                        f"frame_targets[{name!r}]: {arr.shape[:2]} does not "
+                        f"match {ep.root}'s (E, T+1) = "
+                        f"{(ep.mu.shape[0], ep.mu.shape[1])}")
+            self.frame_targets[name] = [
+                np.ascontiguousarray(a, dtype=np.float32) for a in arrays]
 
     # ------------------------------------------------------------------ stats
 
@@ -209,7 +232,7 @@ class LatentSequenceDataset(Dataset):
         a_onehot = np.zeros((L, N_ACTIONS), dtype=np.float32)
         a_onehot[np.arange(L), a] = 1.0
 
-        return {
+        item = {
             "z": torch.from_numpy(np.ascontiguousarray(zz[:-1])),
             "a": torch.from_numpy(a_onehot),
             "a_idx": torch.from_numpy(np.ascontiguousarray(a)),
@@ -230,6 +253,10 @@ class LatentSequenceDataset(Dataset):
                 np.ascontiguousarray(ep.state[e, t0:t1])
             ),
         }
+        for name, arrays in self.frame_targets.items():
+            item[name] = torch.from_numpy(
+                np.ascontiguousarray(arrays[ri][e, t0 + 1 : t1 + 1]))
+        return item
 
 
 def make_seq_loader(
@@ -242,10 +269,11 @@ def make_seq_loader(
     seed: int | None = None,
     num_workers: int = 0,
     latent_suffix: str = "",
+    frame_targets: Dict[str, Sequence[np.ndarray]] | None = None,
 ) -> DataLoader:
     ds = LatentSequenceDataset(
         roots, seq_len=seq_len, stride=stride, use_mean=use_mean, seed=seed,
-        latent_suffix=latent_suffix,
+        latent_suffix=latent_suffix, frame_targets=frame_targets,
     )
     loader = DataLoader(
         ds,

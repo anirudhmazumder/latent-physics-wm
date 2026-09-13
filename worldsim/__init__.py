@@ -8,8 +8,11 @@ v3: the same box with ``BoxConfig(occluder=True)`` -- an opaque band across the
     middle of the frame hides the ball for part of every traverse. Physics
     untouched; the state gains a ``ball_visible`` column and the event mask an
     ``EVENT_HIDDEN`` bit. The two switches compose.
-Designed so that v4 (gravity switch) stays an additive change to BoxConfig /
-BouncingBox rather than a rewrite.
+v4: the same box with ``BoxConfig(gravity=1e-4)`` -- a constant vertical
+    acceleration whose SIGN is a hidden binary latent, flipped by every paddle
+    contact. The state gains a ``gravity_sign`` column and the event mask an
+    ``EVENT_FLIP`` bit. All three switches compose, and the default
+    ``BoxConfig()`` is still exactly v1.
 """
 
 from .bouncing_box import (
@@ -20,13 +23,16 @@ from .bouncing_box import (
     STATE_NAMES,
     STATE_NAMES_V2,
     STATE_NAMES_V3,
+    STATE_NAMES_V4,
     BouncingBox,
     BoxConfig,
+    EVENT_FLIP,
     EVENT_HIDDEN,
     EVENT_PADDLE,
     EVENT_WALL_X,
     EVENT_WALL_Y,
     color_to_mass,
+    launch_min_sin,
     mass_to_color,
     mass_to_u,
     u_to_mass,
@@ -42,8 +48,10 @@ __all__ = [
     "STATE_NAMES",
     "STATE_NAMES_V2",
     "STATE_NAMES_V3",
+    "STATE_NAMES_V4",
     "BouncingBox",
     "BoxConfig",
+    "EVENT_FLIP",
     "EVENT_HIDDEN",
     "EVENT_PADDLE",
     "EVENT_WALL_X",
@@ -56,4 +64,5 @@ __all__ = [
     "mass_to_u",
     "u_to_mass",
     "visible_fraction",
+    "launch_min_sin",
 ]

@@ -1,0 +1,42 @@
+clock visibility probe: poly-2 ridge, mu -> ball_visible, held-out R^2 0.9948
+clock: thresholded visibility agrees with the simulator on 99.078% of training frames (99.133% of val); clip 40 frames
+device=cpu  z_dim=16  latents=mu.npy  windows=19350 (train) / 210 (val)
+hit_rate=0.6889%  pos_weight=144.2
+params=327k  cfg=RNNConfig(z_dim=16, n_actions=3, hidden=256, n_gauss=5, predict_delta=True, ablate_actions=False, mass_head=False, feedforward=False, pos_head=False, clock_head=True, vy_head=False)
+ep   0  train_nll   17.340  val_nll    8.796  hit_f1 0.225  rew_mse 0.03451  (38s)  clock 0.09133 (val 0.07841 = 11.2 frames rmse)
+ep   1  train_nll   15.371  val_nll    7.866  hit_f1 0.237  rew_mse 0.02665  (73s)  clock 0.06583 (val 0.07001 = 10.6 frames rmse)  roll[1]=0.1304 roll[32]=0.3957
+ep   2  train_nll   14.722  val_nll    7.218  hit_f1 0.253  rew_mse 0.02475  (144s)  clock 0.06051 (val 0.06419 = 10.1 frames rmse)
+ep   3  train_nll   14.356  val_nll    6.988  hit_f1 0.276  rew_mse 0.02453  (197s)  clock 0.05822 (val 0.06568 = 10.3 frames rmse)  roll[1]=0.0765 roll[32]=0.4519
+ep   4  train_nll   14.117  val_nll    6.759  hit_f1 0.316  rew_mse 0.02288  (255s)  clock 0.05668 (val 0.06154 = 9.9 frames rmse)
+ep   5  train_nll   13.954  val_nll    6.472  hit_f1 0.288  rew_mse 0.02297  (347s)  clock 0.05574 (val 0.06098 = 9.9 frames rmse)  roll[1]=0.0800 roll[32]=0.4494
+ep   6  train_nll   13.834  val_nll    6.229  hit_f1 0.302  rew_mse 0.02260  (413s)  clock 0.05474 (val 0.05931 = 9.7 frames rmse)
+ep   7  train_nll   13.719  val_nll    6.149  hit_f1 0.361  rew_mse 0.02186  (465s)  clock 0.05431 (val 0.06036 = 9.8 frames rmse)  roll[1]=0.0765 roll[32]=0.3553
+ep   8  train_nll   13.632  val_nll    6.169  hit_f1 0.359  rew_mse 0.02267  (511s)  clock 0.05369 (val 0.06029 = 9.8 frames rmse)
+ep   9  train_nll   13.562  val_nll    6.056  hit_f1 0.355  rew_mse 0.02102  (572s)  clock 0.05335 (val 0.05894 = 9.7 frames rmse)  roll[1]=0.0700 roll[32]=0.3797
+ep  10  train_nll   13.484  val_nll    5.981  hit_f1 0.371  rew_mse 0.02101  (623s)  clock 0.05305 (val 0.05755 = 9.6 frames rmse)
+ep  11  train_nll   13.443  val_nll    5.853  hit_f1 0.389  rew_mse 0.02054  (674s)  clock 0.05268 (val 0.05858 = 9.7 frames rmse)  roll[1]=0.0703 roll[32]=0.3092
+ep  12  train_nll   13.383  val_nll    5.883  hit_f1 0.350  rew_mse 0.02038  (718s)  clock 0.05244 (val 0.05734 = 9.6 frames rmse)
+ep  13  train_nll   13.338  val_nll    5.790  hit_f1 0.389  rew_mse 0.02049  (778s)  clock 0.05201 (val 0.05798 = 9.6 frames rmse)  roll[1]=0.0687 roll[32]=0.3330
+ep  14  train_nll   13.307  val_nll    5.754  hit_f1 0.415  rew_mse 0.02043  (825s)  clock 0.05165 (val 0.05868 = 9.7 frames rmse)
+ep  15  train_nll   13.276  val_nll    5.741  hit_f1 0.402  rew_mse 0.01950  (914s)  clock 0.05147 (val 0.05656 = 9.5 frames rmse)  roll[1]=0.0644 roll[32]=0.3349
+ep  16  train_nll   13.235  val_nll    5.660  hit_f1 0.423  rew_mse 0.02077  (970s)  clock 0.05116 (val 0.05838 = 9.7 frames rmse)
+ep  17  train_nll   13.210  val_nll    5.692  hit_f1 0.398  rew_mse 0.01968  (1036s)  clock 0.05099 (val 0.05596 = 9.5 frames rmse)  roll[1]=0.0666 roll[32]=0.3288
+ep  18  train_nll   13.182  val_nll    5.645  hit_f1 0.406  rew_mse 0.01961  (1097s)  clock 0.05108 (val 0.05614 = 9.5 frames rmse)
+ep  19  train_nll   13.165  val_nll    5.486  hit_f1 0.423  rew_mse 0.01895  (1149s)  clock 0.05067 (val 0.05584 = 9.5 frames rmse)  roll[1]=0.0672 roll[32]=0.3656
+ep  20  train_nll   13.136  val_nll    5.533  hit_f1 0.448  rew_mse 0.01884  (1222s)  clock 0.05066 (val 0.05740 = 9.6 frames rmse)
+ep  21  train_nll   13.118  val_nll    5.481  hit_f1 0.424  rew_mse 0.01848  (1333s)  clock 0.05023 (val 0.05519 = 9.4 frames rmse)  roll[1]=0.0672 roll[32]=0.3291
+ep  22  train_nll   13.092  val_nll    5.564  hit_f1 0.473  rew_mse 0.01901  (1420s)  clock 0.04994 (val 0.05500 = 9.4 frames rmse)
+ep  23  train_nll   13.076  val_nll    5.591  hit_f1 0.413  rew_mse 0.01809  (1548s)  clock 0.04993 (val 0.05570 = 9.4 frames rmse)  roll[1]=0.0705 roll[32]=0.3322
+ep  24  train_nll   13.070  val_nll    5.558  hit_f1 0.451  rew_mse 0.02022  (1665s)  clock 0.04971 (val 0.05541 = 9.4 frames rmse)
+ep  25  train_nll   13.053  val_nll    5.393  hit_f1 0.437  rew_mse 0.01812  (1789s)  clock 0.04967 (val 0.05429 = 9.3 frames rmse)  roll[1]=0.0710 roll[32]=0.3220
+ep  26  train_nll   13.038  val_nll    5.373  hit_f1 0.456  rew_mse 0.01886  (1915s)  clock 0.04944 (val 0.05476 = 9.4 frames rmse)
+ep  27  train_nll   13.023  val_nll    5.405  hit_f1 0.449  rew_mse 0.01768  (2017s)  clock 0.04928 (val 0.05423 = 9.3 frames rmse)  roll[1]=0.0699 roll[32]=0.2973
+ep  28  train_nll   13.015  val_nll    5.459  hit_f1 0.421  rew_mse 0.01775  (2118s)  clock 0.04936 (val 0.05446 = 9.3 frames rmse)
+ep  29  train_nll   13.001  val_nll    5.451  hit_f1 0.454  rew_mse 0.01785  (2215s)  clock 0.04901 (val 0.05331 = 9.2 frames rmse)  roll[1]=0.0680 roll[32]=0.3243
+ep  30  train_nll   12.990  val_nll    5.346  hit_f1 0.464  rew_mse 0.01903  (2309s)  clock 0.04883 (val 0.05427 = 9.3 frames rmse)
+ep  31  train_nll   12.985  val_nll    5.440  hit_f1 0.503  rew_mse 0.01787  (2440s)  clock 0.04886 (val 0.05448 = 9.3 frames rmse)  roll[1]=0.0693 roll[32]=0.3472
+ep  32  train_nll   12.971  val_nll    5.358  hit_f1 0.486  rew_mse 0.01733  (7552s)  clock 0.04878 (val 0.05515 = 9.4 frames rmse)
+ep  33  train_nll   12.972  val_nll    5.389  hit_f1 0.483  rew_mse 0.01779  (7682s)  clock 0.04842 (val 0.05452 = 9.3 frames rmse)  roll[1]=0.0700 roll[32]=0.2932
+ep  34  train_nll   12.959  val_nll    5.279  hit_f1 0.466  rew_mse 0.01747  (7752s)  clock 0.04842 (val 0.05351 = 9.3 frames rmse)  roll[1]=0.0683 roll[32]=0.2611
+
+best val NLL 5.279  ->  runs/rnn_v31_clock/rnn.pt

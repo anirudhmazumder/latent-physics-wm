@@ -5,6 +5,7 @@
     python -m wm.live --record out.gif --steps 300 --autopilot   # headless, no pygame
     python -m wm.live --v2                # the mass-from-colour world + v2 checkpoints
     python -m wm.live --v3                # the occlusion-band world + v3 checkpoints
+    python -m wm.live --v4                # the gravity-switch world + v4 checkpoints
 
 Four panels, left to right, all showing the SAME instant:
 
@@ -146,7 +147,8 @@ class LiveWorldModel:
 class LiveGame:
     def __init__(self, wm: LiveWorldModel, seed: Optional[int], resync_every: int,
                  mass_from_color: bool = False, occluder: bool = False,
-                 occluder_y=(0.28, 0.58)):
+                 occluder_y=(0.28, 0.58), gravity: float = 0.0,
+                 launch_min_angle: Optional[float] = None):
         self.wm = wm
         self.env = BouncingBox(
             BoxConfig(
@@ -155,6 +157,11 @@ class LiveGame:
                 mass_from_color=mass_from_color,
                 occluder=occluder,
                 occluder_y=tuple(occluder_y),
+                gravity=gravity,
+                # v4: gravity and the launch angle are one setting in two
+                # fields (see wm.eval_controller.make_box_cfg).
+                **({} if launch_min_angle is None
+                   else {"launch_min_angle_deg": float(launch_min_angle)}),
             ),
             seed=seed,
         )
@@ -368,7 +375,30 @@ def main() -> None:
     p.add_argument("--occluder", action="store_true", help="v3 environment")
     p.add_argument("--occluder-y", type=float, nargs=2, default=(0.28, 0.58),
                    metavar=("LO", "HI"))
+    p.add_argument("--v4", action="store_true",
+                   help="v4 world (the gravity switch) with the v4 checkpoints: "
+                        "shorthand for --gravity 0.0001 --launch-min-angle 40 "
+                        "--vae runs/vae_v4/vae.pt --rnn runs/rnn_v4/rnn.pt "
+                        "--ctrl runs/ctrl_v4/controller.pt. Checkpoints that do "
+                        "not exist yet are skipped, so this works at every "
+                        "stage of v4.")
+    p.add_argument("--gravity", type=float, default=0.0,
+                   help="v4 environment: vertical acceleration magnitude. The "
+                        "direction is hidden and flips on every paddle contact")
+    p.add_argument("--launch-min-angle", type=float, default=None,
+                   help="minimum launch angle from horizontal in degrees "
+                        "(--v4 sets 40)")
     a = p.parse_args()
+    if a.v4:
+        if a.gravity == p.get_default("gravity"):
+            a.gravity = 1e-4
+        if a.launch_min_angle is None:
+            a.launch_min_angle = 40.0
+        for attr, path in (("vae", "runs/vae_v4/vae.pt"),
+                           ("rnn", "runs/rnn_v4/rnn.pt"),
+                           ("ctrl", "runs/ctrl_v4/controller.pt")):
+            if getattr(a, attr) == p.get_default(attr):
+                setattr(a, attr, path)
     if a.v3:
         a.occluder = True
         # Same "only override what the user did not set" rule as --v2, so
@@ -394,15 +424,22 @@ def main() -> None:
     # still usable for eyeballing the encoder -- with a loud note that the two
     # right-hand panels are then meaningless.
     if not Path(a.rnn).exists():
+        # Stage one of a tier produces a VAE and nothing else, so this is the
+        # normal state of affairs for days at a time rather than an error. Say
+        # which world it is and what to run instead.
+        alt = ("--gravity 0.0001 --launch-min-angle 40" if a.gravity > 0.0
+               else "--occluder" if a.occluder else "")
         raise SystemExit(
-            f"no dynamics model at {a.rnn}. Stage two of v3 has not been run "
-            "yet; pass --rnn explicitly to borrow another one, or use "
-            "`python -m worldsim.play --occluder` to just play the world."
+            f"no dynamics model at {a.rnn}. Stage two has not been run yet; "
+            "pass --rnn explicitly to borrow another one, or use "
+            f"`{('python -m worldsim.play ' + alt).strip()}` to just play the "
+            "world."
         )
 
     wm = LiveWorldModel(a.vae, a.rnn, a.ctrl or None, a.ctrl_which, a.device, a.temperature)
     game = LiveGame(wm, a.seed, a.resync, mass_from_color=a.mass_from_color,
-                    occluder=a.occluder, occluder_y=tuple(a.occluder_y))
+                    occluder=a.occluder, occluder_y=tuple(a.occluder_y),
+                    gravity=a.gravity, launch_min_angle=a.launch_min_angle)
     if a.record:
         record(game, a.steps, a.record, a.scale, a.autopilot, a.fps, a.seed or 0)
     else:

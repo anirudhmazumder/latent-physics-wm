@@ -1,0 +1,14 @@
+val: 35 episodes x 200 steps, 3130 fully hidden frames (44.7%)
+# The clock head, read directly off `h` on fully hidden frames
+
+`data/v31/val data/v31/val_mix`, 3130 fully hidden frames (`ball_visible` < 0.01). Nothing is refit: these are the models' own trained heads, teacher-forced on real latents.
+
+| model | *frames-since* R2 | rmse (frames) | *frames-until* R2 | rmse (frames) |
+|---|---|---|---|---|
+| `clock` | 0.761 | 6.05 | -0.063 | 12.89 |
+| `clock_priv` | 0.715 | 6.60 | -0.117 | 13.21 |
+| `clock_emerge` | 0.671 | 7.09 | -0.049 | 12.80 |
+
+An R2 of 0 is 'no better than predicting the mean of the hidden frames'. See README_CLOCK31.md section 3.
+
+-> runs/rnn_v31_clock_readout/clock_readout.md

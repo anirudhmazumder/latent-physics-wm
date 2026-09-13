@@ -1,0 +1,5 @@
+{
+  "probe_r2": NaN,
+  "train_threshold_agreement": 1.0,
+  "val_threshold_agreement": 1.0
+}

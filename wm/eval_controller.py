@@ -116,6 +116,8 @@ def make_box_cfg(
     occluder: bool = False,
     occluder_y: Optional[Sequence[float]] = None,
     paddle_w: Optional[float] = None,
+    gravity: float = 0.0,
+    launch_min_angle: Optional[float] = None,
 ) -> BoxConfig:
     """The ONE place the evaluation environment is configured.
 
@@ -133,12 +135,20 @@ def make_box_cfg(
     the paddle's width is what sets the *chance* catch rate, so an evaluation
     run with the wrong width is scoring against the wrong floor. None keeps
     ``BoxConfig``'s 0.26 (v1-v3); v3.1 passes 0.16.
+
+    ``gravity`` / ``launch_min_angle`` are v4's pair, and they travel together
+    for the same reason: at the v1 launch angle a ball under gravity cannot
+    cross the box, so evaluating with one and not the other does not produce a
+    slightly-wrong world, it produces a degenerate one. ``gravity = 0`` (the
+    default) is every earlier version, unchanged.
     """
     kw = {}
     if occluder_y is not None:
         kw["occluder_y"] = (float(occluder_y[0]), float(occluder_y[1]))
     if paddle_w is not None:
         kw["paddle_w"] = float(paddle_w)
+    if launch_min_angle is not None:
+        kw["launch_min_angle_deg"] = float(launch_min_angle)
     return BoxConfig(
         res=64,
         ball_radius=ball_radius,
@@ -146,6 +156,7 @@ def make_box_cfg(
         mass_holdout=None if mass_holdout is None else tuple(mass_holdout),
         mass_only=None if mass_only is None else tuple(mass_only),
         occluder=bool(occluder),
+        gravity=float(gravity),
         **kw,
     )
 
@@ -200,6 +211,8 @@ def run_real_episodes(
     occluder: bool = False,
     occluder_y: Optional[Sequence[float]] = None,
     paddle_w: Optional[float] = None,
+    gravity: float = 0.0,
+    launch_min_angle: Optional[float] = None,
 ) -> Dict[str, np.ndarray]:
     """Run ``episodes`` real episodes in lockstep. Seeds are ``seed_base + i``.
 
@@ -213,7 +226,8 @@ def run_real_episodes(
     difference of 0.1 hits/episode is not just a different draw of starts.
     """
     cfg = make_box_cfg(ball_radius, mass_from_color, mass_holdout, mass_only,
-                       occluder, occluder_y, paddle_w)
+                       occluder, occluder_y, paddle_w, gravity,
+                       launch_min_angle)
     envs = [BouncingBox(cfg) for _ in range(episodes)]
     frames = np.stack([e.reset(seed=seed_base + i) for i, e in enumerate(envs)])
     states = np.stack([e.state() for e in envs])                  # (E, 6) or (E, 7)
@@ -269,6 +283,20 @@ def run_real_episodes(
     if mass is not None:
         out["mass"] = mass
         out["speed"] = cfg.ball_speed / mass
+    elif cfg.gravity > 0.0:
+        # v4 bookkeeping, and the same trap v2 sprang. ``floor_visit_stats``
+        # sizes the "a chance is happening" band as one frame of travel, and
+        # under gravity the ball's speed is neither constant nor a per-episode
+        # constant -- it is fastest exactly at the bottom of the box, which is
+        # where the band sits. We hand it the per-episode MAXIMUM: an
+        # over-wide band can only ever merge two visits that were really one,
+        # while an under-wide one lets a fast ball jump the band entirely and
+        # silently deletes the chance. Only the second failure is
+        # policy-correlated, so erring wide is erring in the harmless
+        # direction.
+        out["speed"] = np.linalg.norm(
+            out["states"][..., 2:4], axis=-1
+        ).max(axis=1).astype(np.float64)
     if record_frames:
         out["frames"] = np.stack(kept, 1)         # (record_frames, steps+1, 64,64,3)
     if logits:
@@ -292,6 +320,8 @@ def run_population_real(
     occluder: bool = False,
     occluder_y: Optional[Sequence[float]] = None,
     paddle_w: Optional[float] = None,
+    gravity: float = 0.0,
+    launch_min_angle: Optional[float] = None,
     count: str = "frames",
 ) -> np.ndarray:
     """Evaluate ``P`` candidates on ``R`` real episodes each. Returns ``(P, R)`` hits.
@@ -317,7 +347,8 @@ def run_population_real(
     P, R = len(params), len(seeds)
     B = P * R
     cfg = make_box_cfg(ball_radius, mass_from_color, mass_holdout, mass_only,
-                       occluder, occluder_y, paddle_w)
+                       occluder, occluder_y, paddle_w, gravity,
+                       launch_min_angle)
     envs = [BouncingBox(cfg) for _ in range(B)]
     frames = np.stack([
         envs[p * R + r].reset(seed=int(seeds[r])) for p in range(P) for r in range(R)
@@ -598,6 +629,8 @@ def real_vs_dream_gif(
     occluder: bool = False,
     occluder_y: Optional[Sequence[float]] = None,
     paddle_w: Optional[float] = None,
+    gravity: float = 0.0,
+    launch_min_angle: Optional[float] = None,
 ) -> Path:
     """Left: the controller in the real box. Right: the same controller dreaming.
 
@@ -611,7 +644,8 @@ def real_vs_dream_gif(
     from .dream_env import DreamEnv, StartPool
 
     cfg = make_box_cfg(ball_radius, mass_from_color, mass_holdout, mass_only,
-                       occluder, occluder_y, paddle_w)
+                       occluder, occluder_y, paddle_w, gravity,
+                       launch_min_angle)
     env = BouncingBox(cfg)
     f = env.reset(seed=seed)
     ctrl.reset(1, seed=seed)
@@ -952,6 +986,17 @@ def add_env_args(p: argparse.ArgumentParser) -> argparse.ArgumentParser:
                         "v3.1 uses 0.16, which lowers the stand-still catch "
                         "rate and so the memoryless bound the agent must beat. "
                         "Must match the dataset the controller was fitted on.")
+    p.add_argument("--gravity", type=float, default=0.0,
+                   help="v4: vertical acceleration magnitude (0 = v1-v3.1). "
+                        "Its sign is a hidden per-episode latent that flips on "
+                        "every paddle contact, so the same visible position "
+                        "and velocity land in different places depending on a "
+                        "bit the frames do not show")
+    p.add_argument("--launch-min-angle", type=float, default=None,
+                   help="v4: minimum launch angle from horizontal in degrees. "
+                        "None keeps the v1 rule (14.5); pass 40 with "
+                        "--gravity, or the ball cannot cross the box against "
+                        "the pull")
     return p
 
 
@@ -965,6 +1010,8 @@ def env_kwargs(a: argparse.Namespace) -> Dict:
         "occluder": bool(getattr(a, "occluder", False)),
         "occluder_y": getattr(a, "occluder_y", None),
         "paddle_w": getattr(a, "paddle_w", None),
+        "gravity": float(getattr(a, "gravity", 0.0) or 0.0),
+        "launch_min_angle": getattr(a, "launch_min_angle", None),
     }
 
 

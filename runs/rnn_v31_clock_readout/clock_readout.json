@@ -1,0 +1,50 @@
+{
+  "clock": {
+    "frames_since": {
+      "r2": 0.7606552572579047,
+      "rmse_frames": 6.051299571990967,
+      "true_mean_frames": 24.122364044189453,
+      "pred_mean_frames": 21.892431259155273
+    },
+    "frames_until": {
+      "r2": -0.06306458468733589,
+      "rmse_frames": 12.889860153198242,
+      "true_mean_frames": 24.375398635864258,
+      "pred_mean_frames": 21.286998748779297
+    },
+    "n_frames": 3130,
+    "ckpt": "runs/rnn_v31_clock/rnn.pt"
+  },
+  "clock_priv": {
+    "frames_since": {
+      "r2": 0.7148735656666826,
+      "rmse_frames": 6.604735851287842,
+      "true_mean_frames": 24.122364044189453,
+      "pred_mean_frames": 21.078563690185547
+    },
+    "frames_until": {
+      "r2": -0.11724516720937483,
+      "rmse_frames": 13.214252471923828,
+      "true_mean_frames": 24.375398635864258,
+      "pred_mean_frames": 20.958303451538086
+    },
+    "n_frames": 3130,
+    "ckpt": "runs/rnn_v31_clock_priv/rnn.pt"
+  },
+  "clock_emerge": {
+    "frames_since": {
+      "r2": 0.6712775854413553,
+      "rmse_frames": 7.091716289520264,
+      "true_mean_frames": 24.122364044189453,
+      "pred_mean_frames": 26.2618465423584
+    },
+    "frames_until": {
+      "r2": -0.04884636116325547,
+      "rmse_frames": 12.803370475769043,
+      "true_mean_frames": 24.375398635864258,
+      "pred_mean_frames": 23.411226272583008
+    },
+    "n_frames": 3130,
+    "ckpt": "runs/rnn_v31_clock_emerge/rnn.pt"
+  }
+}

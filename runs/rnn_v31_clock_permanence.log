@@ -1,0 +1,62 @@
+baseline runs/rnn_v31/rnn.pt  feedforward=False  params=327k
+clock    runs/rnn_v31_clock/rnn.pt  feedforward=False  params=327k
+clock_priv runs/rnn_v31_clock_priv/rnn.pt  feedforward=False  params=327k
+clock_emerge runs/rnn_v31_clock_emerge/rnn.pt  feedforward=False  params=327k
+split default  E=35 T=200 band=(0.13, 0.63) hidden_runs=101
+split short    E=30 T=200 band=(0.13, 0.45) hidden_runs=90
+split long     E=30 T=200 band=(0.13, 0.78) hidden_runs=88
+position probe on TRUE hidden frames: mean decoded y 0.384 (band interior [0.21, 0.55]), 1.2% fall outside
+
+(a)+(f) probing h ...
+
+==============================================================================
+OBJECT PERMANENCE -- v3 stage two
+==============================================================================
+
+(a) ball position from a frozen probe, by visibility (R^2 / rmse, in world units)
+    Read the rmse column across bins and the R^2 column down them: the hidden bin's
+    variance is smaller than the visible bin's, so the two columns disagree on purpose.
+
+    probe = linear
+    feature                        visible                partial                 hidden
+    z                  0.94/0.056  0.94/0.015    0.72/0.134  0.75/0.119    0.11/0.222 -0.02/0.102
+    h[baseline]        1.00/0.016  0.99/0.008    0.89/0.085  0.89/0.078    0.52/0.163  0.09/0.096
+    h[clock]           0.99/0.018  0.99/0.006    0.87/0.092  0.87/0.084    0.31/0.196  0.21/0.090
+    h[clock_priv]      1.00/0.015  0.99/0.007    0.89/0.082  0.89/0.081    0.42/0.180  0.14/0.094
+    h[clock_emerge]     0.99/0.019  0.98/0.009    0.87/0.092  0.89/0.080    0.28/0.200  0.22/0.089
+
+    probe = knn
+    feature                        visible                partial                 hidden
+    z                  0.99/0.023  0.95/0.014    0.83/0.104  0.86/0.090   -0.26/0.265 -0.25/0.113
+    h[baseline]        0.99/0.020  0.85/0.024    0.83/0.104  0.82/0.102    0.50/0.167 -0.18/0.110
+    h[clock]           0.99/0.019  0.84/0.025    0.81/0.110  0.79/0.108    0.51/0.166 -0.01/0.101
+    h[clock_priv]      0.99/0.017  0.86/0.023    0.84/0.101  0.83/0.097    0.56/0.157 -0.05/0.103
+    h[clock_emerge]     0.98/0.030  0.83/0.026    0.82/0.108  0.81/0.104    0.40/0.183  0.17/0.092
+    frames per bin: {'visible': 1703, 'partial': 2162, 'hidden': 3135}
+
+    decay of position-from-h with frames hidden (rmse, world units; one frozen kNN probe)
+      k                         1       4       8      11      14      17      21      24
+      z (lin)              0.291   0.272   0.250   0.244   0.245   0.245   0.256   0.266
+      z                    0.306   0.284   0.286   0.291   0.296   0.324   0.303   0.272
+      h[baseline] (lin)    0.189   0.160   0.173   0.187   0.198   0.219   0.224   0.224
+      h[baseline]          0.189   0.216   0.219   0.233   0.250   0.273   0.240   0.240
+      h[clock] (lin)       0.205   0.180   0.197   0.221   0.232   0.238   0.235   0.214
+      h[clock]             0.185   0.220   0.214   0.236   0.271   0.268   0.245   0.236
+      h[clock_priv] (lin)   0.170   0.157   0.166   0.180   0.183   0.201   0.203   0.219
+      h[clock_priv]        0.165   0.195   0.204   0.224   0.261   0.278   0.255   0.255
+      h[clock_emerge] (lin)   0.192   0.183   0.193   0.215   0.217   0.235   0.211   0.221
+      h[clock_emerge]      0.176   0.205   0.225   0.255   0.281   0.268   0.237   0.241
+      no memory            0.021   0.085   0.171   0.234   0.295   0.353   0.419   0.478
+      (no memory = predict the ball's last visible position; its error grows
+       as speed x k and is the line every h curve has to get under. The `z` row is
+       not zero because a tracking paddle leaks some ball x; `h[ff]` is the honest floor.)
+
+(f) what else is in h on fully hidden frames (linear R^2)
+    feature          ball_vx   ball_vy  frames_hidden
+    z                 -0.005    -0.183         -0.577
+    h[baseline]        0.005    -0.324         -0.232
+    h[clock]           0.076    -0.063         -0.336
+    h[clock_priv]     -0.011     0.039         -0.220
+    h[clock_emerge]    -0.113     0.460         -0.295
+
+report -> runs/rnn_v31_clock_permanence/report.json
