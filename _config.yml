@@ -26,21 +26,15 @@ readme_index:
   enabled: true
   remove_originals: true
 exclude:
+  # Source (.py/.sh) and small text files are published as raw files because the
+  # documents link to them; only the large binaries and the data are left out.
   - data/
-  - tests/
-  - scripts/
-  - worldsim/**/*.py
-  - wm/**/*.py
-  - "**/*.py"
   - "**/*.pt"
   - "**/*.npy"
-  - "**/*.log"
-  - "**/*.sh"
   - "**/__pycache__/"
   - environment.yml
   - requirements.txt
   - pytest.ini
-  - LICENSE
   - Gemfile
   - Gemfile.lock
   - vendor/
