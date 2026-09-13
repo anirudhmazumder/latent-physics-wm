@@ -40,3 +40,18 @@ exclude:
   - vendor/
 include:
   - runs/
+  # Jekyll skips files whose names begin with an underscore unless listed here.
+  - runs/_eval_clock31.sh
+  - runs/_eval_ctrl_v31.sh
+  - runs/_eval_ctrl_v31_seeds.sh
+  - runs/_eval_rnn_v31.sh
+  - runs/_eval_v4.sh
+  - runs/_stage1_v31.sh
+  - runs/_stage1_v4.sh
+  - runs/_train_ctrl_v3.sh
+  - runs/_train_ctrl_v31.sh
+  - runs/_train_ctrl_v31_real_s1.sh
+  - runs/_train_ctrl_v31_s1.sh
+  - runs/_train_rnn_clock31.sh
+  - runs/_train_rnn_v31.sh
+  - runs/_train_v4.sh
