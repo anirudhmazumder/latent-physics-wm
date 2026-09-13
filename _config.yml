@@ -40,6 +40,7 @@ exclude:
   - vendor/
 include:
   - runs/
+  - data/README.md
   # Jekyll skips files whose names begin with an underscore unless listed here.
   - runs/_eval_clock31.sh
   - runs/_eval_ctrl_v31.sh
