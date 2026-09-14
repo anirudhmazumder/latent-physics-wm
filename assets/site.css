@@ -90,3 +90,35 @@ footer.end a { border: 0; }
 .doc table { display: block; overflow-x: auto; }
 .doc blockquote { margin: 18px 0; padding: 0 0 0 18px; border-left: 3px solid var(--faint); color: var(--muted); }
 .doc li { margin-bottom: 4px; }
+
+/* elements carried over from the earlier landing-page design: sticky bar with a
+   reading-progress line, count-up stats, eyebrow labels, scroll reveals, and
+   particles flowing through the pipeline diagram. */
+.sticky { position: fixed; top: 0; left: 0; right: 0; z-index: 40; background: rgba(255,255,255,.86); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid var(--faint); font-size: 12.5px; transform: translateY(-100%); opacity: 0; transition: transform .35s ease, opacity .35s ease; }
+.sticky.on { transform: none; opacity: 1; }
+.sticky .col { display: flex; align-items: center; gap: 18px; height: 44px; white-space: nowrap; overflow-x: auto; scrollbar-width: none; }
+.sticky .col::-webkit-scrollbar { display: none; }
+.sticky a { border: 0; color: var(--muted); letter-spacing: .02em; transition: color .2s; }
+.sticky a:hover, .sticky a.cur { color: var(--text); }
+.sticky a.cur { box-shadow: inset 0 -2px 0 var(--coral); padding-bottom: 2px; }
+.sticky .home { color: var(--text); font-family: "Hoefler Text", "Cochin", Georgia, serif; font-size: 15px; }
+.sticky .sp { flex: 1; }
+.sticky .ext { font-family: Menlo, Consolas, monospace; font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; }
+.sticky .progress { position: absolute; left: 0; bottom: -1px; height: 2px; width: 0; background: var(--coral); transition: width .1s linear; }
+@media (max-width: 720px) { .sticky .home { display: none; } }
+
+.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin: 30px 0 0; padding: 22px 0 18px; border-bottom: 1px solid var(--faint); }
+.stat b { display: block; font-family: "Hoefler Text", "Cochin", Georgia, serif; font-size: 38px; font-weight: 400; line-height: 1; color: var(--text); font-variant-numeric: tabular-nums; }
+.stat span { display: block; margin-top: 8px; font-size: 12px; line-height: 1.45; color: var(--muted); }
+@media (max-width: 720px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+
+.eyebrow { font-family: Menlo, Consolas, "Liberation Mono", monospace; font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase; color: var(--coral); margin: 56px 0 0; }
+.eyebrow + h2 { margin-top: 8px; }
+
+.reveal { opacity: 0; transform: translateY(12px); transition: opacity .7s ease, transform .7s ease; }
+.reveal.in { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } .sticky { transition: none; } }
+
+figure.dark { position: relative; }
+figure.dark img { transition: transform .3s ease, box-shadow .3s ease; }
+figure.dark:hover img { transform: translateY(-2px); box-shadow: 0 16px 34px -22px rgba(0,0,0,.45); }
