@@ -12,15 +12,10 @@ h1 { font-size: 40px; line-height: 1.1; margin-top: 44px; }
 h2 { font-size: 26px; line-height: 1.25; margin: 48px 0 12px; }
 h3 { font-size: 20px; line-height: 1.3; margin: 32px 0 8px; }
 p { margin: 0 0 18px; }
-.subtitle { font-size: 22px; line-height: 1.3; color: var(--muted); margin: 10px 0 0; font-family: "Hoefler Text", "Cochin", Georgia, serif; }
+.subtitle { font-size: 22px; line-height: 1.3; color: var(--muted); margin: 10px 0 8px; padding-bottom: 22px; border-bottom: 1px solid var(--faint); font-family: "Hoefler Text", "Cochin", Georgia, serif; }
 .sans { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
 .col { max-width: var(--col); margin: 0 auto; padding: 0 24px; }
 .wide { max-width: var(--wide); margin: 0 auto; padding: 0 24px; }
-.byline { display: flex; flex-wrap: wrap; gap: 4px 36px; margin: 26px 0 0; padding: 16px 0; border-top: 1px solid var(--faint); border-bottom: 1px solid var(--faint); font-size: 12px; line-height: 1.5; color: var(--muted); }
-.byline b { display: block; font-weight: 600; color: var(--text); }
-.byline a { border: 0; }
-.links { font-size: 13px; margin-top: 14px; display: flex; gap: 22px; flex-wrap: wrap; }
-.links a { border: 0; }
 
 /* banner: the interactive demo */
 .banner { position: relative; background: #111114; color: #e8e6e1; }
@@ -92,7 +87,7 @@ footer.end a { border: 0; }
 .doc li { margin-bottom: 4px; }
 
 /* elements carried over from the earlier landing-page design: sticky bar with a
-   reading-progress line, count-up stats, eyebrow labels, scroll reveals, and
+   reading-progress line, eyebrow labels, scroll reveals, and
    particles flowing through the pipeline diagram. */
 .sticky { position: fixed; top: 0; left: 0; right: 0; z-index: 40; background: rgba(255,255,255,.86); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid var(--faint); font-size: 12.5px; transform: translateY(-100%); opacity: 0; transition: transform .35s ease, opacity .35s ease; }
 .sticky.on { transform: none; opacity: 1; }
@@ -107,11 +102,7 @@ footer.end a { border: 0; }
 .sticky .progress { position: absolute; left: 0; bottom: -1px; height: 2px; width: 0; background: var(--coral); transition: width .1s linear; }
 @media (max-width: 720px) { .sticky .home { display: none; } }
 
-.stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin: 30px 0 0; padding: 22px 0 18px; border-bottom: 1px solid var(--faint); }
-.stat b { display: block; font-family: "Hoefler Text", "Cochin", Georgia, serif; font-size: 38px; font-weight: 400; line-height: 1; color: var(--text); font-variant-numeric: tabular-nums; }
-.stat span { display: block; margin-top: 8px; font-size: 12px; line-height: 1.45; color: var(--muted); }
-@media (max-width: 720px) { .stats { grid-template-columns: repeat(2, 1fr); } }
-
+@media (max-width: 720px) { 
 .eyebrow { font-family: Menlo, Consolas, "Liberation Mono", monospace; font-size: 10.5px; letter-spacing: .18em; text-transform: uppercase; color: var(--coral); margin: 56px 0 0; }
 .eyebrow + h2 { margin-top: 8px; }
 

@@ -25,19 +25,6 @@ description: Can a world model learn physics and cause and effect from pixels, o
 <div class="col">
   <h1>Latent physics world models</h1>
   <p class="subtitle">Can a world model learn physics and cause and effect from pixels, one hidden variable at a time?</p>
-  <div class="byline sans">
-    <div><b>Anirudh Mazumder</b>Personal project</div>
-    <div><b>2026</b>Four tiers, v1–v4</div>
-    <div><b>Recipe</b>Ha &amp; Schmidhuber, <a href="https://worldmodels.github.io/">World Models</a> (2018)</div>
-  </div>
-  <div class="links sans"><a href="https://github.com/anirudhmazumder/latent-physics-wm">Source code</a><a href="{{ '/docs/' | relative_url }}">Full documentation</a><a href="{{ '/docs/glossary.html' | relative_url }}">Glossary</a></div>
-
-  <div class="stats sans">
-    <div class="stat"><b data-count="4">0</b><span>versions of one game, each hiding one more variable</span></div>
-    <div class="stat"><b data-count="0">0</b><span>real frames used to train the controllers</span></div>
-    <div class="stat"><b data-count="0.92" data-dec="2">0</b><span>R² for velocity read from memory, against 0.02 from one frame</span></div>
-    <div class="stat"><b data-count="206">0</b><span>tests; every figure regenerable from one script</span></div>
-  </div>
 
   <h2>Abstract</h2>
   <p>We build a complete world model — a variational autoencoder, a recurrent dynamics model, and a controller trained entirely inside the dynamics model's imagination — for the smallest environment that has physics worth learning: a ball bouncing in a box with a paddle the agent can move. We then change the world four times, each time hiding one more variable from the agent, and ask at each stage where in the model that variable ends up and whether the agent uses it. Velocity, absent from any single frame, appears in the recurrent state. A mass that is visible only as colour is read off a single frame and changes how the model dreams. A ball hidden behind a band is carried in memory, imperfectly, and an agent trained on zero real frames learns to move toward where it will reappear. A gravity direction flipped by an invisible event is never remembered by either an LSTM or a transformer; both infer it from the trajectory instead. The recurring lesson is that a one-step prediction loss learns exactly what the next frame pays for, and every ceiling we hit was set by the objective rather than the architecture.</p>
@@ -312,16 +299,6 @@ description: Can a world model learn physics and cause and effect from pixels, o
     const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { threshold: 0.06, rootMargin: '0px 0px -6% 0px' });
     document.querySelectorAll('.reveal').forEach(el => io.observe(el));
   } else document.querySelectorAll('.reveal').forEach(el => el.classList.add('in'));
-  // count-up numbers
-  const cio = new IntersectionObserver(es => es.forEach(e => {
-    if (!e.isIntersecting) return; cio.unobserve(e.target);
-    const el = e.target, target = parseFloat(el.dataset.count), dec = parseInt(el.dataset.dec || '0', 10);
-    if (reduced || target === 0) { el.textContent = target.toFixed(dec); return; }
-    const t0 = performance.now(), dur = 1300;
-    const tick = t => { const p = Math.min(1, (t - t0) / dur), k = 1 - Math.pow(1 - p, 3); el.textContent = (target * k).toFixed(dec); if (p < 1) requestAnimationFrame(tick); };
-    requestAnimationFrame(tick);
-  }), { threshold: 0.5 });
-  document.querySelectorAll('[data-count]').forEach(el => cio.observe(el));
   // sticky bar + reading progress
   const bar = document.getElementById('sticky'), prog = document.getElementById('progress'), banner = document.querySelector('.banner');
   const links = [...bar.querySelectorAll('a[href^="#"]')].filter(a => a.getAttribute('href') !== '#top');
